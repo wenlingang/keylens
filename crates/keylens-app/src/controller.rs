@@ -254,6 +254,9 @@ impl Keylens {
         cx: &mut Context<Self>,
     ) {
         let pid = data.app.pid;
+        if !data.warnings.is_empty() {
+            tracing::warn!(app = %data.app.name, warnings = ?data.warnings, "menu read failed");
+        }
         if let Some(icon) = icon {
             self.icons.insert(
                 pid,
@@ -345,12 +348,14 @@ impl Keylens {
         }
         let platform = self.platform.clone();
         let beep = self.native.beep;
+        let title = entry.title.clone();
         cx.spawn(async move |_, cx| {
             let result = cx
                 .background_executor()
                 .spawn(async move { platform.execute(&entry) })
                 .await;
-            if result.is_err() {
+            if let Err(error) = result {
+                tracing::warn!(entry = %title, %error, "execute failed");
                 cx.update(|_| beep());
             }
         })

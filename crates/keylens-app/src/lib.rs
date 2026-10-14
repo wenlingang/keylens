@@ -6,6 +6,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 pub mod config;
 pub mod controller;
 pub mod loader;
+pub mod logging;
 pub mod model;
 pub mod strings;
 pub mod view;
@@ -34,12 +35,16 @@ pub fn run() {
     struct KeylensApp {
         _keylens: Entity<Keylens>,
         _tray: std::rc::Rc<Tray>,
+        _log_guard: Option<tracing_appender::non_blocking::WorkerGuard>,
     }
     impl Global for KeylensApp {}
 
+    let log_guard = logging::init(&logging::log_dir());
+    tracing::info!(version = env!("CARGO_PKG_VERSION"), "Keylens starting");
+
     let (config, config_error) = config::load_config(&config::config_path());
     if let Some(error) = config_error {
-        eprintln!("config file has errors, using defaults: {error}");
+        tracing::warn!("config file has errors, using defaults: {error}");
     }
     let system: Vec<String> = sys_locale::get_locales().collect();
     let locale = config::choose_locale(&config, &system);
@@ -49,7 +54,7 @@ pub fn run() {
     let (builtin_catalog, builtin_errors) = builtin();
     let (user_catalog, user_errors) = load_dir(&config::user_data_dir());
     for error in builtin_errors.iter().chain(&user_errors) {
-        eprintln!("data file error: {error}");
+        tracing::warn!("data file error: {error}");
     }
     let data_errors = builtin_errors.len() + user_errors.len();
 
@@ -156,6 +161,7 @@ pub fn run() {
             cx.set_global(KeylensApp {
                 _keylens: keylens,
                 _tray: tray,
+                _log_guard: log_guard,
             });
         });
 }

@@ -33,6 +33,9 @@ async-channel = "2"
 rust-i18n = "4.2"
 sys-locale = "0.3"
 raw-window-handle = "0.6"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+tracing-appender = "0.2"
 
 # Optimize dependencies in dev builds too (gpui etc.): gpui renders too slowly in debug mode and scrolling stutters;
 # our own crates still compile in debug, so rebuilds after code changes stay fast.
