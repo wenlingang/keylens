@@ -20,7 +20,16 @@ jobs:
       - name: Check tag matches Cargo version
         if: startsWith(github.ref, 'refs/tags/')
         run: scripts/check-version.sh "$GITHUB_REF_NAME"
-      - run: cargo test --workspace
+      - run: cargo test --workspace --locked
+      # Compile everything before the release key exists on this runner: crates.io build scripts and
+      # proc macros must never run while the key is unlocked in the keychain. package.sh's own
+      # cargo build below is then a cached no-op.
+      - name: Build (before importing the certificate)
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: |
+          cargo build --release --locked -p keylens-app --target aarch64-apple-darwin
+          cargo build --release --locked -p keylens-app --target x86_64-apple-darwin
       - name: Import signing certificate
         env:
           P12: ${{ secrets.RELEASE_CERT_P12 }}

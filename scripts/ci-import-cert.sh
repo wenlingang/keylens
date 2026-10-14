@@ -14,7 +14,8 @@ printf '%s' "$P12" | base64 --decode > "$p12"
 security create-keychain -p "$kc_pass" "$keychain"
 security set-keychain-settings -lut 21600 "$keychain"
 security unlock-keychain -p "$kc_pass" "$keychain"
-security import "$p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
+# -x: the private key is non-extractable from this keychain; codesign can still use it.
+security import "$p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign -x
 security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_pass" "$keychain" >/dev/null
 # Prepend to the user search list so codesign finds the identity.
 security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
