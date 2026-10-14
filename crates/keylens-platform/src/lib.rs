@@ -43,6 +43,9 @@ pub trait Platform: Send + Sync {
     /// 读取前台应用菜单的数据来源。
     fn menu_source(&self) -> Box<dyn ShortcutSource>;
     /// 执行一个条目：菜单条目点按菜单项，社区条目模拟按键。
+    /// 菜单条目来自更早的一次读取（`EntryId::snapshot` 不是最新）时，
+    /// 必须返回 `PlatformError::Stale`，或按分组、路径、标题重新确认后再执行，
+    /// 绝不能按 `index` 直接执行，否则可能点到别的菜单项。
     fn execute(&self, entry: &Entry) -> Result<(), PlatformError>;
     /// 开始把全局按键事件发送到 `tx`，直到返回的 guard 被 drop。
     fn start_key_events(&self, tx: Sender<KeyEvent>) -> Result<KeyEventGuard, PlatformError>;

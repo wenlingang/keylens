@@ -4,17 +4,24 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 use keylens_core::{
-    AppInfo, Entry, EntryId, KeyEvent, Modifiers, ShortcutSource, SourceError, Trigger,
+    AppInfo, Entry, EntryId, EntrySource, KeyEvent, Modifiers, ShortcutSource, SourceError, Trigger,
 };
 
 use crate::{KeyEventGuard, PermissionState, Platform, PlatformError};
 
 type KeySender = Arc<Mutex<Option<Sender<KeyEvent>>>>;
 
+/// 当前菜单和它的快照编号；每次 `set_menu` 编号加一，模拟一次新的菜单读取。
+#[derive(Default)]
+struct Menu {
+    snapshot: u64,
+    entries: Vec<Entry>,
+}
+
 pub struct FakePlatform {
     permission: Mutex<PermissionState>,
     app: Mutex<Option<AppInfo>>,
-    menu: Arc<Mutex<Vec<Entry>>>,
+    menu: Arc<Mutex<Menu>>,
     executed: Mutex<Vec<EntryId>>,
     key_sender: KeySender,
 }
@@ -41,7 +48,9 @@ impl FakePlatform {
     }
 
     pub fn set_menu(&self, entries: Vec<Entry>) {
-        *self.menu.lock().unwrap() = entries;
+        let mut menu = self.menu.lock().unwrap();
+        menu.snapshot += 1;
+        menu.entries = entries;
     }
 
     pub fn executed(&self) -> Vec<EntryId> {
@@ -56,11 +65,20 @@ impl FakePlatform {
     }
 }
 
-struct FakeMenu(Arc<Mutex<Vec<Entry>>>);
+struct FakeMenu(Arc<Mutex<Menu>>);
 
 impl ShortcutSource for FakeMenu {
     fn load(&self, _: &AppInfo) -> Result<Vec<Entry>, SourceError> {
-        Ok(self.0.lock().unwrap().clone())
+        let menu = self.0.lock().unwrap();
+        Ok(menu
+            .entries
+            .iter()
+            .cloned()
+            .map(|mut entry| {
+                entry.id.snapshot = menu.snapshot;
+                entry
+            })
+            .collect())
     }
 }
 
@@ -92,6 +110,10 @@ impl Platform for FakePlatform {
         if !entry.enabled {
             return Err(PlatformError::Disabled);
         }
+        let current = self.menu.lock().unwrap().snapshot;
+        if entry.source() == EntrySource::Menu && entry.id.snapshot != current {
+            return Err(PlatformError::Stale);
+        }
         self.executed.lock().unwrap().push(entry.id);
         Ok(())
     }
@@ -115,12 +137,13 @@ impl Platform for FakePlatform {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use keylens_core::{EntrySource, Modifiers, Os, Shortcut};
+    use keylens_core::{Modifiers, Os, Shortcut};
 
     fn entry(index: u32, enabled: bool) -> Entry {
         Entry {
             id: EntryId {
                 source: EntrySource::Menu,
+                snapshot: 0,
                 index,
             },
             group: "文件".into(),
@@ -144,9 +167,30 @@ mod tests {
             platform.executed(),
             [EntryId {
                 source: EntrySource::Menu,
+                snapshot: 0,
                 index: 0
             }]
         );
+    }
+
+    #[test]
+    fn entries_from_an_older_menu_snapshot_are_stale() {
+        let platform = FakePlatform::default();
+        let app = AppInfo {
+            pid: 1,
+            name: "Demo".into(),
+            ids: vec![],
+        };
+        platform.set_menu(vec![entry(0, true)]);
+        let old = platform.menu_source().load(&app).unwrap();
+        platform.set_menu(vec![entry(0, true)]);
+        let new = platform.menu_source().load(&app).unwrap();
+        assert_ne!(old[0].id, new[0].id);
+        assert!(matches!(
+            platform.execute(&old[0]),
+            Err(PlatformError::Stale)
+        ));
+        platform.execute(&new[0]).unwrap();
     }
 
     #[test]

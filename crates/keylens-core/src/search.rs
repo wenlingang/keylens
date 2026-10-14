@@ -147,6 +147,7 @@ mod tests {
         Entry {
             id: EntryId {
                 source: EntrySource::Menu,
+                snapshot: 0,
                 index,
             },
             group: group.into(),

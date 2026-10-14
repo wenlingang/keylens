@@ -39,6 +39,7 @@ impl ShortcutSource for CommunitySource {
                 entries.push(Entry {
                     id: EntryId {
                         source: self.source,
+                        snapshot: 0,
                         index: entries.len() as u32,
                     },
                     group: group.title.get(self.lang).to_string(),
@@ -107,6 +108,7 @@ keys = "Mod+S"
             e.id,
             EntryId {
                 source: EntrySource::Community,
+                snapshot: 0,
                 index: 0
             }
         );

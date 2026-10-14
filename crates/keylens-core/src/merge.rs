@@ -61,7 +61,11 @@ mod tests {
 
     fn entry(source: EntrySource, index: u32, group: &str, title: &str, keys: &str) -> Entry {
         Entry {
-            id: EntryId { source, index },
+            id: EntryId {
+                source,
+                snapshot: 0,
+                index,
+            },
             group: group.into(),
             path: vec![],
             title: title.into(),

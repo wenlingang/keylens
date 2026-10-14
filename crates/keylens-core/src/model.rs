@@ -10,10 +10,16 @@ pub enum EntrySource {
     Community,
 }
 
-/// 条目在本次读取结果中的唯一编号；平台层用它找回菜单元素。
+/// 条目的唯一编号；平台层用它找回菜单元素。
+///
+/// `snapshot` 标识读出这个条目的那一次菜单读取。界面可能还在显示旧的读取结果，
+/// 而后台已经重新读了一次，同一个 `index` 在新结果里可能是另一个菜单项。
+/// 所以平台层执行菜单条目时必须核对快照：不一致就返回 `PlatformError::Stale`，
+/// 或者按分组、路径、标题重新确认后再执行。社区数据条目不需要快照，固定为 0。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EntryId {
     pub source: EntrySource,
+    pub snapshot: u64,
     pub index: u32,
 }
 
