@@ -212,6 +212,11 @@ impl PanelModel {
         }
     }
 
+    /// Select the first entry (top of the first column).
+    pub fn select_first(&mut self) {
+        self.selected = self.position_of(|_| true);
+    }
+
     pub fn move_down(&mut self) {
         self.step(1);
     }

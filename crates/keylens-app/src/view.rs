@@ -127,6 +127,9 @@ impl PanelView {
         self.input
             .update(cx, |input, cx| input.set_value("", window, cx));
         self.model.set_query("");
+        // The scroll position goes back to the top, so the selection must too; otherwise
+        // Return could run an entry that is out of view.
+        self.model.select_first();
         self.scroll.set_offset(point(px(0.), px(0.)));
         cx.notify();
     }
@@ -182,8 +185,11 @@ impl PanelView {
         }
     }
 
-    fn click(&mut self, entry: usize, count: usize, cx: &mut Context<Self>) {
+    fn click(&mut self, entry: usize, count: usize, window: &mut Window, cx: &mut Context<Self>) {
         self.model.select_entry(entry);
+        // The mouse-down moved focus to the clicked element; give it back to the search box
+        // so typing keeps filtering.
+        self.focus_input(window, cx);
         if count >= 2 {
             self.execute_selected(cx);
         }
@@ -318,8 +324,8 @@ impl PanelView {
                         d.child(div().text_xs().text_color(theme.accent).child("◇"))
                     })
                     .child(self.keycaps(&entry.shortcut, cx))
-                    .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                        this.click(index, event.click_count(), cx);
+                    .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                        this.click(index, event.click_count(), window, cx);
                     }))
                     .into_any_element()
             }
@@ -617,6 +623,33 @@ mod tests {
         let (window, events) = setup(cx);
         cx.simulate_keystrokes(window.into(), "down enter");
         assert!(executed(&events).is_empty());
+    }
+
+    #[gpui_kit::test]
+    fn clicking_a_row_keeps_typing_in_the_search_box(cx: &mut TestAppContext) {
+        let (window, _) = setup(cx);
+        let focused = window
+            .update(cx, |view, window, cx| {
+                // A mouse-down on a row moves focus away from the input (gpui focuses the hit element).
+                view.focus.focus(window, cx);
+                view.click(2, 1, window, cx);
+                view.input.read(cx).focus_handle(cx).is_focused(window)
+            })
+            .unwrap();
+        assert!(focused);
+    }
+
+    #[gpui_kit::test]
+    fn reset_selects_the_first_entry_again(cx: &mut TestAppContext) {
+        let (window, _) = setup(cx);
+        cx.simulate_keystrokes(window.into(), "down down");
+        let title = window
+            .update(cx, |view, window, cx| {
+                view.reset(window, cx);
+                view.model().selected_entry().map(|e| e.title.clone())
+            })
+            .unwrap();
+        assert_eq!(title.as_deref(), Some("新建"));
     }
 
     #[gpui_kit::test]
