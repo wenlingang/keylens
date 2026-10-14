@@ -5,7 +5,7 @@ set -euo pipefail
 
 NAME="Keylens Development"
 if security find-identity -v -p codesigning | grep -q "\"${NAME}\""; then
-  echo "✅ 证书「${NAME}」已存在且可用。"
+  echo "✅ Certificate \"${NAME}\" already exists and is usable."
   exit 0
 fi
 
@@ -30,12 +30,12 @@ openssl pkcs12 -export -inkey "$tmp/key.pem" -in "$tmp/cert.pem" \
 
 keychain="$HOME/Library/Keychains/login.keychain-db"
 security import "$tmp/id.p12" -k "$keychain" -P keylens -T /usr/bin/codesign
-echo "接下来系统会弹出密码框，用于把证书设为「代码签名」受信任。"
+echo "A password dialog will appear next, to trust the certificate for code signing."
 security add-trusted-cert -r trustRoot -p codeSign -k "$keychain" "$tmp/cert.pem"
 
 if security find-identity -v -p codesigning | grep -q "\"${NAME}\""; then
-  echo "✅ 证书「${NAME}」已创建。"
+  echo "✅ Certificate \"${NAME}\" created."
 else
-  echo "❌ 证书创建后仍不可用，请在「钥匙串访问」里检查「${NAME}」的信任设置。" >&2
+  echo "❌ Certificate is still unusable after creation; check the trust settings of \"${NAME}\" in Keychain Access." >&2
   exit 1
 fi

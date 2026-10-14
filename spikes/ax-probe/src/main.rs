@@ -54,7 +54,7 @@ fn menu_bar(pid: i32) -> CFRetained<AXUIElement> {
     unsafe { app.set_messaging_timeout(1.0) };
     attr(&app, "AXMenuBar")
         .and_then(|v| v.downcast::<AXUIElement>().ok())
-        .expect("没有拿到 AXMenuBar：检查 pid 和辅助功能权限")
+        .expect("failed to get AXMenuBar: check the pid and Accessibility permission")
 }
 
 fn walk(el: &AXUIElement, depth: usize, count: &mut usize, print: bool) {
@@ -128,13 +128,13 @@ fn run_tap() {
             std::ptr::null_mut(),
         )
     }
-    .expect("tap_create 失败：检查辅助功能权限");
+    .expect("tap_create failed: check the Accessibility permission");
     let source = CFMachPort::new_run_loop_source(None, Some(&port), 0).expect("run loop source");
     CFRunLoop::current()
         .expect("run loop")
         .add_source(Some(&source), unsafe { kCFRunLoopCommonModes });
     CGEvent::tap_enable(&port, true);
-    println!("监听中，Ctrl+C 退出");
+    println!("listening, press Ctrl+C to exit");
     CFRunLoop::run();
 }
 
@@ -144,21 +144,21 @@ fn main() {
         Some("trust") => println!("AXIsProcessTrusted = {}", unsafe { AXIsProcessTrusted() }),
         Some("menu") => {
             let pid: i32 = args[1].parse().expect("pid");
-            for round in ["冷启动", "第二次"] {
+            for round in ["cold", "warm"] {
                 let started = Instant::now();
                 let bar = menu_bar(pid);
                 let mut count = 0;
-                walk(&bar, 0, &mut count, round == "冷启动");
-                println!("[{round}] {count} 个菜单项，耗时 {:?}", started.elapsed());
+                walk(&bar, 0, &mut count, round == "cold");
+                println!("[{round}] {count} menu items, took {:?}", started.elapsed());
             }
         }
         Some("press") => {
             let pid: i32 = args[1].parse().expect("pid");
             let titles = args[2..].to_vec();
-            let item = find(&menu_bar(pid), &titles).expect("没找到菜单项");
+            let item = find(&menu_bar(pid), &titles).expect("menu item not found");
             let started = Instant::now();
             let err = unsafe { item.perform_action(&CFString::from_str("AXPress")) };
-            println!("AXPress -> {:?}，耗时 {:?}", err, started.elapsed());
+            println!("AXPress -> {:?}; took {:?}", err, started.elapsed());
         }
         Some("windows") => {
             let pid: i32 = args[1].parse().expect("pid");
@@ -172,6 +172,6 @@ fn main() {
             }
         }
         Some("tap") => run_tap(),
-        _ => eprintln!("用法：ax-probe trust | menu <pid> | press <pid> <标题>... | tap"),
+        _ => eprintln!("usage: ax-probe trust | menu <pid> | press <pid> <title>... | tap"),
     }
 }

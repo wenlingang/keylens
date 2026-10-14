@@ -8,8 +8,12 @@ use keylens_core::{AppInfo, EntrySource, Lang, Os, ShortcutSource};
 #[test]
 fn all_builtin_files_are_valid() {
     let (catalog, errors) = builtin();
-    assert!(errors.is_empty(), "内置数据有错误：\n{errors:#?}");
-    assert!(catalog.len() >= 3, "内置数据只有 {} 个应用", catalog.len());
+    assert!(errors.is_empty(), "built-in data has errors:\n{errors:#?}");
+    assert!(
+        catalog.len() >= 3,
+        "built-in data has only {} apps",
+        catalog.len()
+    );
 }
 
 #[test]
@@ -28,13 +32,13 @@ fn every_builtin_app_has_macos_ids_and_simplified_chinese() {
         for group in &data.groups {
             assert!(
                 group.title.translations.contains_key(&Lang::ZhHans),
-                "{expected_name} 分组 {} 缺简体中文",
+                "{expected_name} group {} is missing zh-Hans",
                 group.title.en
             );
             for shortcut in &group.shortcuts {
                 assert!(
                     shortcut.title.translations.contains_key(&Lang::ZhHans),
-                    "{expected_name} 的 {} 缺简体中文",
+                    "{expected_name} {} is missing zh-Hans",
                     shortcut.title.en
                 );
             }
@@ -52,7 +56,7 @@ fn every_builtin_app_has_macos_ids_and_simplified_chinese() {
         };
         assert!(
             source.load(&app).unwrap().len() >= 10,
-            "{expected_name} 至少要有 10 条"
+            "{expected_name} must have at least 10 entries"
         );
     }
 }

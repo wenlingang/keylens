@@ -242,7 +242,7 @@ mod tests {
                 if let Some(range) = m.highlight {
                     assert!(
                         entries[0].title.get(range).is_some(),
-                        "查询 {query:?} 的范围不在字符边界上"
+                        "range for query {query:?} is not on a char boundary"
                     );
                 }
             }

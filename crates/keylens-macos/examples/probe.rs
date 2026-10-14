@@ -33,14 +33,14 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("trust") => println!("permission = {:?}", platform.permission()),
         Some("read") => {
-            for round in ["冷启动", "第二次"] {
+            for round in ["cold", "warm"] {
                 let started = Instant::now();
                 let entries = platform.menu_source().load(&app(pid(1)));
                 let elapsed = started.elapsed();
                 match entries {
                     Ok(entries) => {
-                        println!("[{round}] {} 条，耗时 {elapsed:?}", entries.len());
-                        if round == "冷启动" {
+                        println!("[{round}] {} entries, took {elapsed:?}", entries.len());
+                        if round == "cold" {
                             for e in entries.iter().take(200) {
                                 let path =
                                     [vec![e.group.clone()], e.path.clone(), vec![e.title.clone()]]
@@ -54,7 +54,7 @@ fn main() {
                             }
                         }
                     }
-                    Err(err) => println!("[{round}] 错误：{err}"),
+                    Err(err) => println!("[{round}] error: {err}"),
                 }
             }
         }
@@ -63,7 +63,7 @@ fn main() {
             let title = &args[2];
             let entries = platform.menu_source().load(&app(pid)).expect("read menu");
             let Some(entry) = entries.iter().find(|e| &e.title == title) else {
-                println!("FAIL：菜单里没有「{title}」");
+                println!("FAIL: no \"{title}\" in the menu");
                 return;
             };
             let before = keylens_macos::debug::window_titles(pid);
@@ -71,19 +71,19 @@ fn main() {
             std::thread::sleep(Duration::from_millis(800));
             let after = keylens_macos::debug::window_titles(pid);
             println!("execute -> {result:?}");
-            println!("窗口：{before:?} -> {after:?}");
+            println!("window: {before:?} -> {after:?}");
             println!(
                 "{}",
                 if after != before {
-                    "PASS：窗口有变化"
+                    "PASS: window changed"
                 } else {
-                    "FAIL：窗口没有变化"
+                    "FAIL: window did not change"
                 }
             );
         }
         Some("tap") => {
             if platform.permission() == PermissionState::Denied {
-                println!("没有辅助功能权限");
+                println!("no Accessibility permission");
                 return;
             }
             let (tx, rx) = channel();
@@ -115,7 +115,7 @@ fn main() {
             println!("execute -> {:?}", platform.execute(&f19));
             std::thread::sleep(Duration::from_millis(500));
             let events: Vec<_> = rx.try_iter().collect();
-            println!("收到 {} 个事件：{events:?}", events.len());
+            println!("received {} events: {events:?}", events.len());
         }
         Some("tap-churn") => {
             // Repeatedly start and immediately stop the key listener, then check that all listener threads exited.
@@ -132,16 +132,19 @@ fn main() {
                 .lines()
                 .count()
                 .saturating_sub(1);
-            println!("50 次启动/停止后，进程线程数：{threads}");
+            println!("thread count after 50 start/stop cycles: {threads}");
         }
         Some("watch") => {
             // Diagnostic: the `with-app` argument initializes NSApplication first (it always exists in a gpui app).
             if args.get(2).map(String::as_str) == Some("with-app") {
                 let mtm = objc2::MainThreadMarker::new().expect("main thread");
                 let _ = objc2_app_kit::NSApplication::sharedApplication(mtm);
-                println!("已初始化 NSApplication");
+                println!("NSApplication initialized");
             }
-            println!("开始时前台：{:?}", platform.frontmost_app().map(|a| a.name));
+            println!(
+                "frontmost at start: {:?}",
+                platform.frontmost_app().map(|a| a.name)
+            );
             let (tx, rx) = channel();
             let _guard = platform.watch_frontmost(tx).expect("watch");
             let duration = secs(1);
@@ -151,11 +154,14 @@ fn main() {
                 let deadline = Instant::now() + duration;
                 while Instant::now() < deadline {
                     while let Ok(app) = rx.try_recv() {
-                        println!("通知：{} pid={} ids={:?}", app.name, app.pid, app.ids);
+                        println!(
+                            "notification: {} pid={} ids={:?}",
+                            app.name, app.pid, app.ids
+                        );
                     }
                     let now = poller.frontmost_app();
                     if now.as_ref().map(|a| a.pid) != last {
-                        println!("轮询发现：{:?}", now.as_ref().map(|a| &a.name));
+                        println!("found by polling: {:?}", now.as_ref().map(|a| &a.name));
                         last = now.map(|a| a.pid);
                     }
                     std::thread::sleep(Duration::from_millis(500));
@@ -170,16 +176,16 @@ fn main() {
             match png {
                 Some(bytes) => {
                     std::fs::write(&args[2], &bytes).expect("write png");
-                    println!("已保存 {} 字节到 {}", bytes.len(), args[2]);
+                    println!("saved {} bytes to {}", bytes.len(), args[2]);
                 }
-                None => println!("没有拿到图标"),
+                None => println!("no icon returned"),
             }
         }
-        _ => eprintln!("用法见文件开头的注释"),
+        _ => eprintln!("usage: see the comment at the top of the file"),
     }
 }
 
 #[cfg(not(target_os = "macos"))]
 fn main() {
-    eprintln!("probe 只能在 macOS 上运行");
+    eprintln!("probe only runs on macOS");
 }

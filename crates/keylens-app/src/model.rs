@@ -505,7 +505,7 @@ mod tests {
         assert_eq!(m.layout().len(), 1);
         assert_eq!(m.item_count(), 1);
         let Row::Item { highlight, .. } = &m.layout()[0][0] else {
-            panic!("应为条目行")
+            panic!("expected an entry row")
         };
         assert!(highlight.is_some());
         assert_eq!(selected_title(&m), "命令面板");

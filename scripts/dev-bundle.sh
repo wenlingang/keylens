@@ -28,8 +28,8 @@ EOF
 if security find-identity -v -p codesigning | grep -q '"Keylens Development"'; then
   codesign --force --sign "Keylens Development" "$app"
 else
-  echo "⚠️  没有找到「Keylens Development」证书，改用 ad-hoc 签名；重新编译后需要重新授权。" >&2
-  echo "   运行 scripts/dev-cert.sh 可以避免这个问题。" >&2
+  echo "⚠️  Certificate \"Keylens Development\" not found; falling back to ad-hoc signing. You will need to re-grant permission after each rebuild." >&2
+  echo "   Run scripts/dev-cert.sh to avoid this." >&2
   codesign --force --sign - "$app"
 fi
 echo "$app"

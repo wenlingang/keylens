@@ -28,7 +28,7 @@ pub fn run() {
     use crate::view::{PanelView, bind_keys};
 
     fn objc2_main_thread() -> keylens_macos::MainThreadMarker {
-        keylens_macos::MainThreadMarker::new().expect("必须在主线程运行")
+        keylens_macos::MainThreadMarker::new().expect("must run on the main thread")
     }
 
     struct KeylensApp {
@@ -39,7 +39,7 @@ pub fn run() {
 
     let (config, config_error) = config::load_config(&config::config_path());
     if let Some(error) = config_error {
-        eprintln!("配置文件有错误，已使用默认配置：{error}");
+        eprintln!("config file has errors, using defaults: {error}");
     }
     let system: Vec<String> = sys_locale::get_locales().collect();
     let locale = config::choose_locale(&config, &system);
@@ -49,7 +49,7 @@ pub fn run() {
     let (builtin_catalog, builtin_errors) = builtin();
     let (user_catalog, user_errors) = load_dir(&config::user_data_dir());
     for error in builtin_errors.iter().chain(&user_errors) {
-        eprintln!("数据文件错误：{error}");
+        eprintln!("data file error: {error}");
     }
     let data_errors = builtin_errors.len() + user_errors.len();
 
@@ -97,7 +97,7 @@ pub fn run() {
             let (window, view) = gpui_kit::open_window(options, cx, |window, cx| {
                 cx.new(|cx| PanelView::new(os, window, cx))
             })
-            .expect("无法创建浮层窗口");
+            .expect("failed to create the panel window");
             let _ = window.update(cx, |_, window, cx| {
                 Theme::sync_system_appearance(Some(window), cx)
             });

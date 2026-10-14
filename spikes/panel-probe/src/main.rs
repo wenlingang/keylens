@@ -23,7 +23,7 @@ struct Probe {
 impl Probe {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let input = cx.new(|cx| {
-            InputState::new(window, cx).placeholder("在这里打字；回车 = 关闭浮层并模拟按 k")
+            InputState::new(window, cx).placeholder("Type here; Enter = close the panel and simulate pressing k")
         });
         let subscription = cx.subscribe_in(&input, window, |_, _, ev: &InputEvent, window, _| {
             if let InputEvent::PressEnter { .. } = ev {
@@ -31,7 +31,7 @@ impl Probe {
                 std::thread::spawn(|| {
                     std::thread::sleep(Duration::from_millis(300));
                     post_key(40);
-                    println!("已模拟按下 k");
+                    println!("simulated pressing k");
                 });
             }
         });
@@ -75,7 +75,7 @@ fn run_tap() {
             std::ptr::null_mut(),
         )
     }
-    .expect("tap_create 失败：检查辅助功能权限");
+    .expect("tap_create failed: check the Accessibility permission");
     let source = CFMachPort::new_run_loop_source(None, Some(&port), 0).expect("run loop source");
     CFRunLoop::current()
         .expect("run loop")

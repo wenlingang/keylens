@@ -577,7 +577,7 @@ mod tests {
         let s = Shortcut::parse_seq(&["Mod+Shift+Up"], Os::MacOS).unwrap();
         let text = s.search_text(Os::MacOS);
         for word in ["⇧⌘↑", "shift", "command", "cmd", "up"] {
-            assert!(text.contains(word), "{text:?} 缺少 {word:?}");
+            assert!(text.contains(word), "{text:?} is missing {word:?}");
         }
     }
 }
