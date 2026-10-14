@@ -42,9 +42,15 @@ pub enum TriggerAction {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum State {
     Idle,
-    Holding { since: Instant },
-    TapDown { since: Instant },
-    WaitSecond { deadline: Instant },
+    Holding {
+        since: Instant,
+    },
+    TapDown {
+        since: Instant,
+    },
+    WaitSecond {
+        deadline: Instant,
+    },
     /// 已经显示，等目标键松开。
     Fired,
     /// 用户在用普通快捷键，等目标键松开。
@@ -59,7 +65,11 @@ pub struct TriggerDetector {
 
 impl TriggerDetector {
     pub fn new(trigger: Trigger) -> Self {
-        Self { trigger, state: State::Idle, modifiers: Modifiers::NONE }
+        Self {
+            trigger,
+            state: State::Idle,
+            modifiers: Modifiers::NONE,
+        }
     }
 
     pub fn on_event(&mut self, event: KeyEvent, now: Instant) -> Option<TriggerAction> {
@@ -69,7 +79,9 @@ impl TriggerDetector {
         }
         match self.trigger {
             Trigger::HoldModifier { key, .. } => self.hold_event(key, previous, event, now),
-            Trigger::DoubleTap { key, interval } => self.tap_event(key, interval, previous, event, now),
+            Trigger::DoubleTap { key, interval } => {
+                self.tap_event(key, interval, previous, event, now)
+            }
             Trigger::Hotkey(_) | Trigger::External => None,
         }
     }
@@ -116,7 +128,11 @@ impl TriggerDetector {
             }
             (State::Holding { .. }, ModifiersChanged(m)) if m == key => None,
             (State::Holding { .. }, ModifiersChanged(m)) => {
-                self.state = if m.contains(key) { State::Suppressed } else { State::Idle };
+                self.state = if m.contains(key) {
+                    State::Suppressed
+                } else {
+                    State::Idle
+                };
                 Some(TriggerAction::Cancel)
             }
             (State::Holding { .. }, KeyDown | MouseDown) => {
@@ -147,7 +163,9 @@ impl TriggerDetector {
             }
             (State::TapDown { since }, ModifiersChanged(m)) if m.is_empty() => {
                 if now.duration_since(since) <= interval {
-                    self.state = State::WaitSecond { deadline: now + interval };
+                    self.state = State::WaitSecond {
+                        deadline: now + interval,
+                    };
                     Some(TriggerAction::Prefetch)
                 } else {
                     self.state = State::Idle;
@@ -159,7 +177,9 @@ impl TriggerDetector {
                 self.state = State::Suppressed;
                 None
             }
-            (State::WaitSecond { deadline }, ModifiersChanged(m)) if previous.is_empty() && m == key => {
+            (State::WaitSecond { deadline }, ModifiersChanged(m))
+                if previous.is_empty() && m == key =>
+            {
                 if now <= deadline {
                     self.state = State::Fired;
                     Some(TriggerAction::Show)
@@ -169,7 +189,11 @@ impl TriggerDetector {
                 }
             }
             (State::WaitSecond { .. }, _) => {
-                self.state = if self.modifiers.is_empty() { State::Idle } else { State::Suppressed };
+                self.state = if self.modifiers.is_empty() {
+                    State::Idle
+                } else {
+                    State::Suppressed
+                };
                 Some(TriggerAction::Cancel)
             }
             (State::Fired | State::Suppressed, ModifiersChanged(m)) if m.is_empty() => {
@@ -195,11 +219,17 @@ mod tests {
     }
 
     fn hold() -> TriggerDetector {
-        TriggerDetector::new(Trigger::HoldModifier { key: CMD, delay: Trigger::DEFAULT_HOLD_DELAY })
+        TriggerDetector::new(Trigger::HoldModifier {
+            key: CMD,
+            delay: Trigger::DEFAULT_HOLD_DELAY,
+        })
     }
 
     fn tap() -> TriggerDetector {
-        TriggerDetector::new(Trigger::DoubleTap { key: CMD, interval: ms(350) })
+        TriggerDetector::new(Trigger::DoubleTap {
+            key: CMD,
+            interval: ms(350),
+        })
     }
 
     #[test]
@@ -218,7 +248,10 @@ mod tests {
         let t0 = Instant::now();
         let mut d = hold();
         d.on_event(ModifiersChanged(CMD), t0);
-        assert_eq!(d.on_event(ModifiersChanged(NONE), t0 + ms(300)), Some(Cancel));
+        assert_eq!(
+            d.on_event(ModifiersChanged(NONE), t0 + ms(300)),
+            Some(Cancel)
+        );
         assert_eq!(d.on_tick(t0 + ms(900)), None);
     }
 
@@ -231,7 +264,10 @@ mod tests {
         assert_eq!(d.on_tick(t0 + ms(2000)), None);
         assert_eq!(d.next_deadline(), None);
         assert_eq!(d.on_event(ModifiersChanged(NONE), t0 + ms(2100)), None);
-        assert_eq!(d.on_event(ModifiersChanged(CMD), t0 + ms(2200)), Some(Prefetch));
+        assert_eq!(
+            d.on_event(ModifiersChanged(CMD), t0 + ms(2200)),
+            Some(Prefetch)
+        );
         assert_eq!(d.on_tick(t0 + ms(3000)), Some(Show));
     }
 
@@ -244,7 +280,10 @@ mod tests {
 
         let mut d = hold();
         d.on_event(ModifiersChanged(CMD), t0);
-        assert_eq!(d.on_event(ModifiersChanged(CMD | Modifiers::SHIFT), t0 + ms(10)), Some(Cancel));
+        assert_eq!(
+            d.on_event(ModifiersChanged(CMD | Modifiers::SHIFT), t0 + ms(10)),
+            Some(Cancel)
+        );
         assert_eq!(d.on_event(ModifiersChanged(CMD), t0 + ms(20)), None);
         assert_eq!(d.on_tick(t0 + ms(2000)), None);
     }
@@ -254,7 +293,10 @@ mod tests {
         let t0 = Instant::now();
         let mut d = hold();
         assert_eq!(d.on_event(ModifiersChanged(Modifiers::SHIFT), t0), None);
-        assert_eq!(d.on_event(ModifiersChanged(Modifiers::SHIFT | CMD), t0 + ms(10)), None);
+        assert_eq!(
+            d.on_event(ModifiersChanged(Modifiers::SHIFT | CMD), t0 + ms(10)),
+            None
+        );
         assert_eq!(d.on_event(ModifiersChanged(CMD), t0 + ms(20)), None);
         assert_eq!(d.on_tick(t0 + ms(2000)), None);
     }
@@ -267,7 +309,10 @@ mod tests {
         d.on_tick(t0 + ms(800));
         assert_eq!(d.on_event(KeyDown, t0 + ms(900)), None);
         assert_eq!(d.on_event(ModifiersChanged(NONE), t0 + ms(1000)), None);
-        assert_eq!(d.on_event(ModifiersChanged(CMD), t0 + ms(1100)), Some(Prefetch));
+        assert_eq!(
+            d.on_event(ModifiersChanged(CMD), t0 + ms(1100)),
+            Some(Prefetch)
+        );
     }
 
     #[test]
@@ -275,7 +320,10 @@ mod tests {
         let t0 = Instant::now();
         let mut d = tap();
         assert_eq!(d.on_event(ModifiersChanged(CMD), t0), None);
-        assert_eq!(d.on_event(ModifiersChanged(NONE), t0 + ms(80)), Some(Prefetch));
+        assert_eq!(
+            d.on_event(ModifiersChanged(NONE), t0 + ms(80)),
+            Some(Prefetch)
+        );
         assert_eq!(d.next_deadline(), Some(t0 + ms(430)));
         assert_eq!(d.on_event(ModifiersChanged(CMD), t0 + ms(200)), Some(Show));
         assert_eq!(d.on_event(ModifiersChanged(NONE), t0 + ms(260)), None);
@@ -318,7 +366,10 @@ mod tests {
     #[test]
     fn hotkey_and_external_are_ignored() {
         let t0 = Instant::now();
-        for trigger in [Trigger::External, Trigger::Hotkey(crate::keys::Chord::parse("Mod+K", crate::keys::Os::MacOS).unwrap())] {
+        for trigger in [
+            Trigger::External,
+            Trigger::Hotkey(crate::keys::Chord::parse("Mod+K", crate::keys::Os::MacOS).unwrap()),
+        ] {
             let mut d = TriggerDetector::new(trigger);
             assert_eq!(d.on_event(ModifiersChanged(CMD), t0), None);
             assert_eq!(d.on_tick(t0 + ms(5000)), None);

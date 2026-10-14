@@ -5,6 +5,6 @@ mod data;
 mod raw;
 mod source;
 
-pub use catalog::{builtin, load_dir, Catalog};
-pub use data::{parse_app_data, AppData, AppIds, DataError, DataGroup, DataShortcut};
+pub use catalog::{Catalog, builtin, load_dir};
+pub use data::{AppData, AppIds, DataError, DataGroup, DataShortcut, parse_app_data};
 pub use source::CommunitySource;

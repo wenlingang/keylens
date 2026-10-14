@@ -46,7 +46,10 @@ pub struct Locale {
     pub ui: &'static str,
 }
 
-const ENGLISH: Locale = Locale { lang: Lang::En, ui: "en" };
+const ENGLISH: Locale = Locale {
+    lang: Lang::En,
+    ui: "en",
+};
 
 /// 把系统或配置里的语言标签（`zh-Hant-HK`、`zh_TW`、`ja-JP` 等）映射到支持的语言。
 pub fn resolve(tag: &str) -> Locale {
@@ -54,11 +57,26 @@ pub fn resolve(tag: &str) -> Locale {
     let parts: Vec<&str> = tag.split('-').collect();
     let has = |part: &str| parts.iter().skip(1).any(|p| *p == part);
     match parts[0] {
-        "zh" if has("hans") => Locale { lang: Lang::ZhHans, ui: "zh-CN" },
-        "zh" if has("hk") => Locale { lang: Lang::ZhHant, ui: "zh-HK" },
-        "zh" if has("hant") || has("tw") || has("mo") => Locale { lang: Lang::ZhHant, ui: "zh-TW" },
-        "zh" => Locale { lang: Lang::ZhHans, ui: "zh-CN" },
-        "ja" => Locale { lang: Lang::Ja, ui: "ja" },
+        "zh" if has("hans") => Locale {
+            lang: Lang::ZhHans,
+            ui: "zh-CN",
+        },
+        "zh" if has("hk") => Locale {
+            lang: Lang::ZhHant,
+            ui: "zh-HK",
+        },
+        "zh" if has("hant") || has("tw") || has("mo") => Locale {
+            lang: Lang::ZhHant,
+            ui: "zh-TW",
+        },
+        "zh" => Locale {
+            lang: Lang::ZhHans,
+            ui: "zh-CN",
+        },
+        "ja" => Locale {
+            lang: Lang::Ja,
+            ui: "ja",
+        },
         _ => ENGLISH,
     }
 }
@@ -128,7 +146,10 @@ mod tests {
 
     #[test]
     fn preferred_list_picks_first_supported() {
-        assert_eq!(resolve_preferred(["fr-FR", "ja-JP", "en-US"]).lang, Lang::Ja);
+        assert_eq!(
+            resolve_preferred(["fr-FR", "ja-JP", "en-US"]).lang,
+            Lang::Ja
+        );
         assert_eq!(resolve_preferred(["en-GB", "zh-CN"]).lang, Lang::En);
         assert_eq!(resolve_preferred(["de-DE"]).lang, Lang::En);
         assert_eq!(resolve_preferred(std::iter::empty()).lang, Lang::En);
@@ -136,7 +157,10 @@ mod tests {
 
     #[test]
     fn localized_text_falls_back() {
-        let mut text = Localized { en: "Save".into(), translations: BTreeMap::new() };
+        let mut text = Localized {
+            en: "Save".into(),
+            translations: BTreeMap::new(),
+        };
         text.translations.insert(Lang::ZhHans, "保存".into());
         assert_eq!(text.get(Lang::ZhHans), "保存");
         assert_eq!(text.get(Lang::ZhHant), "保存");

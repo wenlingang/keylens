@@ -11,9 +11,9 @@ pub mod source;
 pub mod trigger;
 
 pub use keys::{Chord, Key, KeyParseError, Modifiers, Os, Shortcut};
-pub use locale::{resolve, resolve_preferred, Lang, Locale, Localized};
+pub use locale::{Lang, Locale, Localized, resolve, resolve_preferred};
 pub use merge::{group_entries, merge};
 pub use model::{AppInfo, Entry, EntryId, EntrySource, Group};
-pub use search::{filter, Match};
-pub use source::{collect, AppShortcuts, ShortcutSource, SourceError};
+pub use search::{Match, filter};
+pub use source::{AppShortcuts, ShortcutSource, SourceError, collect};
 pub use trigger::{KeyEvent, Trigger, TriggerAction, TriggerDetector};

@@ -38,9 +38,16 @@ pub fn group_entries(entries: Vec<Entry>) -> Vec<Group> {
     let mut groups: Vec<Group> = Vec::new();
     for entry in entries {
         let community = entry.source() != EntrySource::Menu;
-        match groups.iter_mut().find(|g| g.title == entry.group && g.community == community) {
+        match groups
+            .iter_mut()
+            .find(|g| g.title == entry.group && g.community == community)
+        {
             Some(group) => group.entries.push(entry),
-            None => groups.push(Group { title: entry.group.clone(), community, entries: vec![entry] }),
+            None => groups.push(Group {
+                title: entry.group.clone(),
+                community,
+                entries: vec![entry],
+            }),
         }
     }
     groups
@@ -86,9 +93,21 @@ mod tests {
 
     #[test]
     fn user_data_overrides_builtin_community_data() {
-        let user = vec![entry(EntrySource::User, 0, "Mine", "My Palette", "Mod+Shift+P")];
+        let user = vec![entry(
+            EntrySource::User,
+            0,
+            "Mine",
+            "My Palette",
+            "Mod+Shift+P",
+        )];
         let builtin = vec![
-            entry(EntrySource::Community, 0, "General", "Command Palette", "Mod+Shift+P"),
+            entry(
+                EntrySource::Community,
+                0,
+                "General",
+                "Command Palette",
+                "Mod+Shift+P",
+            ),
             entry(EntrySource::Community, 1, "General", "Quick Open", "Mod+P"),
         ];
         let merged = merge(vec![vec![], user, builtin]);
@@ -118,6 +137,9 @@ mod tests {
             .iter()
             .map(|g| (g.title.as_str(), g.community, g.entries.len()))
             .collect();
-        assert_eq!(summary, [("文件", false, 2), ("编辑", false, 1), ("文件", true, 1)]);
+        assert_eq!(
+            summary,
+            [("文件", false, 2), ("编辑", false, 1), ("文件", true, 1)]
+        );
     }
 }

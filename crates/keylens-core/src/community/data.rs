@@ -65,10 +65,16 @@ pub struct DataError {
 }
 
 pub fn parse_app_data(file: &str, text: &str) -> Result<AppData, DataError> {
-    let fail = |message: String| DataError { file: file.to_string(), message };
+    let fail = |message: String| DataError {
+        file: file.to_string(),
+        message,
+    };
     let raw: RawFile = toml::from_str(text).map_err(|e| fail(e.to_string()))?;
     if raw.schema != 1 {
-        return Err(fail(format!("unsupported schema {} (expected 1)", raw.schema)));
+        return Err(fail(format!(
+            "unsupported schema {} (expected 1)",
+            raw.schema
+        )));
     }
     if raw.app.name.trim().is_empty() {
         return Err(fail("app.name is empty".into()));
@@ -85,22 +91,24 @@ pub fn parse_app_data(file: &str, text: &str) -> Result<AppData, DataError> {
     let mut seen: [HashMap<Shortcut, String>; 3] = Default::default();
     let mut groups = Vec::new();
     for group in raw.group {
-        let group_title =
-            localized(&group.title, group.i18n).map_err(|m| fail(format!("group `{}`: {m}", group.title)))?;
+        let group_title = localized(&group.title, group.i18n)
+            .map_err(|m| fail(format!("group `{}`: {m}", group.title)))?;
         if group.shortcut.is_empty() {
             return Err(fail(format!("group `{}` has no shortcuts", group.title)));
         }
         let mut shortcuts = Vec::new();
         for shortcut in group.shortcut {
             let context = format!("`{}` › `{}`", group.title, shortcut.title);
-            let title = localized(&shortcut.title, shortcut.i18n).map_err(|m| fail(format!("{context}: {m}")))?;
+            let title = localized(&shortcut.title, shortcut.i18n)
+                .map_err(|m| fail(format!("{context}: {m}")))?;
             let keys = resolve_keys(&shortcut.keys).map_err(|e| fail(format!("{context}: {e}")))?;
             for os in Os::ALL {
                 if ids.for_os(os).is_empty() {
                     continue;
                 }
                 let key = &keys[os_index(os)];
-                if let Some(other) = seen[os_index(os)].insert(key.clone(), shortcut.title.clone()) {
+                if let Some(other) = seen[os_index(os)].insert(key.clone(), shortcut.title.clone())
+                {
                     return Err(fail(format!(
                         "{context}: {} on {os:?} is already used by `{other}`",
                         key.display(os)
@@ -109,9 +117,16 @@ pub fn parse_app_data(file: &str, text: &str) -> Result<AppData, DataError> {
             }
             shortcuts.push(DataShortcut { title, keys });
         }
-        groups.push(DataGroup { title: group_title, shortcuts });
+        groups.push(DataGroup {
+            title: group_title,
+            shortcuts,
+        });
     }
-    Ok(AppData { name: raw.app.name, ids, groups })
+    Ok(AppData {
+        name: raw.app.name,
+        ids,
+        groups,
+    })
 }
 
 fn localized(en: &str, i18n: BTreeMap<String, String>) -> Result<Localized, String> {
@@ -127,7 +142,10 @@ fn localized(en: &str, i18n: BTreeMap<String, String>) -> Result<Localized, Stri
         }
         translations.insert(lang, text);
     }
-    Ok(Localized { en: en.to_string(), translations })
+    Ok(Localized {
+        en: en.to_string(),
+        translations,
+    })
 }
 
 fn pick(keys: &RawKeys, os: Os) -> &RawSeq {
@@ -198,10 +216,19 @@ i18n = { zh-Hans = "常规" }
         let palette = &group.shortcuts[0];
         assert_eq!(palette.title.get(Lang::Ja), "コマンドパレットを表示");
         assert_eq!(palette.keys(Os::MacOS).display(Os::MacOS), "⇧⌘P");
-        assert_eq!(palette.keys(Os::Windows).display(Os::Windows), "Ctrl+Shift+P");
-        assert_eq!(group.shortcuts[1].keys(Os::MacOS).display(Os::MacOS), "⌘K ⌘S");
+        assert_eq!(
+            palette.keys(Os::Windows).display(Os::Windows),
+            "Ctrl+Shift+P"
+        );
+        assert_eq!(
+            group.shortcuts[1].keys(Os::MacOS).display(Os::MacOS),
+            "⌘K ⌘S"
+        );
         assert_eq!(group.shortcuts[2].keys(Os::MacOS).display(Os::MacOS), "⌥↑");
-        assert_eq!(group.shortcuts[2].keys(Os::Linux).display(Os::Linux), "Alt+Up");
+        assert_eq!(
+            group.shortcuts[2].keys(Os::Linux).display(Os::Linux),
+            "Alt+Up"
+        );
     }
 
     #[test]
@@ -211,9 +238,14 @@ i18n = { zh-Hans = "常规" }
 
     #[test]
     fn rejects_unknown_fields_and_bad_keys() {
-        assert!(error(&VALID.replace("title = \"General\"", "tilte = \"General\"")).contains("tilte"));
+        assert!(
+            error(&VALID.replace("title = \"General\"", "tilte = \"General\"")).contains("tilte")
+        );
         let bad_key = error(&VALID.replace("Mod+Shift+P", "Mod+Shft+P"));
-        assert!(bad_key.contains("Show Command Palette") && bad_key.contains("Shft"), "{bad_key}");
+        assert!(
+            bad_key.contains("Show Command Palette") && bad_key.contains("Shft"),
+            "{bad_key}"
+        );
     }
 
     #[test]
@@ -228,7 +260,9 @@ i18n = { zh-Hans = "常规" }
     #[test]
     fn rejects_unknown_language_and_empty_titles() {
         assert!(error(&VALID.replace("zh-Hans = \"常规\"", "zh-CN = \"常规\"")).contains("zh-CN"));
-        assert!(error(&VALID.replace("title = \"Move Line Up\"", "title = \"  \"")).contains("empty"));
+        assert!(
+            error(&VALID.replace("title = \"Move Line Up\"", "title = \"  \"")).contains("empty")
+        );
     }
 
     #[test]

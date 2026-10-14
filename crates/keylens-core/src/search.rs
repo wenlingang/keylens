@@ -18,7 +18,13 @@ pub struct Match {
 pub fn filter(entries: &[Entry], query: &str, os: Os) -> Vec<Match> {
     let query = query.trim();
     if query.is_empty() {
-        return (0..entries.len()).map(|index| Match { index, score: 0, highlight: None }).collect();
+        return (0..entries.len())
+            .map(|index| Match {
+                index,
+                score: 0,
+                highlight: None,
+            })
+            .collect();
     }
     let lowered = query.to_lowercase();
     let tokens: Vec<String> = lowered.split_whitespace().map(str::to_string).collect();
@@ -27,7 +33,9 @@ pub fn filter(entries: &[Entry], query: &str, os: Os) -> Vec<Match> {
         .enumerate()
         .filter(|(_, entry)| {
             let haystack = haystack(entry, os);
-            tokens.iter().all(|token| token_matches(entry, &haystack, token))
+            tokens
+                .iter()
+                .all(|token| token_matches(entry, &haystack, token))
         })
         .map(|(index, entry)| {
             let title = entry.title.to_lowercase();
@@ -38,7 +46,11 @@ pub fn filter(entries: &[Entry], query: &str, os: Os) -> Vec<Match> {
             } else {
                 1
             };
-            Match { index, score, highlight: find_ignore_case(&entry.title, query) }
+            Match {
+                index,
+                score,
+                highlight: find_ignore_case(&entry.title, query),
+            }
         })
         .collect();
     matches.sort_by_key(|m| std::cmp::Reverse(m.score));
@@ -74,7 +86,11 @@ fn modifier_token(token: &str) -> Option<Modifiers> {
 
 fn token_matches(entry: &Entry, haystack: &str, token: &str) -> bool {
     match modifier_token(token) {
-        Some(wanted) => entry.shortcut.chords().iter().any(|c| c.modifiers.contains(wanted)),
+        Some(wanted) => entry
+            .shortcut
+            .chords()
+            .iter()
+            .any(|c| c.modifiers.contains(wanted)),
         None => haystack.contains(token),
     }
 }
@@ -86,9 +102,9 @@ fn find_ignore_case(text: &str, query: &str) -> Option<Range<usize>> {
         return None;
     }
     for (start, _) in text.char_indices() {
-        let mut lowered = text[start..].char_indices().flat_map(|(offset, c)| {
-            c.to_lowercase().map(move |l| (offset + c.len_utf8(), l))
-        });
+        let mut lowered = text[start..]
+            .char_indices()
+            .flat_map(|(offset, c)| c.to_lowercase().map(move |l| (offset + c.len_utf8(), l)));
         let mut end = start;
         let mut matched = 0;
         for &want in &needle {
@@ -115,7 +131,10 @@ mod tests {
 
     fn entry(index: u32, group: &str, title: &str, keys: &str) -> Entry {
         Entry {
-            id: EntryId { source: EntrySource::Menu, index },
+            id: EntryId {
+                source: EntrySource::Menu,
+                index,
+            },
             group: group.into(),
             path: vec![],
             title: title.into(),
@@ -185,7 +204,10 @@ mod tests {
         for query in ["i̇stanbul", "開く", "o", "İ"] {
             for m in filter(&entries, query, Os::MacOS) {
                 if let Some(range) = m.highlight {
-                    assert!(entries[0].title.get(range).is_some(), "查询 {query:?} 的范围不在字符边界上");
+                    assert!(
+                        entries[0].title.get(range).is_some(),
+                        "查询 {query:?} 的范围不在字符边界上"
+                    );
                 }
             }
         }

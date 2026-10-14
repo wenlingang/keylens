@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 
-use crate::community::data::{parse_app_data, AppData, DataError};
+use crate::community::data::{AppData, DataError, parse_app_data};
 use crate::keys::Os;
 
 static BUILTIN: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/../../data/apps");
@@ -42,7 +42,10 @@ impl Catalog {
                 if let Some(&existing) = self.index.get(&(os, id.clone())) {
                     return Err(DataError {
                         file: file.to_string(),
-                        message: format!("id `{id}` is already used by {}", self.apps[existing].name),
+                        message: format!(
+                            "id `{id}` is already used by {}",
+                            self.apps[existing].name
+                        ),
                     });
                 }
             }
@@ -78,7 +81,12 @@ pub fn builtin() -> (Catalog, Vec<DataError>) {
     let files = BUILTIN
         .files()
         .filter(|f| f.path().extension().is_some_and(|e| e == "toml"))
-        .map(|f| (f.path().display().to_string(), String::from_utf8_lossy(f.contents()).into_owned()));
+        .map(|f| {
+            (
+                f.path().display().to_string(),
+                String::from_utf8_lossy(f.contents()).into_owned(),
+            )
+        });
     Catalog::from_files(files)
 }
 
@@ -101,7 +109,10 @@ pub fn load_dir(dir: &Path) -> (Catalog, Vec<DataError>) {
             match std::fs::read_to_string(&path) {
                 Ok(text) => Some((name, text)),
                 Err(e) => {
-                    read_errors.push(DataError { file: name, message: e.to_string() });
+                    read_errors.push(DataError {
+                        file: name,
+                        message: e.to_string(),
+                    });
                     None
                 }
             }
@@ -125,7 +136,10 @@ mod tests {
 
     #[test]
     fn finds_apps_by_platform_id() {
-        let (catalog, errors) = Catalog::from_files([("a.toml", file("A", "com.a")), ("b.toml", file("B", "com.b"))]);
+        let (catalog, errors) = Catalog::from_files([
+            ("a.toml", file("A", "com.a")),
+            ("b.toml", file("B", "com.b")),
+        ]);
         assert!(errors.is_empty());
         assert_eq!(catalog.len(), 2);
         let ids = vec!["com.x".to_string(), "com.b".to_string()];

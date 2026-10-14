@@ -123,20 +123,98 @@ impl Key {
         let text = match self {
             Key::Char(c) => return c.to_string(),
             Key::F(n) => return format!("F{n}"),
-            Key::Up => if mac { "↑" } else { "Up" },
-            Key::Down => if mac { "↓" } else { "Down" },
-            Key::Left => if mac { "←" } else { "Left" },
-            Key::Right => if mac { "→" } else { "Right" },
-            Key::Enter => if mac { "↩" } else { "Enter" },
-            Key::Tab => if mac { "⇥" } else { "Tab" },
+            Key::Up => {
+                if mac {
+                    "↑"
+                } else {
+                    "Up"
+                }
+            }
+            Key::Down => {
+                if mac {
+                    "↓"
+                } else {
+                    "Down"
+                }
+            }
+            Key::Left => {
+                if mac {
+                    "←"
+                } else {
+                    "Left"
+                }
+            }
+            Key::Right => {
+                if mac {
+                    "→"
+                } else {
+                    "Right"
+                }
+            }
+            Key::Enter => {
+                if mac {
+                    "↩"
+                } else {
+                    "Enter"
+                }
+            }
+            Key::Tab => {
+                if mac {
+                    "⇥"
+                } else {
+                    "Tab"
+                }
+            }
             Key::Space => "Space",
-            Key::Backspace => if mac { "⌫" } else { "Backspace" },
-            Key::Delete => if mac { "⌦" } else { "Delete" },
-            Key::Escape => if mac { "⎋" } else { "Esc" },
-            Key::Home => if mac { "↖" } else { "Home" },
-            Key::End => if mac { "↘" } else { "End" },
-            Key::PageUp => if mac { "⇞" } else { "PgUp" },
-            Key::PageDown => if mac { "⇟" } else { "PgDn" },
+            Key::Backspace => {
+                if mac {
+                    "⌫"
+                } else {
+                    "Backspace"
+                }
+            }
+            Key::Delete => {
+                if mac {
+                    "⌦"
+                } else {
+                    "Delete"
+                }
+            }
+            Key::Escape => {
+                if mac {
+                    "⎋"
+                } else {
+                    "Esc"
+                }
+            }
+            Key::Home => {
+                if mac {
+                    "↖"
+                } else {
+                    "Home"
+                }
+            }
+            Key::End => {
+                if mac {
+                    "↘"
+                } else {
+                    "End"
+                }
+            }
+            Key::PageUp => {
+                if mac {
+                    "⇞"
+                } else {
+                    "PgUp"
+                }
+            }
+            Key::PageDown => {
+                if mac {
+                    "⇟"
+                } else {
+                    "PgDn"
+                }
+            }
         };
         text.to_string()
     }
@@ -263,7 +341,11 @@ impl Chord {
 
     pub fn display(&self, os: Os) -> String {
         let caps = self.caps(os);
-        if os == Os::MacOS { caps.concat() } else { caps.join("+") }
+        if os == Os::MacOS {
+            caps.concat()
+        } else {
+            caps.join("+")
+        }
     }
 }
 
@@ -292,7 +374,11 @@ impl Shortcut {
     }
 
     pub fn display(&self, os: Os) -> String {
-        self.0.iter().map(|c| c.display(os)).collect::<Vec<_>>().join(" ")
+        self.0
+            .iter()
+            .map(|c| c.display(os))
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// 供搜索使用的小写文字：显示形式加上修饰键和特殊键的英文名。
@@ -341,22 +427,40 @@ mod tests {
     #[test]
     fn display_follows_platform_conventions() {
         assert_eq!(chord("Mod+Shift+P", Os::MacOS).display(Os::MacOS), "⇧⌘P");
-        assert_eq!(chord("Mod+Shift+P", Os::Windows).display(Os::Windows), "Ctrl+Shift+P");
-        assert_eq!(chord("Ctrl+Alt+Shift+Cmd+K", Os::MacOS).display(Os::MacOS), "⌃⌥⇧⌘K");
+        assert_eq!(
+            chord("Mod+Shift+P", Os::Windows).display(Os::Windows),
+            "Ctrl+Shift+P"
+        );
+        assert_eq!(
+            chord("Ctrl+Alt+Shift+Cmd+K", Os::MacOS).display(Os::MacOS),
+            "⌃⌥⇧⌘K"
+        );
         assert_eq!(chord("Option+Up", Os::MacOS).display(Os::MacOS), "⌥↑");
-        assert_eq!(chord("Super+Left", Os::Linux).display(Os::Linux), "Super+Left");
+        assert_eq!(
+            chord("Super+Left", Os::Linux).display(Os::Linux),
+            "Super+Left"
+        );
         assert_eq!(chord("Win+E", Os::Windows).display(Os::Windows), "Win+E");
     }
 
     #[test]
     fn caps_split_modifiers_and_key() {
-        assert_eq!(chord("Mod+Shift+P", Os::MacOS).caps(Os::MacOS), ["⇧", "⌘", "P"]);
-        assert_eq!(chord("Mod+Enter", Os::Windows).caps(Os::Windows), ["Ctrl", "Enter"]);
+        assert_eq!(
+            chord("Mod+Shift+P", Os::MacOS).caps(Os::MacOS),
+            ["⇧", "⌘", "P"]
+        );
+        assert_eq!(
+            chord("Mod+Enter", Os::Windows).caps(Os::Windows),
+            ["Ctrl", "Enter"]
+        );
     }
 
     #[test]
     fn parsing_is_case_insensitive_and_accepts_aliases() {
-        assert_eq!(chord("cmd+shift+p", Os::MacOS), chord("Command+Shift+P", Os::MacOS));
+        assert_eq!(
+            chord("cmd+shift+p", Os::MacOS),
+            chord("Command+Shift+P", Os::MacOS)
+        );
         assert_eq!(chord("Opt+Z", Os::MacOS), chord("Alt+Z", Os::MacOS));
         assert_eq!(chord("Esc", Os::MacOS).key, Key::Escape);
         assert_eq!(chord("Return", Os::MacOS).key, Key::Enter);
@@ -374,14 +478,26 @@ mod tests {
     fn invalid_combinations_are_rejected() {
         use KeyParseError::*;
         assert_eq!(Chord::parse("", Os::MacOS), Err(Empty));
-        assert_eq!(Chord::parse("Mod+Shft+P", Os::MacOS), Err(Unknown("Shft".into())));
-        assert_eq!(Chord::parse("Mod+Shift", Os::MacOS), Err(NoKey("Mod+Shift".into())));
-        assert_eq!(Chord::parse("A+B", Os::MacOS), Err(MultipleKeys("A+B".into())));
+        assert_eq!(
+            Chord::parse("Mod+Shft+P", Os::MacOS),
+            Err(Unknown("Shft".into()))
+        );
+        assert_eq!(
+            Chord::parse("Mod+Shift", Os::MacOS),
+            Err(NoKey("Mod+Shift".into()))
+        );
+        assert_eq!(
+            Chord::parse("A+B", Os::MacOS),
+            Err(MultipleKeys("A+B".into()))
+        );
         assert_eq!(
             Chord::parse("Cmd+Cmd+A", Os::MacOS),
             Err(DuplicateModifier("Cmd+Cmd+A".into(), "Cmd".into()))
         );
-        assert_eq!(Chord::parse("Mod++", Os::MacOS), Err(Unknown("Mod++".into())));
+        assert_eq!(
+            Chord::parse("Mod++", Os::MacOS),
+            Err(Unknown("Mod++".into()))
+        );
         assert_eq!(Chord::parse("F25", Os::MacOS), Err(Unknown("F25".into())));
     }
 
@@ -390,7 +506,10 @@ mod tests {
         let s = Shortcut::parse_seq(&["Mod+K", "Mod+S"], Os::MacOS).unwrap();
         assert_eq!(s.display(Os::MacOS), "⌘K ⌘S");
         assert_eq!(s.chords().len(), 2);
-        assert_eq!(Shortcut::parse_seq::<&str>(&[], Os::MacOS), Err(KeyParseError::Empty));
+        assert_eq!(
+            Shortcut::parse_seq::<&str>(&[], Os::MacOS),
+            Err(KeyParseError::Empty)
+        );
     }
 
     #[test]

@@ -3,7 +3,9 @@
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
-use keylens_core::{AppInfo, Entry, EntryId, KeyEvent, Modifiers, ShortcutSource, SourceError, Trigger};
+use keylens_core::{
+    AppInfo, Entry, EntryId, KeyEvent, Modifiers, ShortcutSource, SourceError, Trigger,
+};
 
 use crate::{KeyEventGuard, PermissionState, Platform, PlatformError};
 
@@ -103,7 +105,10 @@ impl Platform for FakePlatform {
     }
 
     fn default_trigger(&self) -> Trigger {
-        Trigger::HoldModifier { key: Modifiers::META, delay: Trigger::DEFAULT_HOLD_DELAY }
+        Trigger::HoldModifier {
+            key: Modifiers::META,
+            delay: Trigger::DEFAULT_HOLD_DELAY,
+        }
     }
 }
 
@@ -114,7 +119,10 @@ mod tests {
 
     fn entry(index: u32, enabled: bool) -> Entry {
         Entry {
-            id: EntryId { source: EntrySource::Menu, index },
+            id: EntryId {
+                source: EntrySource::Menu,
+                index,
+            },
             group: "文件".into(),
             path: vec![],
             title: "保存".into(),
@@ -128,15 +136,28 @@ mod tests {
     fn records_executed_entries_and_refuses_disabled_ones() {
         let platform = FakePlatform::default();
         platform.execute(&entry(0, true)).unwrap();
-        assert!(matches!(platform.execute(&entry(1, false)), Err(PlatformError::Disabled)));
-        assert_eq!(platform.executed(), [EntryId { source: EntrySource::Menu, index: 0 }]);
+        assert!(matches!(
+            platform.execute(&entry(1, false)),
+            Err(PlatformError::Disabled)
+        ));
+        assert_eq!(
+            platform.executed(),
+            [EntryId {
+                source: EntrySource::Menu,
+                index: 0
+            }]
+        );
     }
 
     #[test]
     fn menu_source_returns_configured_entries() {
         let platform = FakePlatform::default();
         platform.set_menu(vec![entry(0, true)]);
-        let app = AppInfo { pid: 1, name: "Demo".into(), ids: vec![] };
+        let app = AppInfo {
+            pid: 1,
+            name: "Demo".into(),
+            ids: vec![],
+        };
         assert_eq!(platform.menu_source().load(&app).unwrap().len(), 1);
     }
 
@@ -146,7 +167,10 @@ mod tests {
         let (tx, rx) = std::sync::mpsc::channel();
         let guard = platform.start_key_events(tx).unwrap();
         platform.send_key(KeyEvent::ModifiersChanged(Modifiers::META));
-        assert_eq!(rx.try_recv().unwrap(), KeyEvent::ModifiersChanged(Modifiers::META));
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            KeyEvent::ModifiersChanged(Modifiers::META)
+        );
         drop(guard);
         platform.send_key(KeyEvent::KeyDown);
         assert!(rx.try_recv().is_err());

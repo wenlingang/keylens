@@ -35,7 +35,11 @@ pub fn collect(app: AppInfo, sources: &[&dyn ShortcutSource]) -> AppShortcuts {
             Err(error) => warnings.push(error),
         }
     }
-    AppShortcuts { app, groups: group_entries(merge(loaded)), warnings }
+    AppShortcuts {
+        app,
+        groups: group_entries(merge(loaded)),
+        warnings,
+    }
 }
 
 #[cfg(test)]
@@ -53,7 +57,11 @@ mod tests {
     }
 
     fn app() -> AppInfo {
-        AppInfo { pid: 1, name: "Demo".into(), ids: vec!["com.example.demo".into()] }
+        AppInfo {
+            pid: 1,
+            name: "Demo".into(),
+            ids: vec!["com.example.demo".into()],
+        }
     }
 
     fn entry(source: EntrySource, title: &str, keys: &str) -> Entry {
