@@ -1,0 +1,13 @@
+[package]
+name = "ax-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# 独立项目，不属于根 workspace
+[workspace]
+
+[dependencies]
+objc2-core-foundation = "0.3.2"
+objc2-application-services = "0.3.2"
+objc2-core-graphics = "0.3.2"

@@ -1,0 +1,12 @@
+[package]
+name = "panel-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+gpui-kit = "0.7.3"
+objc2-core-foundation = "0.3.2"
+objc2-core-graphics = "0.3.2"
