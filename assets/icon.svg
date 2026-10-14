@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A3D44"/>
+      <stop offset="1" stop-color="#1D1F23"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4A4E57"/>
+      <stop offset="1" stop-color="#2C2F35"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#body)"/>
+  <rect x="170" y="150" width="684" height="660" rx="130" fill="url(#face)"/>
+  <text x="512" y="595" text-anchor="middle" dominant-baseline="central"
+        font-family="Apple Symbols, Menlo, sans-serif" font-size="420" fill="#FFFFFF">⌘</text>
+</svg>
