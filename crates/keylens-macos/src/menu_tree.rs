@@ -1,6 +1,8 @@
 //! 菜单树遍历。通过 `MenuNode` trait 和具体的 AX 实现解耦，可以用假数据测试。
 
-use keylens_core::{Entry, EntryId, EntrySource, Shortcut};
+use std::time::Instant;
+
+use keylens_core::{Entry, EntryId, EntrySource, Shortcut, SourceError};
 
 use crate::convert::menu_chord;
 
@@ -15,9 +17,11 @@ pub struct ItemInfo {
     pub cmd_modifiers: Option<i64>,
 }
 
+/// 菜单节点。读取失败（尤其是超时）时返回错误，遍历会立即中止，
+/// 而不是把失败的节点当成空节点继续，否则一次读取可能拖到几十秒且看不出失败。
 pub trait MenuNode: Sized {
-    fn info(&self) -> ItemInfo;
-    fn children(&self) -> Vec<Self>;
+    fn info(&self) -> Result<ItemInfo, SourceError>;
+    fn children(&self) -> Result<Vec<Self>, SourceError>;
 }
 
 /// 一次菜单读取的结果。`handles[i]` 是 `entries[i]` 对应的菜单元素。
@@ -27,83 +31,114 @@ pub struct MenuRead<N> {
 }
 
 /// 遍历菜单栏，收集有快捷键的菜单项。第一个顶层菜单（苹果菜单）跳过。
-pub fn collect<N: MenuNode>(menu_bar: &N, snapshot: u64) -> MenuRead<N> {
-    let mut read = MenuRead {
-        entries: Vec::new(),
-        handles: Vec::new(),
+/// 任何节点出错，或者超过 `deadline`，整次读取都失败。
+pub fn collect<N: MenuNode>(
+    menu_bar: &N,
+    snapshot: u64,
+    deadline: Instant,
+) -> Result<MenuRead<N>, SourceError> {
+    let mut walker = Walker {
+        snapshot,
+        deadline,
+        read: MenuRead {
+            entries: Vec::new(),
+            handles: Vec::new(),
+        },
     };
-    for top in menu_bar.children().into_iter().skip(1) {
-        let group = top.info().title;
+    for top in walker.check(menu_bar.children())?.into_iter().skip(1) {
+        let group = walker.check(top.info())?.title;
         let mut path = Vec::new();
-        for child in top.children() {
-            walk(child, &group, &mut path, snapshot, &mut read);
+        for child in walker.check(top.children())? {
+            walker.walk(child, &group, &mut path)?;
         }
     }
-    read
+    Ok(walker.read)
 }
 
-fn walk<N: MenuNode>(
-    node: N,
-    group: &str,
-    path: &mut Vec<String>,
+struct Walker<N> {
     snapshot: u64,
-    read: &mut MenuRead<N>,
-) {
-    let info = node.info();
-    if info.role != "AXMenuItem" {
-        for child in node.children() {
-            walk(child, group, path, snapshot, read);
+    deadline: Instant,
+    read: MenuRead<N>,
+}
+
+impl<N: MenuNode> Walker<N> {
+    /// 透传结果，并在超过总时限时返回超时。
+    fn check<T>(&self, result: Result<T, SourceError>) -> Result<T, SourceError> {
+        let value = result?;
+        if Instant::now() >= self.deadline {
+            return Err(SourceError::Timeout);
         }
-        return;
+        Ok(value)
     }
-    let children = node.children();
-    if !children.is_empty() {
-        path.push(info.title.clone());
-        for child in children {
-            walk(child, group, path, snapshot, read);
+
+    fn walk(&mut self, node: N, group: &str, path: &mut Vec<String>) -> Result<(), SourceError> {
+        let info = self.check(node.info())?;
+        let children = self.check(node.children())?;
+        if info.role != "AXMenuItem" {
+            for child in children {
+                self.walk(child, group, path)?;
+            }
+            return Ok(());
         }
-        path.pop();
+        if !children.is_empty() {
+            path.push(info.title.clone());
+            for child in children {
+                self.walk(child, group, path)?;
+            }
+            path.pop();
+        }
+        if info.title.is_empty() {
+            return Ok(());
+        }
+        let Some(chord) = menu_chord(info.cmd_char.as_deref(), info.cmd_vkey, info.cmd_modifiers)
+        else {
+            return Ok(());
+        };
+        let index = self.read.entries.len() as u32;
+        self.read.entries.push(Entry {
+            id: EntryId {
+                source: EntrySource::Menu,
+                snapshot: self.snapshot,
+                index,
+            },
+            group: group.to_string(),
+            path: path.clone(),
+            title: info.title,
+            search_terms: Vec::new(),
+            shortcut: Shortcut::single(chord),
+            enabled: info.enabled,
+        });
+        self.read.handles.push(node);
+        Ok(())
     }
-    if info.title.is_empty() {
-        return;
-    }
-    let Some(chord) = menu_chord(info.cmd_char.as_deref(), info.cmd_vkey, info.cmd_modifiers)
-    else {
-        return;
-    };
-    read.entries.push(Entry {
-        id: EntryId {
-            source: EntrySource::Menu,
-            snapshot,
-            index: read.entries.len() as u32,
-        },
-        group: group.to_string(),
-        path: path.clone(),
-        title: info.title,
-        search_terms: Vec::new(),
-        shortcut: Shortcut::single(chord),
-        enabled: info.enabled,
-    });
-    read.handles.push(node);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use keylens_core::Os;
+    use keylens_core::{Os, SourceError};
+    use std::time::{Duration, Instant};
+
+    fn later() -> Instant {
+        Instant::now() + Duration::from_secs(60)
+    }
 
     #[derive(Clone, Debug, PartialEq)]
     struct Node {
         info: ItemInfo,
         children: Vec<Node>,
+        error: Option<SourceError>,
     }
 
     impl MenuNode for Node {
-        fn info(&self) -> ItemInfo {
-            self.info.clone()
+        fn info(&self) -> Result<ItemInfo, SourceError> {
+            match &self.error {
+                Some(e) => Err(e.clone()),
+                None => Ok(self.info.clone()),
+            }
         }
-        fn children(&self) -> Vec<Node> {
-            self.children.clone()
+        fn children(&self) -> Result<Vec<Node>, SourceError> {
+            Ok(self.children.clone())
         }
     }
 
@@ -116,6 +151,7 @@ mod tests {
                 ..ItemInfo::default()
             },
             children,
+            error: None,
         }
     }
 
@@ -167,7 +203,7 @@ mod tests {
 
     #[test]
     fn collects_items_with_shortcuts_and_skips_the_apple_menu() {
-        let read = collect(&sample(), 7);
+        let read = collect(&sample(), 7, later()).unwrap();
         let summary: Vec<_> = read
             .entries
             .iter()
@@ -194,7 +230,7 @@ mod tests {
 
     #[test]
     fn ids_carry_snapshot_and_match_handles() {
-        let read = collect(&sample(), 7);
+        let read = collect(&sample(), 7, later()).unwrap();
         assert_eq!(read.entries.len(), read.handles.len());
         for (i, entry) in read.entries.iter().enumerate() {
             assert_eq!(
@@ -211,14 +247,38 @@ mod tests {
 
     #[test]
     fn disabled_state_is_kept() {
-        let read = collect(&sample(), 1);
+        let read = collect(&sample(), 1, later()).unwrap();
         let copy = read.entries.iter().find(|e| e.title == "拷贝").unwrap();
         assert!(!copy.enabled);
     }
 
     #[test]
     fn empty_menu_bar_yields_nothing() {
-        let read = collect(&node("AXMenuBar", "", vec![]), 1);
+        let read = collect(&node("AXMenuBar", "", vec![]), 1, later()).unwrap();
         assert!(read.entries.is_empty());
+    }
+
+    #[test]
+    fn a_timeout_anywhere_aborts_the_whole_read() {
+        let mut stuck = item("卡住", "K", 0);
+        stuck.error = Some(SourceError::Timeout);
+        let bar = node(
+            "AXMenuBar",
+            "",
+            vec![
+                bar_item("Apple", vec![]),
+                bar_item("文件", vec![item("新建", "N", 0), stuck]),
+            ],
+        );
+        assert_eq!(collect(&bar, 1, later()).err(), Some(SourceError::Timeout));
+    }
+
+    #[test]
+    fn exceeding_the_overall_deadline_is_a_timeout() {
+        let past = Instant::now() - Duration::from_millis(1);
+        assert_eq!(
+            collect(&sample(), 1, past).err(),
+            Some(SourceError::Timeout)
+        );
     }
 }

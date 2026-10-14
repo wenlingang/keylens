@@ -141,7 +141,10 @@ mod tests {
         store.store(100, trigger, vec!["new"]);
         store.store(100, prefetch, vec!["old"]);
         assert_eq!(store.handle(&entry(trigger, 0)).unwrap(), "new");
-        assert!(matches!(store.handle(&entry(prefetch, 0)), Err(PlatformError::Stale)));
+        assert!(matches!(
+            store.handle(&entry(prefetch, 0)),
+            Err(PlatformError::Stale)
+        ));
     }
 
     #[test]
