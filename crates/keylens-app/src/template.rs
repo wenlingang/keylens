@@ -20,8 +20,7 @@ pub fn user_data_template(app: &AppInfo) -> Option<(String, String)> {
     let id = toml_string(id);
     let text = format!(
         "# Keylens shortcuts for {name}.\n\
-         # Save this file, then restart Keylens (menu bar ⌘ › Quit Keylens, then open it again)\n\
-         # to load your changes.\n\
+         # Changes take effect automatically a moment after you save this file.\n\
          #\n\
          # Keys: modifiers Mod (⌘ on macOS), Cmd, Ctrl, Alt/Option, Shift, Fn joined with \"+\",\n\
          # e.g. \"Mod+Shift+P\"; a sequence is an array: [\"Mod+K\", \"Mod+S\"].\n\
@@ -106,9 +105,10 @@ mod tests {
     }
 
     #[test]
-    fn template_tells_the_user_to_restart_and_explains_the_format() {
+    fn template_says_changes_apply_on_save_and_explains_the_format() {
         let (_, text) = user_data_template(&app(&["notion.id"])).unwrap();
-        assert!(text.contains("restart Keylens"), "{text}");
+        assert!(text.contains("take effect automatically"), "{text}");
+        assert!(!text.contains("restart"), "{text}");
         assert!(text.contains("Mod"), "{text}");
         assert!(!text.contains("CONTRIBUTING"), "{text}");
     }

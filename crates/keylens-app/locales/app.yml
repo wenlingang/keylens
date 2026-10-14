@@ -120,6 +120,12 @@ Panel:
     zh-TW: "應用程式沒有回應，請稍後再試。"
     zh-HK: "應用程式沒有回應，請稍後再試。"
     ja: "アプリが応答しませんでした。しばらくしてからもう一度お試しください。"
+  edit_shortcuts:
+    en: "Edit shortcuts"
+    zh-CN: "编辑快捷键"
+    zh-TW: "編輯快速鍵"
+    zh-HK: "編輯快速鍵"
+    ja: "ショートカットを編集"
 Tray:
   permission_ok:
     en: "Accessibility: allowed"
@@ -139,6 +145,12 @@ Tray:
     zh-TW: "打開快速鍵資料夾"
     zh-HK: "打開快速鍵資料夾"
     ja: "ショートカットデータのフォルダを開く"
+  edit_current:
+    en: "Edit Shortcuts for the Current App"
+    zh-CN: "编辑当前应用的快捷键"
+    zh-TW: "編輯目前應用程式的快速鍵"
+    zh-HK: "編輯目前應用程式的快速鍵"
+    ja: "現在のアプリのショートカットを編集"
   data_errors:
     en: "Data files with errors: %{count}"
     zh-CN: "%{count} 个数据文件有错误"

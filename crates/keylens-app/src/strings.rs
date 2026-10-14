@@ -19,11 +19,13 @@ pub const KEYS: &[&str] = &[
     "Panel.perm_hint",
     "Panel.open_settings",
     "Panel.add_shortcuts",
+    "Panel.edit_shortcuts",
     "Panel.unreadable_title",
     "Panel.unreadable_body",
     "Tray.permission_ok",
     "Tray.permission_missing",
     "Tray.open_data",
+    "Tray.edit_current",
     "Tray.data_errors",
     "Tray.quit",
 ];
