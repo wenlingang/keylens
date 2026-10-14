@@ -4,7 +4,7 @@
 
 Long-press ⌘ to see every keyboard shortcut of the current app — search them, or run them right away. Open source, cross-platform, with community-maintained shortcut data. Built with [gpui-kit](https://github.com/longbridge/gpui-kit).
 
-> **Status:** v0.1, macOS (Apple Silicon) only for now. Windows and Linux are on the roadmap.
+> **Status:** v0.1, macOS only for now (universal build for Apple Silicon and Intel; the Intel build has not been verified on real hardware). Windows and Linux are on the roadmap.
 
 ## Features
 
@@ -16,7 +16,17 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 - **Localized UI**: Simplified Chinese, English, Traditional Chinese and Japanese, following the system language by default.
 - **Dark / light** appearance follows the system.
 
-## Build and run (development)
+## Install
+
+1. Download the latest `Keylens-X.Y.Z.dmg` from [Releases](https://github.com/wenlingang/keylens/releases) and drag **Keylens** into Applications. Do not run it directly from inside the dmg.
+2. Keylens is not notarized by Apple, so macOS blocks it the first time you open it. Allow it in either way:
+   - Open System Settings › Privacy & Security and click **Open Anyway** at the bottom;
+   - or run in a terminal: `xattr -dr com.apple.quarantine /Applications/Keylens.app`
+3. Follow the prompt and turn on Keylens under System Settings › Privacy & Security › Accessibility. It takes effect immediately after you grant it. Upgrading by replacing the app later does not require granting it again.
+
+Requires macOS 11 or later. Universal build (Apple Silicon + Intel); so far it has only been verified on macOS 26 (Apple Silicon), and the Intel build has not been verified on real hardware.
+
+## Build from source
 
 Requires a Rust toolchain that supports edition 2024. So far it has only been verified on macOS 26 (Apple Silicon).
 

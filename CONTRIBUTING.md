@@ -37,3 +37,16 @@ Data lives in `data/apps/`, one TOML file per app, licensed CC0.
 - When platforms differ: `{ default = "Alt+Up", macos = "Option+Up" }`
 
 If your editor has the Even Better TOML extension, the `#:schema ../schema.json` line at the top of each file provides completion and validation.
+
+## Releasing
+
+Releases are built by `.github/workflows/release.yml` and signed with the self-signed "Keylens Release"
+certificate stored in the `RELEASE_CERT_P12` / `RELEASE_CERT_PASSWORD` secrets. Never replace that
+certificate: users would have to re-grant Accessibility permission. The one-time setup is `scripts/release-cert.sh`.
+
+1. Bump `version` in `crates/keylens-app/Cargo.toml`, run `cargo check` to update `Cargo.lock`, and commit.
+2. Optional dry run: Actions › Release › Run workflow, then download the `keylens-dmg` artifact.
+3. `git tag vX.Y.Z && git push origin vX.Y.Z`. CI checks the tag matches the Cargo version,
+   runs the tests, packages, verifies and publishes the release.
+
+To package locally with your development certificate: `scripts/package.sh --identity "Keylens Development"`.
