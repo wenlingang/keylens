@@ -28,6 +28,8 @@ pub const KEY_CONTEXT: &str = "Keylens";
 
 const COLUMN_WIDTH: f32 = 300.0;
 const ROW_HEIGHT: f32 = 26.0;
+/// Space above and below the columns of rows.
+const LIST_PADDING: f32 = 8.0;
 const HEADER_HEIGHT: f32 = 24.0;
 /// Total height of the top and bottom bars, used to estimate the visible list height.
 const CHROME_HEIGHT: f32 = 100.0;
@@ -201,16 +203,17 @@ impl PanelView {
     /// Top and bottom bounds (pixels) of the selected row within its column.
     fn selected_bounds(&self) -> Option<(f32, f32)> {
         let (c, r) = self.model.selected()?;
-        let top: f32 = self.model.layout()[c][..r]
-            .iter()
-            .map(|row| {
-                if matches!(row, Row::Header { .. }) {
-                    HEADER_HEIGHT
-                } else {
-                    ROW_HEIGHT
-                }
-            })
-            .sum();
+        let top: f32 = LIST_PADDING
+            + self.model.layout()[c][..r]
+                .iter()
+                .map(|row| {
+                    if matches!(row, Row::Header { .. }) {
+                        HEADER_HEIGHT
+                    } else {
+                        ROW_HEIGHT
+                    }
+                })
+                .sum::<f32>();
         Some((top, top + ROW_HEIGHT))
     }
 
@@ -219,7 +222,14 @@ impl PanelView {
             return;
         };
         let scrolled = -f32::from(self.scroll.offset().y);
-        if let Some(target) = scroll_target(top, bottom, scrolled, self.viewport) {
+        // Use the real height of the scroll area once laid out; before that, the estimate.
+        let measured = f32::from(self.scroll.bounds().size.height);
+        let viewport = if measured > 0.0 {
+            measured
+        } else {
+            self.viewport
+        };
+        if let Some(target) = scroll_target(top, bottom, scrolled, viewport) {
             self.scroll.set_offset(point(px(0.), px(-target)));
         }
     }
@@ -426,7 +436,12 @@ impl PanelView {
                 cx,
             );
         }
-        let mut columns = h_flex().items_start().gap_2().px_2().py_2();
+        let mut columns = h_flex()
+            .items_start()
+            .gap_2()
+            .px_2()
+            .pt(px(LIST_PADDING))
+            .pb(px(LIST_PADDING));
         for (c, column) in self.model.layout().iter().enumerate() {
             let mut col = v_flex().flex_1().min_w_0();
             for r in 0..column.len() {
@@ -670,6 +685,22 @@ mod tests {
             })
             .unwrap();
         assert_eq!(title.as_deref(), Some("新建"));
+    }
+
+    #[gpui_kit::test]
+    fn selected_row_bounds_include_the_list_padding(cx: &mut TestAppContext) {
+        let (window, _) = setup(cx);
+        let bounds = window
+            .update(cx, |view, _, _| view.selected_bounds())
+            .unwrap();
+        // Padding, then the "文件" header, then the first row.
+        assert_eq!(
+            bounds,
+            Some((
+                LIST_PADDING + HEADER_HEIGHT,
+                LIST_PADDING + HEADER_HEIGHT + ROW_HEIGHT
+            ))
+        );
     }
 
     #[gpui_kit::test]
