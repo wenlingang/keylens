@@ -9,7 +9,7 @@ use keylens_core::{AppInfo, AppShortcuts, Entry, KeyEvent, TriggerAction, Trigge
 use keylens_platform::{ListenGuard, PermissionState, Platform};
 
 use crate::loader::{Cache, Freshness, Loader};
-use crate::permission::{PermissionChange, PermissionWatch};
+use crate::permission::{PermissionAction, PermissionWatch};
 use crate::session::{Effect, Session};
 use crate::view::{PanelEvent, PanelView};
 use crate::{config, template};
@@ -43,6 +43,8 @@ pub struct Keylens {
     permission_task: Option<Task<()>>,
     on_permission: Option<Box<dyn Fn(bool)>>,
     guards: Vec<ListenGuard>,
+    /// Whether the key listener is running (it can fail to start right after a grant).
+    listening: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -74,6 +76,7 @@ impl Keylens {
             permission_task: None,
             on_permission: None,
             guards: Vec::new(),
+            listening: false,
             _subscriptions: vec![on_panel],
         }
     }
@@ -88,43 +91,60 @@ impl Keylens {
             let mut watch = PermissionWatch::default();
             loop {
                 // The controller is gone: stop watching.
-                let Ok(change) = this.update(cx, |this, _| {
-                    watch.update(this.platform.permission() == PermissionState::Granted)
+                let Ok(actions) = this.update(cx, |this, _| {
+                    let granted = this.platform.permission() == PermissionState::Granted;
+                    watch.step(granted, this.listening)
                 }) else {
                     break;
                 };
-                if let Some(change) = change
-                    && this
-                        .update(cx, |this, cx| this.on_permission_change(change, cx))
+                for action in actions {
+                    if this
+                        .update(cx, |this, cx| this.on_permission_action(action, cx))
                         .is_err()
-                {
-                    break;
+                    {
+                        return;
+                    }
                 }
                 cx.background_executor().timer(PERMISSION_POLL).await;
             }
         }));
     }
 
-    fn on_permission_change(&mut self, change: PermissionChange, cx: &mut Context<Self>) {
-        let granted = change == PermissionChange::Granted;
-        tracing::info!(granted, "accessibility permission changed");
-        if let Some(listener) = &self.on_permission {
-            listener(granted);
-        }
-        match change {
-            PermissionChange::Granted => {
-                // Fresh listeners: an event tap created before the permission was granted
-                // (or before it was revoked) never receives events again.
-                self.guards.clear();
-                self.start_listening(cx);
-                if self.session.visible() && self.session.target().is_none() {
-                    self.hide(cx);
-                }
-            }
-            PermissionChange::Revoked => {
-                self.guards.clear();
+    fn on_permission_action(&mut self, action: PermissionAction, cx: &mut Context<Self>) {
+        match action {
+            PermissionAction::Revoked => {
+                tracing::info!("accessibility permission missing or revoked");
+                self.stop_listening();
+                // A pending long-press must not show an app panel over the guide.
+                self.detector = TriggerDetector::new(self.platform.default_trigger());
+                self.tick = None;
+                self.notify_permission(false);
                 self.show_permission_page(cx);
             }
+            PermissionAction::StartListening => {
+                // Fresh listeners: an event tap created before the permission was granted
+                // (or before it was revoked) never receives events again.
+                self.stop_listening();
+                if self.start_listening(cx) {
+                    tracing::info!("accessibility permission granted; listening");
+                    self.notify_permission(true);
+                    if self.session.visible() && self.session.target().is_none() {
+                        self.hide(cx);
+                    }
+                }
+            }
+        }
+    }
+
+    fn stop_listening(&mut self) {
+        self.guards.clear();
+        self.listening = false;
+    }
+
+    /// The menu bar icon reflects whether Keylens actually listens, not just the permission flag.
+    fn notify_permission(&self, ok: bool) {
+        if let Some(listener) = &self.on_permission {
+            listener(ok);
         }
     }
 
@@ -134,16 +154,18 @@ impl Keylens {
 
     // ---- Event sources ----
 
-    fn start_listening(&mut self, cx: &mut Context<Self>) {
+    /// Starts the key listener and the frontmost-app watcher. Returns whether the key listener
+    /// started; on failure the permission watch retries on its next check.
+    fn start_listening(&mut self, cx: &mut Context<Self>) -> bool {
         let (key_tx, key_rx) = std::sync::mpsc::channel();
         match self.platform.start_key_events(key_tx) {
             Ok(guard) => self.guards.push(guard),
             Err(error) => {
-                // The next permission change retries.
-                tracing::warn!(%error, "cannot start the key listener");
-                return;
+                tracing::warn!(%error, "cannot start the key listener; will retry");
+                return false;
             }
         }
+        self.listening = true;
         let keys = bridge(key_rx);
         cx.spawn(async move |this, cx| {
             while let Ok(event) = keys.recv().await {
@@ -173,6 +195,7 @@ impl Keylens {
             })
             .detach();
         }
+        true
     }
 
     // ---- Trigger ----
