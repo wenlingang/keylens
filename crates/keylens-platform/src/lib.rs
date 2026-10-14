@@ -26,10 +26,10 @@ pub enum PlatformError {
     Other(String),
 }
 
-/// 按键监听的生命周期。drop 时停止监听。
-pub struct KeyEventGuard(#[allow(dead_code)] Box<dyn Any + Send>);
+/// 一个监听（按键事件、前台应用切换）的生命周期。drop 时停止监听。
+pub struct ListenGuard(#[allow(dead_code)] Box<dyn Any + Send>);
 
-impl KeyEventGuard {
+impl ListenGuard {
     pub fn new(inner: impl Any + Send) -> Self {
         Self(Box::new(inner))
     }
@@ -48,6 +48,11 @@ pub trait Platform: Send + Sync {
     /// 绝不能按 `index` 直接执行，否则可能点到别的菜单项。
     fn execute(&self, entry: &Entry) -> Result<(), PlatformError>;
     /// 开始把全局按键事件发送到 `tx`，直到返回的 guard 被 drop。
-    fn start_key_events(&self, tx: Sender<KeyEvent>) -> Result<KeyEventGuard, PlatformError>;
+    fn start_key_events(&self, tx: Sender<KeyEvent>) -> Result<ListenGuard, PlatformError>;
+    /// 前台应用切换时把新应用发送到 `tx`，直到返回的 guard 被 drop。
+    /// 界面层借此提前预读菜单：Electron 应用第一次读取约 900ms，超过长按时间。
+    fn watch_frontmost(&self, tx: Sender<AppInfo>) -> Result<ListenGuard, PlatformError>;
+    /// 应用图标（PNG 编码）。拿不到时返回 `None`，界面显示占位图标。
+    fn app_icon(&self, app: &AppInfo) -> Option<Vec<u8>>;
     fn default_trigger(&self) -> Trigger;
 }

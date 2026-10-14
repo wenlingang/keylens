@@ -7,9 +7,9 @@ use keylens_core::{
     AppInfo, Entry, EntryId, EntrySource, KeyEvent, Modifiers, ShortcutSource, SourceError, Trigger,
 };
 
-use crate::{KeyEventGuard, PermissionState, Platform, PlatformError};
+use crate::{ListenGuard, PermissionState, Platform, PlatformError};
 
-type KeySender = Arc<Mutex<Option<Sender<KeyEvent>>>>;
+type SharedSender<T> = Arc<Mutex<Option<Sender<T>>>>;
 
 /// 当前菜单和它的快照编号；每次 `set_menu` 编号加一，模拟一次新的菜单读取。
 #[derive(Default)]
@@ -23,7 +23,9 @@ pub struct FakePlatform {
     app: Mutex<Option<AppInfo>>,
     menu: Arc<Mutex<Menu>>,
     executed: Mutex<Vec<EntryId>>,
-    key_sender: KeySender,
+    key_sender: SharedSender<KeyEvent>,
+    app_sender: SharedSender<AppInfo>,
+    icon: Mutex<Option<Vec<u8>>>,
 }
 
 impl Default for FakePlatform {
@@ -34,6 +36,8 @@ impl Default for FakePlatform {
             menu: Arc::default(),
             executed: Mutex::default(),
             key_sender: Arc::default(),
+            app_sender: Arc::default(),
+            icon: Mutex::default(),
         }
     }
 }
@@ -43,8 +47,16 @@ impl FakePlatform {
         *self.permission.lock().unwrap() = state;
     }
 
+    /// 切换前台应用；正在监听时会把新应用发送出去。
     pub fn set_frontmost(&self, app: Option<AppInfo>) {
+        if let (Some(app), Some(tx)) = (&app, self.app_sender.lock().unwrap().as_ref()) {
+            let _ = tx.send(app.clone());
+        }
         *self.app.lock().unwrap() = app;
+    }
+
+    pub fn set_icon(&self, png: Option<Vec<u8>>) {
+        *self.icon.lock().unwrap() = png;
     }
 
     pub fn set_menu(&self, entries: Vec<Entry>) {
@@ -83,9 +95,9 @@ impl ShortcutSource for FakeMenu {
 }
 
 /// drop 时清空发送端，停止转发事件。
-struct StopOnDrop(KeySender);
+struct StopOnDrop<T>(SharedSender<T>);
 
-impl Drop for StopOnDrop {
+impl<T> Drop for StopOnDrop<T> {
     fn drop(&mut self) {
         self.0.lock().unwrap().take();
     }
@@ -118,12 +130,21 @@ impl Platform for FakePlatform {
         Ok(())
     }
 
-    fn start_key_events(&self, tx: Sender<KeyEvent>) -> Result<KeyEventGuard, PlatformError> {
+    fn start_key_events(&self, tx: Sender<KeyEvent>) -> Result<ListenGuard, PlatformError> {
         if self.permission() == PermissionState::Denied {
             return Err(PlatformError::PermissionDenied);
         }
         *self.key_sender.lock().unwrap() = Some(tx);
-        Ok(KeyEventGuard::new(StopOnDrop(self.key_sender.clone())))
+        Ok(ListenGuard::new(StopOnDrop(self.key_sender.clone())))
+    }
+
+    fn watch_frontmost(&self, tx: Sender<AppInfo>) -> Result<ListenGuard, PlatformError> {
+        *self.app_sender.lock().unwrap() = Some(tx);
+        Ok(ListenGuard::new(StopOnDrop(self.app_sender.clone())))
+    }
+
+    fn app_icon(&self, _: &AppInfo) -> Option<Vec<u8>> {
+        self.icon.lock().unwrap().clone()
     }
 
     fn default_trigger(&self) -> Trigger {
@@ -218,6 +239,37 @@ mod tests {
         drop(guard);
         platform.send_key(KeyEvent::KeyDown);
         assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn frontmost_changes_are_reported_until_the_guard_is_dropped() {
+        let platform = FakePlatform::default();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let guard = platform.watch_frontmost(tx).unwrap();
+        let app = AppInfo {
+            pid: 9,
+            name: "Slack".into(),
+            ids: vec!["com.tinyspeck.slackmacgap".into()],
+        };
+        platform.set_frontmost(Some(app.clone()));
+        assert_eq!(rx.try_recv().unwrap(), app);
+        assert_eq!(platform.frontmost_app(), Some(app.clone()));
+        drop(guard);
+        platform.set_frontmost(Some(app));
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn app_icon_returns_configured_png() {
+        let platform = FakePlatform::default();
+        let app = AppInfo {
+            pid: 9,
+            name: "Slack".into(),
+            ids: vec![],
+        };
+        assert_eq!(platform.app_icon(&app), None);
+        platform.set_icon(Some(vec![0x89, b'P', b'N', b'G']));
+        assert_eq!(platform.app_icon(&app), Some(vec![0x89, b'P', b'N', b'G']));
     }
 
     #[test]
