@@ -13,11 +13,12 @@ use objc2_core_foundation::{
     CFMachPort, CFRetained, CFRunLoop, kCFRunLoopCommonModes, kCFRunLoopDefaultMode,
 };
 use objc2_core_graphics::{
-    CGEvent, CGEventMask, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
+    CGEvent, CGEventField, CGEventMask, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
     CGEventTapProxy, CGEventType,
 };
 
 use crate::convert::event_modifiers;
+use crate::synthetic;
 
 /// Callback context, accessed only on the listener thread.
 struct Context {
@@ -61,6 +62,14 @@ unsafe extern "C-unwind" fn on_event(
         if let Some(port) = context.port.get() {
             CGEvent::tap_enable(port, true);
         }
+        return event.as_ptr();
+    }
+    // SAFETY: the event is valid for the duration of the callback.
+    let user_data = CGEvent::integer_value_field(
+        Some(unsafe { event.as_ref() }),
+        CGEventField::EventSourceUserData,
+    );
+    if synthetic::is_ours(user_data) {
         return event.as_ptr();
     }
     let key_event = if ty == CGEventType::FlagsChanged {

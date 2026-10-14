@@ -6,11 +6,12 @@ use std::time::Duration;
 use keylens_core::{Entry, Shortcut};
 use keylens_platform::PlatformError;
 use objc2_core_foundation::{CFPreferencesCopyAppValue, CFString};
-use objc2_core_graphics::{CGEvent, CGEventFlags, CGEventTapLocation};
+use objc2_core_graphics::{CGEvent, CGEventField, CGEventFlags, CGEventTapLocation};
 
 use crate::ax::{self, AxNode};
 use crate::convert::{keycode, modifier_flags, us_compatible_layout};
 use crate::snapshots::Snapshots;
+use crate::synthetic;
 
 /// After the panel closes, wait for focus to return to the target app before sending keys (300ms was enough in experiments; a smaller value is used here).
 const KEY_POST_DELAY: Duration = Duration::from_millis(80);
@@ -61,6 +62,11 @@ pub fn post_shortcut(shortcut: &Shortcut) -> Result<(), PlatformError> {
             let event = CGEvent::new_keyboard_event(None, code, down)
                 .ok_or_else(|| PlatformError::Other("cannot create keyboard event".into()))?;
             CGEvent::set_flags(Some(&event), flags);
+            CGEvent::set_integer_value_field(
+                Some(&event),
+                CGEventField::EventSourceUserData,
+                synthetic::MARK,
+            );
             CGEvent::post(CGEventTapLocation::HIDEventTap, Some(&event));
         }
     }

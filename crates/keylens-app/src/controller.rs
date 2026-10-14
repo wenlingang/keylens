@@ -5,9 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui_kit::*;
-use keylens_core::{
-    AppInfo, AppShortcuts, Entry, EntrySource, KeyEvent, TriggerAction, TriggerDetector,
-};
+use keylens_core::{AppInfo, AppShortcuts, Entry, KeyEvent, TriggerAction, TriggerDetector};
 use keylens_platform::{ListenGuard, PermissionState, Platform};
 
 use crate::loader::{Cache, Freshness, Loader};
@@ -15,8 +13,6 @@ use crate::view::{PanelEvent, PanelView};
 
 /// Number of cached apps (spec §5).
 const CACHE_CAPACITY: usize = 8;
-/// How long to ignore key events after executing a community entry, so our own synthesized key events don't confuse trigger detection.
-const IGNORE_KEYS_AFTER_SYNTHESIS: Duration = Duration::from_millis(600);
 const PERMISSION_POLL: Duration = Duration::from_secs(1);
 
 /// Platform-specific operations the controller needs; replaceable in tests.
@@ -39,7 +35,6 @@ pub struct Keylens {
     view: Entity<PanelView>,
     visible: bool,
     target: Option<AppInfo>,
-    ignore_keys_until: Option<Instant>,
     tick: Option<Task<()>>,
     permission_poll: Option<Task<()>>,
     on_permission: Option<Box<dyn Fn(bool)>>,
@@ -72,7 +67,6 @@ impl Keylens {
             view,
             visible: false,
             target: None,
-            ignore_keys_until: None,
             tick: None,
             permission_poll: None,
             on_permission: None,
@@ -172,9 +166,6 @@ impl Keylens {
 
     fn on_key_event(&mut self, event: KeyEvent, cx: &mut Context<Self>) {
         let now = Instant::now();
-        if self.ignore_keys_until.is_some_and(|until| now < until) {
-            return;
-        }
         if let Some(action) = self.detector.on_event(event, now) {
             self.on_trigger(action, cx);
         }
@@ -343,9 +334,6 @@ impl Keylens {
 
     fn execute(&mut self, entry: Entry, cx: &mut Context<Self>) {
         self.hide(cx);
-        if entry.source() != EntrySource::Menu {
-            self.ignore_keys_until = Some(Instant::now() + IGNORE_KEYS_AFTER_SYNTHESIS);
-        }
         let platform = self.platform.clone();
         let beep = self.native.beep;
         let title = entry.title.clone();

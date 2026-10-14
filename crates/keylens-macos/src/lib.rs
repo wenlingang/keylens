@@ -7,6 +7,7 @@ pub mod convert;
 pub mod geometry;
 pub mod menu_tree;
 pub mod snapshots;
+pub mod synthetic;
 
 #[cfg(target_os = "macos")]
 mod ax;
