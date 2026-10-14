@@ -5,3 +5,4 @@
 
 pub mod convert;
 pub mod menu_tree;
+pub mod snapshots;
