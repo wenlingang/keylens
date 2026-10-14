@@ -3,11 +3,15 @@
 use std::cell::OnceCell;
 use std::ffi::c_void;
 use std::ptr::NonNull;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Sender, channel};
 
 use keylens_core::KeyEvent;
 use keylens_platform::{ListenGuard, PlatformError};
-use objc2_core_foundation::{CFMachPort, CFRetained, CFRunLoop, kCFRunLoopCommonModes};
+use objc2_core_foundation::{
+    CFMachPort, CFRetained, CFRunLoop, kCFRunLoopCommonModes, kCFRunLoopDefaultMode,
+};
 use objc2_core_graphics::{
     CGEvent, CGEventMask, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
     CGEventTapProxy, CGEventType,
@@ -21,17 +25,29 @@ struct Context {
     port: OnceCell<CFRetained<CFMachPort>>,
 }
 
-/// 监听线程的 run loop。
-struct RunLoopHandle(CFRetained<CFRunLoop>);
+/// 监听线程的 run loop 和停止标志。
+///
+/// 只调用 `CFRunLoopStop` 不够：如果它发生在监听线程进入 run loop 之前，
+/// 下一次运行会重置停止状态，线程和全局 tap 就会一直存在。所以监听线程用
+/// 带超时的循环运行，每轮检查停止标志。
+struct RunLoopHandle {
+    run_loop: CFRetained<CFRunLoop>,
+    stopped: Arc<AtomicBool>,
+}
 
 // SAFETY: 只用来调用 CFRunLoopStop，Apple 文档说明它可以从任意线程调用。
 unsafe impl Send for RunLoopHandle {}
 
 impl Drop for RunLoopHandle {
     fn drop(&mut self) {
-        self.0.stop();
+        self.stopped.store(true, Ordering::Release);
+        self.run_loop.stop();
+        self.run_loop.wake_up();
     }
 }
+
+/// 监听线程每轮最多运行这么久，然后检查停止标志。
+const STOP_CHECK_INTERVAL_SECS: f64 = 0.5;
 
 unsafe extern "C-unwind" fn on_event(
     _proxy: CGEventTapProxy,
@@ -109,8 +125,19 @@ pub fn start(tx: Sender<KeyEvent>) -> Result<ListenGuard, PlatformError> {
             CGEvent::tap_enable(&port, true);
             // SAFETY: `context` 仍然有效；只在本线程访问。
             let _ = unsafe { &*context }.port.set(port.clone());
-            let _ = ready_tx.send(Ok(RunLoopHandle(run_loop)));
-            CFRunLoop::run();
+            let stopped = Arc::new(AtomicBool::new(false));
+            let _ = ready_tx.send(Ok(RunLoopHandle {
+                run_loop,
+                stopped: stopped.clone(),
+            }));
+            while !stopped.load(Ordering::Acquire) {
+                // SAFETY: kCFRunLoopDefaultMode 是系统常量；tap 的 source 加在 common modes，包含默认模式。
+                CFRunLoop::run_in_mode(
+                    unsafe { kCFRunLoopDefaultMode },
+                    STOP_CHECK_INTERVAL_SECS,
+                    false,
+                );
+            }
             CGEvent::tap_enable(&port, false);
             // SAFETY: run loop 已经退出，回调不会再被调用。
             drop(unsafe { Box::from_raw(context) });

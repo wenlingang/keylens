@@ -2,9 +2,11 @@
 //! 打包成签名的 .app 后运行（见 CONTRIBUTING.md「本地运行需要辅助功能权限的程序」）。
 //!
 //!   probe trust
-//!   probe read <pid>                  读取菜单，打印条目数、耗时和前 20 条
+//!   probe read <pid>                  读取菜单，打印条目数、耗时和前 200 条
 //!   probe press-verify <pid> <标题>    执行菜单项，比较执行前后的窗口列表
 //!   probe tap <秒>                    打印按键事件
+//!   probe tap-self                    模拟按 F19，确认监听收到
+//!   probe tap-churn                   反复启动/停止按键监听，检查线程是否泄漏
 //!   probe watch <秒>                  打印前台应用切换
 //!   probe icon <pid> <输出.png>        保存应用图标
 
@@ -72,8 +74,8 @@ fn main() {
             println!("窗口：{before:?} -> {after:?}");
             println!(
                 "{}",
-                if after.len() > before.len() {
-                    "PASS：出现了新窗口"
+                if after != before {
+                    "PASS：窗口有变化"
                 } else {
                     "FAIL：窗口没有变化"
                 }
@@ -92,6 +94,45 @@ fn main() {
                     println!("{event:?}");
                 }
             }
+        }
+        Some("tap-self") => {
+            // 启动监听后模拟按一次 F19（几乎没有应用使用），确认监听能收到事件。
+            let (tx, rx) = channel();
+            let _guard = platform.start_key_events(tx).expect("start key events");
+            let f19 = keylens_core::Entry {
+                id: keylens_core::EntryId {
+                    source: keylens_core::EntrySource::Community,
+                    snapshot: 0,
+                    index: 0,
+                },
+                group: String::new(),
+                path: vec![],
+                title: "F19".into(),
+                search_terms: vec![],
+                shortcut: keylens_core::Shortcut::parse_seq(&["F19"], Os::MacOS).unwrap(),
+                enabled: true,
+            };
+            println!("execute -> {:?}", platform.execute(&f19));
+            std::thread::sleep(Duration::from_millis(500));
+            let events: Vec<_> = rx.try_iter().collect();
+            println!("收到 {} 个事件：{events:?}", events.len());
+        }
+        Some("tap-churn") => {
+            // 反复启动并立即停止按键监听，检查监听线程是否都退出了。
+            for _ in 0..50 {
+                let (tx, _rx) = channel();
+                drop(platform.start_key_events(tx).expect("start key events"));
+            }
+            std::thread::sleep(Duration::from_secs(2));
+            let output = std::process::Command::new("ps")
+                .args(["-M", "-p", &std::process::id().to_string()])
+                .output()
+                .expect("ps");
+            let threads = String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .count()
+                .saturating_sub(1);
+            println!("50 次启动/停止后，进程线程数：{threads}");
         }
         Some("watch") => {
             // 诊断用：加上 `with-app` 参数会先初始化 NSApplication（gpui 应用里它总是存在）。
