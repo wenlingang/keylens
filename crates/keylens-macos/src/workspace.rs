@@ -6,6 +6,7 @@ use std::sync::mpsc::Sender;
 use block2::RcBlock;
 use keylens_core::AppInfo;
 use keylens_platform::ListenGuard;
+use objc2::AnyThread;
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, ProtocolObject};
 use objc2_app_kit::{
@@ -13,7 +14,8 @@ use objc2_app_kit::{
     NSWorkspaceDidActivateApplicationNotification,
 };
 use objc2_foundation::{
-    NSDictionary, NSNotification, NSNotificationCenter, NSObjectProtocol, NSString, NSURL,
+    NSDictionary, NSNotification, NSNotificationCenter, NSObjectProtocol, NSPoint, NSRect, NSSize,
+    NSString, NSURL,
 };
 
 fn app_info(app: &NSRunningApplication) -> AppInfo {
@@ -73,13 +75,17 @@ pub fn watch_frontmost(tx: Sender<AppInfo>) -> ListenGuard {
     ListenGuard::new(Observer { center, token })
 }
 
-/// App icon, PNG-encoded. May be called from a background thread, so an autoreleasepool releases intermediate objects promptly.
+/// App icon as PNG, about 64pt (the panel shows it at 28pt; 2x for Retina). May be called on a
+/// background thread, so an autorelease pool frees the intermediate objects promptly.
 pub fn app_icon(pid: i32) -> Option<Vec<u8>> {
     objc2::rc::autoreleasepool(|_| {
         let app = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)?;
-        let tiff = app.icon()?.TIFFRepresentation()?;
-        let bitmap = NSBitmapImageRep::imageRepWithData(&tiff)?;
-        // SAFETY: An empty dictionary is a valid properties argument.
+        let icon = app.icon()?;
+        let mut rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(64.0, 64.0));
+        // SAFETY: `rect` is a valid in/out pointer; no context or hints are required.
+        let cg_image = unsafe { icon.CGImageForProposedRect_context_hints(&mut rect, None, None) }?;
+        let bitmap = NSBitmapImageRep::initWithCGImage(NSBitmapImageRep::alloc(), &cg_image);
+        // SAFETY: an empty dictionary is a valid `properties` argument.
         let png = unsafe {
             bitmap.representationUsingType_properties(
                 NSBitmapImageFileType::PNG,
