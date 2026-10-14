@@ -5,8 +5,10 @@ pub mod keys;
 pub mod merge;
 pub mod model;
 pub mod search;
+pub mod trigger;
 
 pub use keys::{Chord, Key, KeyParseError, Modifiers, Os, Shortcut};
 pub use merge::{group_entries, merge};
 pub use model::{AppInfo, Entry, EntryId, EntrySource, Group};
 pub use search::{filter, Match};
+pub use trigger::{KeyEvent, Trigger, TriggerAction, TriggerDetector};
