@@ -1,4 +1,4 @@
-//! 浮层视图：渲染 `PanelModel`，处理按键和鼠标，向控制器发出事件。
+//! Panel view: renders `PanelModel`, handles keys and mouse, and emits events to the controller.
 
 use std::ops::Range;
 use std::sync::Arc;
@@ -29,7 +29,7 @@ pub const KEY_CONTEXT: &str = "Keylens";
 const COLUMN_WIDTH: f32 = 300.0;
 const ROW_HEIGHT: f32 = 26.0;
 const HEADER_HEIGHT: f32 = 24.0;
-/// 顶部栏和底部栏的总高度，用于估算列表可视高度。
+/// Total height of the top and bottom bars, used to estimate the visible list height.
 const CHROME_HEIGHT: f32 = 100.0;
 
 pub fn bind_keys(cx: &mut App) {
@@ -68,7 +68,7 @@ impl PanelView {
             InputState::new(window, cx).placeholder(t!("Panel.search_placeholder").to_string())
         });
         let on_input = cx.subscribe_in(&input, window, |this, input, event: &InputEvent, _, cx| {
-            // 回车只走 Execute action；这里只处理文字变化。
+            // Enter only goes through the Execute action; only text changes are handled here.
             if let InputEvent::Change = event {
                 let query = input.read(cx).value().to_string();
                 this.model.set_query(&query);
@@ -135,7 +135,7 @@ impl PanelView {
         self.input.update(cx, |input, cx| input.focus(window, cx));
     }
 
-    // ---- 按键 ----
+    // ---- Keys ----
 
     fn select_prev(&mut self, _: &SelectPrev, _: &mut Window, cx: &mut Context<Self>) {
         self.model.move_up();
@@ -166,7 +166,7 @@ impl PanelView {
     }
 
     fn dismiss(&mut self, _: &Dismiss, window: &mut Window, cx: &mut Context<Self>) {
-        // 以输入框里的文字为准：程序设置文字时不一定触发 Change 事件。
+        // Trust the text in the input box: setting text programmatically doesn't always fire a Change event.
         if self.input.read(cx).value().is_empty() {
             cx.emit(PanelEvent::Dismiss);
         } else {
@@ -190,7 +190,7 @@ impl PanelView {
         cx.notify();
     }
 
-    /// 选中行在所在列中的上下边界（像素）。
+    /// Top and bottom bounds (pixels) of the selected row within its column.
     fn selected_bounds(&self) -> Option<(f32, f32)> {
         let (c, r) = self.model.selected()?;
         let top: f32 = self.model.layout()[c][..r]
@@ -216,7 +216,7 @@ impl PanelView {
         }
     }
 
-    // ---- 渲染 ----
+    // ---- Rendering ----
 
     fn keycaps(&self, shortcut: &Shortcut, cx: &App) -> Div {
         let theme = cx.theme();
@@ -525,8 +525,8 @@ impl Render for PanelView {
 
 #[cfg(test)]
 mod tests {
-    // `use gpui_kit::*` 会把 gpui 的 test 宏导入进来，覆盖内置的 #[test]；
-    // #[gpui_kit::test] 展开后的 #[test] 必须解析到内置宏，否则无限递归。
+    // `use gpui_kit::*` imports gpui's test macro, shadowing the built-in #[test];
+    // the #[test] that #[gpui_kit::test] expands to must resolve to the built-in macro, or it recurses infinitely.
     use core::prelude::v1::test;
     use std::cell::RefCell;
     use std::rc::Rc;

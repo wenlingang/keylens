@@ -1,14 +1,14 @@
-//! 开发用探测程序：在真机上验证 MacPlatform 的各项能力。
-//! 打包成签名的 .app 后运行（见 CONTRIBUTING.md「本地运行需要辅助功能权限的程序」）。
+//! Dev probe: verifies MacPlatform's capabilities on a real machine.
+//! Run it after bundling into a signed .app (see CONTRIBUTING.md, "Running programs that need Accessibility permission locally").
 //!
 //!   probe trust
-//!   probe read <pid>                  读取菜单，打印条目数、耗时和前 200 条
-//!   probe press-verify <pid> <标题>    执行菜单项，比较执行前后的窗口列表
-//!   probe tap <秒>                    打印按键事件
-//!   probe tap-self                    模拟按 F19，确认监听收到
-//!   probe tap-churn                   反复启动/停止按键监听，检查线程是否泄漏
-//!   probe watch <秒>                  打印前台应用切换
-//!   probe icon <pid> <输出.png>        保存应用图标
+//!   probe read <pid>                  read the menu; print entry count, elapsed time and the first 200 entries
+//!   probe press-verify <pid> <title>  execute a menu item and compare the window list before and after
+//!   probe tap <secs>                  print key events
+//!   probe tap-self                    synthesize an F19 press to confirm the listener receives it
+//!   probe tap-churn                   repeatedly start/stop the key listener to check for thread leaks
+//!   probe watch <secs>                print frontmost app changes
+//!   probe icon <pid> <out.png>        save the app icon
 
 #[cfg(target_os = "macos")]
 fn main() {
@@ -96,7 +96,7 @@ fn main() {
             }
         }
         Some("tap-self") => {
-            // 启动监听后模拟按一次 F19（几乎没有应用使用），确认监听能收到事件。
+            // After starting the listener, synthesize one F19 press (almost no app uses it) to confirm the listener receives events.
             let (tx, rx) = channel();
             let _guard = platform.start_key_events(tx).expect("start key events");
             let f19 = keylens_core::Entry {
@@ -118,7 +118,7 @@ fn main() {
             println!("收到 {} 个事件：{events:?}", events.len());
         }
         Some("tap-churn") => {
-            // 反复启动并立即停止按键监听，检查监听线程是否都退出了。
+            // Repeatedly start and immediately stop the key listener, then check that all listener threads exited.
             for _ in 0..50 {
                 let (tx, _rx) = channel();
                 drop(platform.start_key_events(tx).expect("start key events"));
@@ -135,7 +135,7 @@ fn main() {
             println!("50 次启动/停止后，进程线程数：{threads}");
         }
         Some("watch") => {
-            // 诊断用：加上 `with-app` 参数会先初始化 NSApplication（gpui 应用里它总是存在）。
+            // Diagnostic: the `with-app` argument initializes NSApplication first (it always exists in a gpui app).
             if args.get(2).map(String::as_str) == Some("with-app") {
                 let mtm = objc2::MainThreadMarker::new().expect("main thread");
                 let _ = objc2_app_kit::NSApplication::sharedApplication(mtm);
@@ -162,7 +162,7 @@ fn main() {
                 }
                 std::process::exit(0);
             });
-            // 通知在主线程投递，需要运行主线程的 run loop。
+            // Notifications are delivered on the main thread, so the main thread's run loop must run.
             objc2_core_foundation::CFRunLoop::run();
         }
         Some("icon") => {

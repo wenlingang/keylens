@@ -1,4 +1,4 @@
-//! 界面文字键的清单。新增文字时同时加到这里，完整性测试会检查 5 种语言都有翻译。
+//! List of UI string keys. Add new strings here too; the completeness test checks that all 5 languages have a translation.
 
 pub const KEYS: &[&str] = &[
     "Panel.search_placeholder",

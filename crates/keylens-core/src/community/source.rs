@@ -1,4 +1,4 @@
-//! 把社区数据转换成快捷键条目。
+//! Converts community data into shortcut entries.
 
 use std::sync::Arc;
 
@@ -16,7 +16,7 @@ pub struct CommunitySource {
 }
 
 impl CommunitySource {
-    /// `source` 区分内置数据（`Community`）和用户数据（`User`）。
+    /// `source` distinguishes built-in data (`Community`) from user data (`User`).
     pub fn new(catalog: Arc<Catalog>, os: Os, lang: Lang, source: EntrySource) -> Self {
         Self {
             catalog,

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 一次性：在登录钥匙串里创建名为「Keylens Development」的自签名代码签名证书。
-# 用它签名的开发版 .app 重新编译后不会丢失辅助功能权限。
+# One-time: creates a self-signed code-signing certificate named "Keylens Development" in the login keychain.
+# Dev .app builds signed with it keep their Accessibility permission after rebuilding.
 set -euo pipefail
 
 NAME="Keylens Development"

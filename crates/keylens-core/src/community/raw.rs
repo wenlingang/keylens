@@ -1,4 +1,4 @@
-//! 数据文件的反序列化结构，只在 crate 内部使用；校验后转换成 `data.rs` 里的类型。
+//! Deserialization structs for data files, used only inside the crate; converted to the types in `data.rs` after validation.
 
 use std::collections::BTreeMap;
 
@@ -56,8 +56,8 @@ pub(crate) enum RawKeys {
     PerOs(RawPerOs),
 }
 
-/// 按值的类型分派，而不是用 `untagged`：表的情况直接反序列化成 `RawPerOs`，
-/// 这样 `unknown field` 和 `missing field default` 这类报错能原样传给贡献者。
+/// Dispatches on the value's type instead of using `untagged`: the table case deserializes directly into `RawPerOs`,
+/// so errors like `unknown field` and `missing field default` reach contributors unchanged.
 impl<'de> Deserialize<'de> for RawKeys {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct KeysVisitor;

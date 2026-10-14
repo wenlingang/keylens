@@ -1,9 +1,9 @@
-//! macOS 原始数据与 keylens-core 类型之间的纯转换。不调用系统 API，可以在任何平台测试。
+//! Pure conversions between raw macOS data and keylens-core types. No system API calls; testable on any platform.
 
 use keylens_core::{Chord, Key, Modifiers};
 
-/// `AXMenuItemCmdModifiers`：bit0 = ⇧，bit1 = ⌥，bit2 = ⌃，bit3 = 不带 ⌘。
-/// 编码见 `docs/spikes/2026-10-14-macos-probe.md`。
+/// `AXMenuItemCmdModifiers`: bit0 = ⇧, bit1 = ⌥, bit2 = ⌃, bit3 = no ⌘.
+/// For the encoding see `docs/spikes/2026-10-14-macos-probe.md`.
 pub fn ax_modifiers(raw: i64) -> Modifiers {
     let mut modifiers = Modifiers::NONE;
     if raw & 8 == 0 {
@@ -21,7 +21,7 @@ pub fn ax_modifiers(raw: i64) -> Modifiers {
     modifiers
 }
 
-/// 有专门名称的按键和它们的虚拟键码（美式键盘）。
+/// Keys with dedicated names and their virtual key codes (US keyboard).
 const SPECIAL_VKEYS: &[(u16, Key)] = &[
     (36, Key::Enter),
     (76, Key::Enter),
@@ -60,7 +60,7 @@ const SPECIAL_VKEYS: &[(u16, Key)] = &[
     (90, Key::F(20)),
 ];
 
-/// 字母、数字和标点的虚拟键码（美式键盘）。
+/// Virtual key codes for letters, digits and punctuation (US keyboard).
 const CHAR_VKEYS: &[(char, u16)] = &[
     ('A', 0),
     ('S', 1),
@@ -111,7 +111,7 @@ const CHAR_VKEYS: &[(char, u16)] = &[
     ('`', 50),
 ];
 
-/// AppKit 用私有区字符和控制字符表示的特殊键。
+/// Special keys that AppKit represents with private-use and control characters.
 fn special_char(c: char) -> Option<Key> {
     let key = match c {
         '\u{F700}' => Key::Up,
@@ -134,8 +134,8 @@ fn special_char(c: char) -> Option<Key> {
     Some(key)
 }
 
-/// 菜单项快捷键的主键。vkey 是有名称的特殊键时以 vkey 为准（此时 char 可能是 `⎋` 这类符号）；
-/// 否则用 char。表示不了的键（如 🌐）返回 `None`，调用方跳过这个菜单项。
+/// Main key of a menu item shortcut. When vkey is a named special key it takes precedence (char may then be a symbol like `⎋`);
+/// otherwise use char. Keys that can't be represented (such as 🌐) return `None`, and the caller skips the menu item.
 pub fn menu_key(cmd_char: Option<&str>, vkey: Option<i64>) -> Option<Key> {
     if let Some(code) = vkey.and_then(|v| u16::try_from(v).ok())
         && let Some(&(_, key)) = SPECIAL_VKEYS.iter().find(|(c, _)| *c == code)
@@ -179,7 +179,7 @@ const FLAG_TABLE: [(u64, Modifiers); 5] = [
     (FLAG_FN, Modifiers::FN),
 ];
 
-/// CGEvent 的 flags 转成修饰键集合，忽略设备相关的位（如左右键标记 0x108）。
+/// Converts CGEvent flags to a modifier set, ignoring device-dependent bits (such as the left/right key flag 0x108).
 pub fn event_modifiers(flags: u64) -> Modifiers {
     FLAG_TABLE
         .iter()
@@ -187,7 +187,7 @@ pub fn event_modifiers(flags: u64) -> Modifiers {
         .fold(Modifiers::NONE, |acc, (_, m)| acc | *m)
 }
 
-/// 修饰键集合转成 CGEvent flags，用于模拟按键。
+/// Converts a modifier set to CGEvent flags, used for synthesizing key events.
 pub fn modifier_flags(modifiers: Modifiers) -> u64 {
     FLAG_TABLE
         .iter()
@@ -195,8 +195,8 @@ pub fn modifier_flags(modifiers: Modifiers) -> u64 {
         .fold(0, |acc, (bit, _)| acc | bit)
 }
 
-/// 字母、数字和标点位置与美式键盘相同的布局。`keycode` 只在这些布局下能打出预期的字符；
-/// 其他布局（如 AZERTY 上的键码 0 是 Q）会执行错误的命令，所以拒绝模拟按键。
+/// Layouts where letters, digits and punctuation sit at the same positions as on a US keyboard. `keycode` types the expected character only under these layouts;
+/// on other layouts (e.g. keycode 0 is Q on AZERTY) it would run the wrong command, so synthesizing key events is refused.
 pub fn us_compatible_layout(layout_id: &str) -> bool {
     const COMPATIBLE: [&str; 7] = [
         "com.apple.keylayout.US",
@@ -210,8 +210,8 @@ pub fn us_compatible_layout(layout_id: &str) -> bool {
     COMPATIBLE.contains(&layout_id)
 }
 
-/// 按键对应的虚拟键码（美式键盘）。需要 Shift 才能打出的符号返回 `None`，
-/// 调用方应先用 `Chord::canonical` 转成「⇧ + 基础键」。
+/// Virtual key code for a key (US keyboard). Symbols that need Shift return `None`;
+/// the caller should first convert them to "⇧ + base key" with `Chord::canonical`.
 pub fn keycode(key: Key) -> Option<u16> {
     if let Key::Char(c) = key {
         return CHAR_VKEYS
@@ -356,7 +356,7 @@ mod tests {
     fn every_special_vkey_round_trips() {
         for &(code, key) in SPECIAL_VKEYS {
             if code == 76 {
-                continue; // 小键盘回车映射到 Enter，反查时用主键盘回车 36
+                continue; // Numpad Enter maps to Enter; reverse lookup uses the main keyboard's Return, 36
             }
             assert_eq!(keycode(key), Some(code), "{key:?}");
         }

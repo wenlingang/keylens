@@ -1,8 +1,8 @@
-//! 快捷键条目和应用信息。
+//! Shortcut entries and app info.
 
 use crate::keys::Shortcut;
 
-/// 条目来源，排列顺序就是合并时的优先级（菜单最高）。
+/// Entry source; the declaration order is the merge priority (menu is highest).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum EntrySource {
     Menu,
@@ -10,12 +10,12 @@ pub enum EntrySource {
     Community,
 }
 
-/// 条目的唯一编号；平台层用它找回菜单元素。
+/// Unique entry ID; the platform layer uses it to find the menu element again.
 ///
-/// `snapshot` 标识读出这个条目的那一次菜单读取。界面可能还在显示旧的读取结果，
-/// 而后台已经重新读了一次，同一个 `index` 在新结果里可能是另一个菜单项。
-/// 所以平台层执行菜单条目时必须核对快照：不一致就返回 `PlatformError::Stale`，
-/// 或者按分组、路径、标题重新确认后再执行。社区数据条目不需要快照，固定为 0。
+/// `snapshot` identifies the menu read that produced this entry. The UI may still show an older read
+/// while the background has already re-read, so the same `index` may be a different menu item in the new result.
+/// Hence the platform layer must check the snapshot when executing a menu entry: on mismatch return `PlatformError::Stale`,
+/// or re-confirm by group, path and title before executing. Community entries need no snapshot and use 0.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EntryId {
     pub source: EntrySource,
@@ -26,13 +26,13 @@ pub struct EntryId {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entry {
     pub id: EntryId,
-    /// 顶层菜单名或社区数据分组名（已本地化）。
+    /// Top-level menu name or community data group name (localized).
     pub group: String,
-    /// 顶层菜单和条目之间的子菜单路径。
+    /// Submenu path between the top-level menu and the entry.
     pub path: Vec<String>,
-    /// 已本地化的显示标题。
+    /// Localized display title.
     pub title: String,
-    /// 除标题外也参与搜索的文字，例如其他语言的标题。
+    /// Text searched in addition to the title, e.g. titles in other languages.
     pub search_terms: Vec<String>,
     pub shortcut: Shortcut,
     pub enabled: bool,
@@ -44,7 +44,7 @@ impl Entry {
     }
 }
 
-/// 前台应用。`ids` 是当前平台上用来识别应用的标识，macOS 上是 bundle ID。
+/// The frontmost app. `ids` are the identifiers that identify the app on the current platform; on macOS, the bundle ID.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AppInfo {
     pub pid: i32,
@@ -52,7 +52,7 @@ pub struct AppInfo {
     pub ids: Vec<String>,
 }
 
-/// 界面上的一个分组。`community` 为 true 时标题旁显示 ◇。
+/// A group in the UI. When `community` is true, ◇ is shown next to the title.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Group {
     pub title: String,

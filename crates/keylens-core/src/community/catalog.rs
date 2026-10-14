@@ -1,4 +1,4 @@
-//! 按应用 ID 索引的社区数据目录：内置数据和用户目录。
+//! Community data catalog indexed by app ID: built-in data and the user directory.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -17,7 +17,7 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    /// 逐个解析文件。出错的文件记进返回的错误列表，其余照常加入目录。
+    /// Parses files one by one. Files with errors are recorded in the returned error list; the rest are added to the catalog as usual.
     pub fn from_files<I, N, T>(files: I) -> (Catalog, Vec<DataError>)
     where
         I: IntoIterator<Item = (N, T)>,
@@ -60,7 +60,7 @@ impl Catalog {
         Ok(())
     }
 
-    /// 用前台应用的任意一个 ID 查找数据。
+    /// Looks up data by any one ID of the frontmost app.
     pub fn find(&self, os: Os, ids: &[String]) -> Option<&AppData> {
         ids.iter()
             .find_map(|id| self.index.get(&(os, id.clone())))
@@ -76,7 +76,7 @@ impl Catalog {
     }
 }
 
-/// 编译时打包进二进制的 `data/apps/*.toml`。
+/// `data/apps/*.toml` bundled into the binary at compile time.
 pub fn builtin() -> (Catalog, Vec<DataError>) {
     let files = BUILTIN
         .files()
@@ -90,7 +90,7 @@ pub fn builtin() -> (Catalog, Vec<DataError>) {
     Catalog::from_files(files)
 }
 
-/// 读取用户目录下的 `*.toml`，按文件名排序。目录不存在时返回空目录。
+/// Reads `*.toml` under the user directory, sorted by file name. Returns an empty catalog if the directory doesn't exist.
 pub fn load_dir(dir: &Path) -> (Catalog, Vec<DataError>) {
     let Ok(read) = std::fs::read_dir(dir) else {
         return (Catalog::default(), Vec::new());

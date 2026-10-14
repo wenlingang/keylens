@@ -1,4 +1,4 @@
-//! 测试用的平台实现：所有状态都在内存里，可以从测试代码直接控制。
+//! Platform implementation for tests: all state lives in memory and can be controlled directly from test code.
 
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -11,7 +11,7 @@ use crate::{ListenGuard, PermissionState, Platform, PlatformError};
 
 type SharedSender<T> = Arc<Mutex<Option<Sender<T>>>>;
 
-/// 当前菜单和它的快照编号；每次 `set_menu` 编号加一，模拟一次新的菜单读取。
+/// The current menu and its snapshot number; each `set_menu` increments the number, simulating a fresh menu read.
 #[derive(Default)]
 struct Menu {
     snapshot: u64,
@@ -49,7 +49,7 @@ impl FakePlatform {
         *self.permission.lock().unwrap() = state;
     }
 
-    /// 切换前台应用；正在监听时会把新应用发送出去。
+    /// Switches the frontmost app; when listening, sends the new app out.
     pub fn set_frontmost(&self, app: Option<AppInfo>) {
         if let (Some(app), Some(tx)) = (&app, self.app_sender.lock().unwrap().as_ref()) {
             let _ = tx.send(app.clone());
@@ -67,7 +67,7 @@ impl FakePlatform {
         menu.entries = entries;
     }
 
-    /// 让菜单读取返回错误（`None` 恢复正常）。
+    /// Makes menu reads return an error (`None` restores normal behavior).
     pub fn set_menu_error(&self, error: Option<SourceError>) {
         *self.menu_error.lock().unwrap() = error;
     }
@@ -76,7 +76,7 @@ impl FakePlatform {
         self.executed.lock().unwrap().clone()
     }
 
-    /// 模拟一次全局按键事件。没有在监听时什么都不做。
+    /// Simulates a global key event. Does nothing when not listening.
     pub fn send_key(&self, event: KeyEvent) {
         if let Some(tx) = self.key_sender.lock().unwrap().as_ref() {
             let _ = tx.send(event);
@@ -107,7 +107,7 @@ impl ShortcutSource for FakeMenu {
     }
 }
 
-/// drop 时清空发送端，停止转发事件。
+/// Clears the sender on drop, stopping event forwarding.
 struct StopOnDrop<T>(SharedSender<T>);
 
 impl<T> Drop for StopOnDrop<T> {

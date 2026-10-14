@@ -1,9 +1,9 @@
-//! 一次性实验：读菜单树并计时、打印修饰键原始编码、执行 AXPress、监听按键事件。
-//! 用法：
+//! One-off experiment: read the menu tree with timing, print raw modifier encodings, perform AXPress, listen to key events.
+//! Usage:
 //!   ax-probe trust
-//!   ax-probe menu <pid>              打印带快捷键的菜单项和耗时
-//!   ax-probe press <pid> <标题>...    按菜单路径执行 AXPress，例如 press 123 格式 字体 显示字体
-//!   ax-probe tap                     打印 flagsChanged / keyDown / mouseDown 事件，Ctrl+C 退出
+//!   ax-probe menu <pid>              print menu items with shortcuts, and elapsed time
+//!   ax-probe press <pid> <title>...  perform AXPress along a menu path, e.g. press 123 Format Font "Show Fonts"
+//!   ax-probe tap                     print flagsChanged / keyDown / mouseDown events, exit with Ctrl+C
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::sync::OnceLock;

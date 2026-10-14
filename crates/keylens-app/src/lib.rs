@@ -1,4 +1,4 @@
-//! Keylens 应用：浮层界面与控制逻辑。
+//! Keylens app: the panel UI and control logic.
 #![forbid(unsafe_code)]
 
 rust_i18n::i18n!("locales", fallback = "en");
@@ -10,7 +10,7 @@ pub mod model;
 pub mod strings;
 pub mod view;
 
-/// 启动 Keylens（只支持 macOS）。
+/// Starts Keylens (macOS only).
 #[cfg(target_os = "macos")]
 pub fn run() {
     use std::sync::Arc;

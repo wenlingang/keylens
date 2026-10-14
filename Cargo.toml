@@ -34,7 +34,7 @@ rust-i18n = "4.2"
 sys-locale = "0.3"
 raw-window-handle = "0.6"
 
-# 开发时也优化依赖（gpui 等）：debug 模式下 gpui 渲染太慢，滚动会卡顿；
-# 自己的 crate 仍按 debug 编译，改代码后的重新编译速度不受影响。
+# Optimize dependencies in dev builds too (gpui etc.): gpui renders too slowly in debug mode and scrolling stutters;
+# our own crates still compile in debug, so rebuilds after code changes stay fast.
 [profile.dev.package."*"]
 opt-level = 2

@@ -1,4 +1,4 @@
-//! 把菜单、用户数据和内置数据合成一个应用的快捷键，以及按应用缓存结果。
+//! Combines the menu, user data and built-in data into one app's shortcuts, and caches results per app.
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -28,7 +28,7 @@ impl Loader {
         }
     }
 
-    /// 读取一个应用的快捷键。会阻塞（读菜单最多约 2 秒），要在后台线程调用。
+    /// Reads one app's shortcuts. Blocks (reading the menu takes up to ~2 s), so call it from a background thread.
     pub fn load(&self, app: &AppInfo) -> AppShortcuts {
         let menu = self.platform.menu_source();
         let sources: [&dyn ShortcutSource; 3] = [menu.as_ref(), &self.user, &self.builtin];
@@ -36,7 +36,7 @@ impl Loader {
     }
 }
 
-/// 最近读取过的应用快捷键，按 pid 保存。
+/// Most recently read app shortcuts, keyed by pid.
 pub struct Cache {
     capacity: usize,
     items: VecDeque<AppShortcuts>,

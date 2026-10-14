@@ -1,4 +1,4 @@
-//! 判断用户是否在呼出 Keylens。纯状态机，时间由调用方传入。
+//! Decides whether the user is invoking Keylens. A pure state machine; time is supplied by the caller.
 
 use std::time::{Duration, Instant};
 
@@ -6,13 +6,13 @@ use crate::keys::{Chord, Modifiers};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Trigger {
-    /// 长按修饰键。macOS 默认：⌘，800ms。
+    /// Long-press a modifier key. macOS default: ⌘, 800ms.
     HoldModifier { key: Modifiers, delay: Duration },
-    /// 连按两次修饰键。Windows / X11 默认（v0.2 起接入）。
+    /// Double-tap a modifier key. Windows / X11 default (wired up from v0.2).
     DoubleTap { key: Modifiers, interval: Duration },
-    /// 组合键，由平台注册全局热键处理（预留）。
+    /// Key combination; the platform registers a global hotkey to handle it (reserved).
     Hotkey(Chord),
-    /// 由外部命令 `keylens toggle` 触发（预留）。
+    /// Triggered by the external command `keylens toggle` (reserved).
     External,
 }
 
@@ -23,7 +23,7 @@ impl Trigger {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KeyEvent {
-    /// 修饰键状态变化，携带当前按着的全部修饰键。
+    /// Modifier state changed; carries all modifiers currently held.
     ModifiersChanged(Modifiers),
     KeyDown,
     MouseDown,
@@ -31,11 +31,11 @@ pub enum KeyEvent {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TriggerAction {
-    /// 开始在后台预读前台应用的快捷键。
+    /// Start prefetching the frontmost app's shortcuts in the background.
     Prefetch,
-    /// 显示浮层。
+    /// Show the panel.
     Show,
-    /// 放弃本次触发。
+    /// Abandon this trigger.
     Cancel,
 }
 
@@ -51,9 +51,9 @@ enum State {
     WaitSecond {
         deadline: Instant,
     },
-    /// 已经显示，等目标键松开。
+    /// Already shown; waiting for the target key to be released.
     Fired,
-    /// 用户在用普通快捷键，等目标键松开。
+    /// The user is using an ordinary shortcut; waiting for the target key to be released.
     Suppressed,
 }
 
@@ -104,7 +104,7 @@ impl TriggerDetector {
         }
     }
 
-    /// 下一次需要调用 `on_tick` 的时间。
+    /// The next time `on_tick` needs to be called.
     pub fn next_deadline(&self) -> Option<Instant> {
         match (self.state, &self.trigger) {
             (State::Holding { since }, Trigger::HoldModifier { delay, .. }) => Some(since + *delay),

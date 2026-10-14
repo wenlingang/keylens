@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# 把一个可执行文件打包成 .app 并签名，供需要辅助功能权限的开发调试使用。
-# 用法：scripts/dev-bundle.sh <可执行文件> <应用名> <bundle-id>
-# 输出：target/dev-apps/<应用名>.app
+# Bundles an executable into a signed .app, for development and debugging that needs Accessibility permission.
+# Usage: scripts/dev-bundle.sh <executable> <app-name> <bundle-id>
+# Output: target/dev-apps/<app-name>.app
 set -euo pipefail
 
 exe=$1

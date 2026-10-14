@@ -1,4 +1,4 @@
-//! 内置数据校验：CI 必跑。数据有任何错误，构建都会失败。
+//! Built-in data validation: always run in CI. Any data error fails the build.
 
 use std::sync::Arc;
 

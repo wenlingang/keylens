@@ -1,4 +1,4 @@
-//! 执行条目：菜单条目用 AXPress 点按，社区条目模拟按键。
+//! Executes entries: menu entries are pressed with AXPress, community entries synthesize key events.
 
 use std::thread::sleep;
 use std::time::Duration;
@@ -12,13 +12,13 @@ use crate::ax::{self, AxNode};
 use crate::convert::{keycode, modifier_flags, us_compatible_layout};
 use crate::snapshots::Snapshots;
 
-/// 浮层关闭后等焦点回到目标应用，再发送按键（实验中 300ms 足够，这里取较小值）。
+/// After the panel closes, wait for focus to return to the target app before sending keys (300ms was enough in experiments; a smaller value is used here).
 const KEY_POST_DELAY: Duration = Duration::from_millis(80);
-/// 连续按键（如 ⌘K ⌘S）之间的间隔。
+/// Interval between consecutive key presses (e.g. ⌘K ⌘S).
 const CHORD_GAP: Duration = Duration::from_millis(50);
 
-/// 当前键盘布局 ID（如 `com.apple.keylayout.US`）。输入法激活时仍是底层布局。
-/// 读系统偏好而不用 TIS 函数，因为 TIS 在后台线程调用可能触发主线程断言。
+/// Current keyboard layout ID (e.g. `com.apple.keylayout.US`). While an input method is active this is still the underlying layout.
+/// Reads system preferences instead of using TIS functions, since calling TIS from a background thread may trigger a main-thread assertion.
 fn current_layout() -> Option<String> {
     let value = CFPreferencesCopyAppValue(
         &CFString::from_str("AppleCurrentKeyboardLayoutInputSourceID"),

@@ -1,5 +1,5 @@
-//! 一次性实验：PopUp 浮层 + 事件监听 + 关闭浮层后模拟按键。
-//! 在输入框里按回车：关闭浮层，300ms 后模拟按一下字母 k（keycode 40）。
+//! One-off experiment: PopUp panel + event listening + synthesizing a key press after the panel closes.
+//! Press Enter in the input box: closes the panel, then 300ms later synthesizes a press of the letter k (keycode 40).
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::time::{Duration, Instant};

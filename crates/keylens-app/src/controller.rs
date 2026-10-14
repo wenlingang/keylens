@@ -1,4 +1,4 @@
-//! Keylens 控制器：把按键事件、前台应用切换、后台读取和浮层显示串起来（spec §5）。
+//! Keylens controller: ties together key events, frontmost-app changes, background reads and panel display (spec §5).
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -13,13 +13,13 @@ use keylens_platform::{ListenGuard, PermissionState, Platform};
 use crate::loader::{Cache, Loader};
 use crate::view::{PanelEvent, PanelView};
 
-/// 缓存的应用数（spec §5）。
+/// Number of cached apps (spec §5).
 const CACHE_CAPACITY: usize = 8;
-/// 执行社区条目后忽略按键事件的时长，避免自己模拟的按键干扰触发判断。
+/// How long to ignore key events after executing a community entry, so our own synthesized key events don't confuse trigger detection.
 const IGNORE_KEYS_AFTER_SYNTHESIS: Duration = Duration::from_millis(600);
 const PERMISSION_POLL: Duration = Duration::from_secs(1);
 
-/// 控制器需要的平台相关操作，测试时可以替换。
+/// Platform-specific operations the controller needs; replaceable in tests.
 pub struct Native {
     pub hide: fn(&Window),
     pub center: fn(&Window),
@@ -78,7 +78,7 @@ impl Keylens {
         }
     }
 
-    /// 菜单栏图标等需要知道权限变化时调用的回调。
+    /// Callback invoked when the status bar item etc. needs to know about permission changes.
     pub fn set_permission_listener(&mut self, listener: Box<dyn Fn(bool)>) {
         self.on_permission = Some(listener);
     }
@@ -96,7 +96,7 @@ impl Keylens {
         self.platform.request_permission();
     }
 
-    // ---- 事件来源 ----
+    // ---- Event sources ----
 
     fn start_listening(&mut self, cx: &mut Context<Self>) {
         let (key_tx, key_rx) = std::sync::mpsc::channel();
@@ -165,7 +165,7 @@ impl Keylens {
         }));
     }
 
-    // ---- 触发 ----
+    // ---- Trigger ----
 
     fn on_key_event(&mut self, event: KeyEvent, cx: &mut Context<Self>) {
         let now = Instant::now();
@@ -221,7 +221,7 @@ impl Keylens {
         self.prefetch(app, cx);
     }
 
-    // ---- 读取 ----
+    // ---- Reading ----
 
     fn prefetch(&mut self, app: AppInfo, cx: &mut Context<Self>) {
         let loader = self.loader.clone();
@@ -265,7 +265,7 @@ impl Keylens {
         }
     }
 
-    // ---- 显示与隐藏 ----
+    // ---- Show and hide ----
 
     fn show(&mut self, cx: &mut Context<Self>) {
         let Some(app) = self
@@ -285,7 +285,7 @@ impl Keylens {
         });
         self.present(cx);
         if has_cache {
-            // 先显示缓存，同时在后台刷新（菜单项的可用状态随时在变）。
+            // Show the cache first while refreshing in the background (menu item availability changes at any time).
             self.prefetch(app, cx);
         }
     }
@@ -320,7 +320,7 @@ impl Keylens {
         });
     }
 
-    // ---- 浮层事件 ----
+    // ---- Panel events ----
 
     fn on_panel_event(&mut self, event: PanelEvent, cx: &mut Context<Self>) {
         match event {
@@ -354,7 +354,7 @@ fn is_self(app: &AppInfo) -> bool {
     app.pid == std::process::id() as i32
 }
 
-/// 把标准库通道转成异步通道：后台线程阻塞接收，转发给 gpui 的异步循环。
+/// Turns a std channel into an async channel: a background thread blocks on receive and forwards to gpui's async loop.
 fn bridge<T: Send + 'static>(rx: std::sync::mpsc::Receiver<T>) -> async_channel::Receiver<T> {
     let (tx, async_rx) = async_channel::unbounded();
     std::thread::spawn(move || {

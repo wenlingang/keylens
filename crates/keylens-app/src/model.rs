@@ -1,4 +1,4 @@
-//! 浮层的界面状态：分组分列、搜索结果、选中项和键盘导航。纯逻辑，不依赖 gpui。
+//! The panel's UI state: grouping into columns, search results, selection and keyboard navigation. Pure logic, no gpui dependency.
 
 use std::ops::Range;
 
@@ -30,7 +30,7 @@ pub enum ExecKind {
     Disabled,
 }
 
-/// 按顺序把分组分到最多 `columns` 列，尽量让各列高度接近。`heights` 是每组的行数。
+/// Distributes groups into at most `columns` columns in order, keeping column heights close. `heights` is the row count of each group.
 pub fn layout_columns(heights: &[usize], columns: usize) -> Vec<Vec<usize>> {
     let columns = columns.max(1);
     let total: usize = heights.iter().sum();
@@ -52,7 +52,7 @@ pub fn layout_columns(heights: &[usize], columns: usize) -> Vec<Vec<usize>> {
     result
 }
 
-/// 让 `[top, bottom)` 这一行出现在可视区内需要的新滚动距离；已经可见时返回 `None`。
+/// The new scroll offset needed to bring the row `[top, bottom)` into the viewport; `None` if it is already visible.
 pub fn scroll_target(top: f32, bottom: f32, scrolled: f32, viewport: f32) -> Option<f32> {
     if top < scrolled {
         Some(top)
@@ -114,7 +114,7 @@ impl PanelModel {
         self.os
     }
 
-    /// 开始显示一个还没有数据的应用。
+    /// Starts showing an app that has no data yet.
     pub fn set_loading(&mut self, app: AppInfo) {
         self.app = Some(app);
         self.entries.clear();
@@ -205,7 +205,7 @@ impl PanelModel {
         }
     }
 
-    /// 选中某个条目（鼠标点击）。
+    /// Selects an entry (mouse click).
     pub fn select_entry(&mut self, entry: usize) {
         if let Some(pos) = self.position_of(|e| e == entry) {
             self.selected = Some(pos);
@@ -246,9 +246,9 @@ impl PanelModel {
         }
     }
 
-    // ---- 内部 ----
+    // ---- Internals ----
 
-    /// 用来在刷新后找回选中条目的键：分组、路径、标题。
+    /// Key used to find the selected entry again after a refresh: group, path, title.
     fn selection_key(&self) -> Option<(String, Vec<String>, String)> {
         self.selected_entry()
             .map(|e| (e.group.clone(), e.path.clone(), e.title.clone()))
@@ -482,10 +482,10 @@ mod tests {
     #[test]
     fn left_and_right_jump_to_the_nearest_row() {
         let mut m = ready(2);
-        m.move_down(); // 打开（第 0 列第 2 行）
+        m.move_down(); // Open (column 0, row 2)
         m.move_right();
-        assert_eq!(selected_title(&m), "粘贴"); // 第 1 列第 2 行，行号相同
-        m.move_down(); // 命令面板（第 1 列第 4 行，跳过 General 标题）
+        assert_eq!(selected_title(&m), "粘贴"); // Column 1, row 2, same row number
+        m.move_down(); // Command Palette (column 1, row 4, skipping the General heading)
         assert_eq!(selected_title(&m), "命令面板");
         m.move_left();
         assert_eq!(selected_title(&m), "保存");
@@ -515,7 +515,7 @@ mod tests {
     fn selection_survives_refresh_and_column_changes() {
         let mut m = ready(2);
         m.move_down();
-        m.move_down(); // 保存
+        m.move_down(); // Save
         m.set_columns(1);
         assert_eq!(selected_title(&m), "保存");
         let mut refreshed = data();

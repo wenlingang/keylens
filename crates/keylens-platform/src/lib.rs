@@ -1,4 +1,4 @@
-//! 平台层接口。macOS 实现在 `keylens-macos`，测试用 `fake::FakePlatform`。
+//! Platform layer interface. The macOS implementation is in `keylens-macos`; tests use `fake::FakePlatform`.
 
 use std::any::Any;
 use std::sync::mpsc::Sender;
@@ -26,7 +26,7 @@ pub enum PlatformError {
     Other(String),
 }
 
-/// 一个监听（按键事件、前台应用切换）的生命周期。drop 时停止监听。
+/// Lifetime of one listener (key events, frontmost app changes). Dropping it stops listening.
 pub struct ListenGuard(#[allow(dead_code)] Box<dyn Any + Send>);
 
 impl ListenGuard {
@@ -37,22 +37,22 @@ impl ListenGuard {
 
 pub trait Platform: Send + Sync {
     fn permission(&self) -> PermissionState;
-    /// 打开系统的授权界面。
+    /// Opens the system's authorization UI.
     fn request_permission(&self);
     fn frontmost_app(&self) -> Option<AppInfo>;
-    /// 读取前台应用菜单的数据来源。
+    /// Data source that reads the frontmost app's menu.
     fn menu_source(&self) -> Box<dyn ShortcutSource>;
-    /// 执行一个条目：菜单条目点按菜单项，社区条目模拟按键。
-    /// 菜单条目来自更早的一次读取（`EntryId::snapshot` 不是最新）时，
-    /// 必须返回 `PlatformError::Stale`，或按分组、路径、标题重新确认后再执行，
-    /// 绝不能按 `index` 直接执行，否则可能点到别的菜单项。
+    /// Executes an entry: menu entries press the menu item, community entries synthesize key events.
+    /// When a menu entry comes from an earlier read (`EntryId::snapshot` is not the latest),
+    /// it must return `PlatformError::Stale`, or re-confirm by group, path and title before executing;
+    /// it must never execute directly by `index`, which could press a different menu item.
     fn execute(&self, entry: &Entry) -> Result<(), PlatformError>;
-    /// 开始把全局按键事件发送到 `tx`，直到返回的 guard 被 drop。
+    /// Starts sending global key events to `tx` until the returned guard is dropped.
     fn start_key_events(&self, tx: Sender<KeyEvent>) -> Result<ListenGuard, PlatformError>;
-    /// 前台应用切换时把新应用发送到 `tx`，直到返回的 guard 被 drop。
-    /// 界面层借此提前预读菜单：Electron 应用第一次读取约 900ms，超过长按时间。
+    /// Sends the new app to `tx` when the frontmost app changes, until the returned guard is dropped.
+    /// Lets the UI layer prefetch menus early: an Electron app's first read takes about 900ms, longer than the long-press time.
     fn watch_frontmost(&self, tx: Sender<AppInfo>) -> Result<ListenGuard, PlatformError>;
-    /// 应用图标（PNG 编码）。拿不到时返回 `None`，界面显示占位图标。
+    /// App icon (PNG-encoded). Returns `None` if unavailable; the UI shows a placeholder icon.
     fn app_icon(&self, app: &AppInfo) -> Option<Vec<u8>>;
     fn default_trigger(&self) -> Trigger;
 }

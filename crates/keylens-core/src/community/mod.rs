@@ -1,4 +1,4 @@
-//! 社区快捷键数据：格式解析、校验、目录加载和数据来源。
+//! Community shortcut data: format parsing, validation, catalog loading and data sources.
 
 mod catalog;
 mod data;

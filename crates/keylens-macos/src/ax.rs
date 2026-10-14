@@ -1,4 +1,4 @@
-//! AXUIElement 的安全封装。所有 unsafe 调用都集中在这里。
+//! Safe wrapper around AXUIElement. All unsafe calls are concentrated here.
 
 use std::ptr::NonNull;
 use std::sync::Once;
@@ -15,10 +15,10 @@ use objc2_core_foundation::{
 
 use crate::menu_tree::{ItemInfo, MenuNode};
 
-/// AX 消息超时（spec §3.4）。
+/// AX messaging timeout (spec §3.4).
 const MESSAGING_TIMEOUT_SECS: f32 = 1.0;
 
-/// 批量读取的属性，顺序与 `ItemInfo` 的字段对应。
+/// Attributes read in a batch, in the same order as the fields of `ItemInfo`.
 const ITEM_ATTRIBUTES: [&str; 6] = [
     "AXRole",
     "AXTitle",
@@ -28,13 +28,13 @@ const ITEM_ATTRIBUTES: [&str; 6] = [
     "AXMenuItemCmdModifiers",
 ];
 
-/// 一个 AX 元素。
+/// An AX element.
 #[derive(Clone)]
 pub struct AxNode(CFRetained<AXUIElement>);
 
-// SAFETY: AXUIElement 是对其他进程中元素的不可变引用，Accessibility API 可以在任意线程调用。
+// SAFETY: AXUIElement is an immutable reference to an element in another process; the Accessibility API can be called from any thread.
 unsafe impl Send for AxNode {}
-// SAFETY: 同上，元素本身没有可变状态。
+// SAFETY: Same as above; the element itself has no mutable state.
 unsafe impl Sync for AxNode {}
 
 fn source_error(err: AXError) -> SourceError {
@@ -47,7 +47,7 @@ fn source_error(err: AXError) -> SourceError {
     }
 }
 
-/// 读取子元素失败时：没有子元素属于正常情况，超时和无权限要中止遍历。
+/// When reading children fails: having no children is normal, while timeouts and missing permission must abort the traversal.
 fn children_outcome(err: AXError) -> Result<(), SourceError> {
     if err == AXError::NoValue || err == AXError::AttributeUnsupported {
         Ok(())
@@ -56,8 +56,8 @@ fn children_outcome(err: AXError) -> Result<(), SourceError> {
     }
 }
 
-/// AXPress 的返回值。打开模态窗口（打开面板、提示框）的动作会返回 CannotComplete，
-/// 但动作已经派发（见 AXUIElement.h），调用方不应重试，否则会重复执行。
+/// Return value of AXPress. Actions that open a modal window (open panel, alert) return CannotComplete,
+/// but the action has already been dispatched (see AXUIElement.h); callers should not retry, or it would run twice.
 fn press_outcome(err: AXError) -> Result<(), PlatformError> {
     if err == AXError::Success || err == AXError::CannotComplete {
         Ok(())
@@ -70,14 +70,14 @@ fn press_outcome(err: AXError) -> Result<(), PlatformError> {
     }
 }
 
-/// 设置全局默认的 AX 消息超时。对单个元素设置的超时不会传给它的子元素
-/// （AXUIElement.h：只对该对象生效），所以要通过系统级元素设置全局默认值。
+/// Sets the global default AX messaging timeout. A timeout set on a single element is not passed on to its children
+/// (AXUIElement.h: it only applies to that object), so the global default is set through the system-wide element.
 fn ensure_global_timeout() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        // SAFETY: 系统级元素总是可以创建；对它设置超时会改变本进程所有 AX 调用的默认超时。
+        // SAFETY: The system-wide element can always be created; setting a timeout on it changes the default timeout of all AX calls in this process.
         let system = unsafe { AXUIElement::new_system_wide() };
-        // SAFETY: 同上。
+        // SAFETY: Same as above.
         unsafe { system.set_messaging_timeout(MESSAGING_TIMEOUT_SECS) };
     });
 }
@@ -85,13 +85,13 @@ fn ensure_global_timeout() {
 fn attribute(element: &AXUIElement, name: &str) -> Result<CFRetained<CFType>, AXError> {
     let name = CFString::from_str(name);
     let mut value: *const CFType = std::ptr::null();
-    // SAFETY: `value` 是有效的输出指针；成功时它持有一个 +1 引用，由 CFRetained 接管。
+    // SAFETY: `value` is a valid output pointer; on success it holds a +1 reference, taken over by CFRetained.
     let err = unsafe { element.copy_attribute_value(&name, NonNull::from(&mut value)) };
     if err != AXError::Success {
         return Err(err);
     }
     NonNull::new(value as *mut CFType)
-        // SAFETY: Copy 规则返回的对象已经 retain 过一次。
+        // SAFETY: The object returned under the Copy rule has already been retained once.
         .map(|p| unsafe { CFRetained::from_raw(p) })
         .ok_or(AXError::NoValue)
 }
@@ -112,7 +112,7 @@ fn elements(value: CFRetained<CFType>) -> Vec<AxNode> {
     let Ok(array) = value.downcast::<CFArray>() else {
         return Vec::new();
     };
-    // SAFETY: AXChildren / AXWindows 的值是 AXUIElement 数组。
+    // SAFETY: The values of AXChildren / AXWindows are arrays of AXUIElement.
     unsafe { array.cast_unchecked::<AXUIElement>() }
         .to_vec()
         .into_iter()
@@ -128,7 +128,7 @@ impl MenuNode for AxNode {
             .collect();
         let names = CFArray::from_retained_objects(&names);
         let mut out: *const CFArray = std::ptr::null();
-        // SAFETY: `names` 是 CFString 数组；`out` 是有效的输出指针，成功时持有 +1 引用。
+        // SAFETY: `names` is a CFString array; `out` is a valid output pointer and holds a +1 reference on success.
         let err = unsafe {
             self.0.copy_multiple_attribute_values(
                 names.as_ref(),
@@ -141,9 +141,9 @@ impl MenuNode for AxNode {
         }
         let ptr = NonNull::new(out as *mut CFArray)
             .ok_or_else(|| SourceError::Other("empty attribute values".into()))?;
-        // SAFETY: Copy 规则返回的数组已经 retain 过一次。
+        // SAFETY: The array returned under the Copy rule has already been retained once.
         let values = unsafe { CFRetained::from_raw(ptr) };
-        // SAFETY: 数组元素都是 CF 对象；读取失败的属性是 AXValue 错误占位，下面的 downcast 会得到 None。
+        // SAFETY: Array elements are all CF objects; attributes that failed to read are AXValue error placeholders, and the downcast below yields None.
         let values: Vec<CFRetained<CFType>> = unsafe { values.cast_unchecked::<CFType>() }.to_vec();
         let get = |i: usize| values.get(i);
         Ok(ItemInfo {
@@ -166,9 +166,9 @@ impl MenuNode for AxNode {
 
 fn application(pid: i32) -> CFRetained<AXUIElement> {
     ensure_global_timeout();
-    // SAFETY: 为任意 pid 创建元素都是安全的；pid 无效时后续调用返回错误。
+    // SAFETY: Creating an element for any pid is safe; later calls return an error if the pid is invalid.
     let app = unsafe { AXUIElement::new_application(pid) };
-    // SAFETY: 设置超时只影响这个元素后续的消息。
+    // SAFETY: Setting the timeout only affects later messages to this element.
     unsafe { app.set_messaging_timeout(MESSAGING_TIMEOUT_SECS) };
     app
 }
@@ -191,12 +191,12 @@ pub fn title(node: &AxNode) -> Option<String> {
 
 pub fn press(node: &AxNode) -> Result<(), PlatformError> {
     let action = CFString::from_str("AXPress");
-    // SAFETY: 对菜单项元素执行 AXPress 动作。
+    // SAFETY: Performs the AXPress action on a menu item element.
     let err = unsafe { node.0.perform_action(&action) };
     press_outcome(err)
 }
 
-/// 调试用：列出应用的窗口标题。
+/// For debugging: lists an app's window titles.
 pub fn window_titles(pid: i32) -> Vec<String> {
     attribute(&application(pid), "AXWindows")
         .map(elements)
@@ -207,16 +207,16 @@ pub fn window_titles(pid: i32) -> Vec<String> {
 }
 
 pub fn is_trusted() -> bool {
-    // SAFETY: 无参数的查询函数。
+    // SAFETY: A query function with no arguments.
     unsafe { AXIsProcessTrusted() }
 }
 
-/// 请求权限：系统会弹出提示并把本程序加入「辅助功能」列表（开关默认关闭）。
+/// Requests permission: the system shows a prompt and adds this program to the "Accessibility" list (toggle off by default).
 pub fn request_trust() {
-    // SAFETY: kAXTrustedCheckOptionPrompt 是系统提供的常量字符串。
+    // SAFETY: kAXTrustedCheckOptionPrompt is a constant string provided by the system.
     let key: &CFString = unsafe { kAXTrustedCheckOptionPrompt };
     let options = CFDictionary::<CFString, CFBoolean>::from_slices(&[key], &[CFBoolean::new(true)]);
-    // SAFETY: options 是 CFString → CFBoolean 的字典，符合 API 要求。
+    // SAFETY: options is a CFString -> CFBoolean dictionary, as the API requires.
     unsafe { AXIsProcessTrustedWithOptions(Some(options.as_ref())) };
 }
 
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn press_that_opens_a_modal_counts_as_dispatched() {
-        // 打开模态窗口的动作会返回 CannotComplete，但动作已经执行（AXUIElement.h）。
+        // Actions that open a modal window return CannotComplete, but the action has already run (AXUIElement.h).
         assert!(press_outcome(AXError::CannotComplete).is_ok());
         assert!(press_outcome(AXError::Success).is_ok());
         assert!(matches!(

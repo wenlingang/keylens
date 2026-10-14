@@ -1,4 +1,4 @@
-//! 校验后的社区数据。
+//! Validated community data.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -39,7 +39,7 @@ pub struct DataGroup {
 #[derive(Clone, Debug, PartialEq)]
 pub struct DataShortcut {
     pub title: Localized,
-    /// 按 `os_index` 顺序存放三个平台各自的快捷键。
+    /// Shortcuts for the three platforms, stored in `os_index` order.
     keys: [Shortcut; 3],
 }
 

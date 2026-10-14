@@ -1,4 +1,4 @@
-//! 菜单栏图标。只能在主线程创建和使用。
+//! Status bar item. Can only be created and used on the main thread.
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject};
@@ -33,7 +33,7 @@ pub struct TrayLabels {
     pub permission_ok: String,
     pub permission_missing: String,
     pub open_data: String,
-    /// 数据文件有错误时显示的文字，没有错误时为 `None`。
+    /// Text shown when the data files have errors; `None` when there are none.
     pub data_errors: Option<String>,
     pub quit: String,
 }
@@ -62,12 +62,12 @@ define_class!(
 impl Target {
     fn new(mtm: MainThreadMarker, on_command: Box<dyn Fn(TrayCommand)>) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(TargetIvars { on_command });
-        // SAFETY: 调用 NSObject 的 init。
+        // SAFETY: Calls NSObject's init.
         unsafe { msg_send![super(this), init] }
     }
 }
 
-/// 菜单栏图标和它的菜单。必须一直持有，drop 后图标消失、点击无效（菜单项的 target 是弱引用）。
+/// The status bar item and its menu. Must be held for as long as it is needed: after drop the icon disappears and clicks do nothing (menu items' target is a weak reference).
 pub struct Tray {
     item: Retained<NSStatusItem>,
     permission_item: Retained<NSMenuItem>,
@@ -84,7 +84,7 @@ fn menu_item(
     command: Option<TrayCommand>,
 ) -> Retained<NSMenuItem> {
     let action = command.map(|_| sel!(menuItemClicked:));
-    // SAFETY: 标准的 NSMenuItem 初始化。
+    // SAFETY: Standard NSMenuItem initialization.
     let item = unsafe {
         NSMenuItem::initWithTitle_action_keyEquivalent(
             NSMenuItem::alloc(mtm),
@@ -95,7 +95,7 @@ fn menu_item(
     };
     if let Some(command) = command {
         item.setTag(command.tag());
-        // SAFETY: target 由 Tray 持有，生命周期覆盖菜单项。
+        // SAFETY: target is held by Tray, whose lifetime covers the menu items.
         unsafe { item.setTarget(Some(&**target as &AnyObject)) };
     }
     item
@@ -147,7 +147,7 @@ impl Tray {
         tray
     }
 
-    /// 更新权限状态：图标标题和第一个菜单项。
+    /// Updates the permission status: the icon title and the first menu item.
     pub fn set_permission(&self, granted: bool) {
         if let Some(button) = self.item.button(self.mtm) {
             button.setTitle(&NSString::from_str(if granted { "⌘" } else { "⌘!" }));

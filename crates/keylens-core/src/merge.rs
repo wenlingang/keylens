@@ -1,13 +1,13 @@
-//! 合并多个来源的条目，并按分组整理。
+//! Merges entries from multiple sources and organizes them into groups.
 
 use std::collections::HashMap;
 
 use crate::keys::Shortcut;
 use crate::model::{Entry, EntrySource, Group};
 
-/// `sources` 按优先级从高到低排列（菜单、用户数据、内置数据）。快捷键按 `Shortcut::canonical` 比较。
-/// 如果某个快捷键已经被更高优先级的来源占用，低优先级的条目会被丢弃，
-/// 它的标题和搜索词会并入胜出条目的 `search_terms`。同一来源内部的重复条目都保留。
+/// `sources` is ordered from highest to lowest priority (menu, user data, built-in data). Shortcuts are compared by `Shortcut::canonical`.
+/// If a shortcut is already taken by a higher-priority source, the lower-priority entry is dropped,
+/// and its title and search terms are merged into the winning entry's `search_terms`. Duplicates within the same source are all kept.
 pub fn merge(sources: Vec<Vec<Entry>>) -> Vec<Entry> {
     let mut out: Vec<Entry> = Vec::new();
     let mut owners: HashMap<Shortcut, usize> = HashMap::new();
@@ -33,7 +33,7 @@ pub fn merge(sources: Vec<Vec<Entry>>) -> Vec<Entry> {
     out
 }
 
-/// 按分组整理，分组顺序以第一次出现为准。菜单分组和社区分组即使同名也分开。
+/// Organizes entries into groups; group order follows first appearance. Menu groups and community groups stay separate even with the same name.
 pub fn group_entries(entries: Vec<Entry>) -> Vec<Group> {
     let mut groups: Vec<Group> = Vec::new();
     for entry in entries {
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn shifted_symbols_from_menus_match_their_base_key_with_shift() {
-        // Chrome 菜单里「放大」是 ⌘+，社区数据写作 ⇧⌘=，两者是同一个快捷键
+        // In Chrome's menu "Zoom In" is ⌘+, while community data writes it as ⇧⌘=; they are the same shortcut
         let menu = vec![
             menu_entry(0, "放大", Modifiers::META, '+'),
             menu_entry(1, "选择下一个标签", Modifiers::META, '}'),
@@ -116,7 +116,7 @@ mod tests {
         ];
         let merged = merge(vec![menu, community]);
         let titles: Vec<_> = merged.iter().map(|e| e.title.as_str()).collect();
-        // ⇧⌘[ 和 ⌘[ 是两个不同的快捷键，不能合并
+        // ⇧⌘[ and ⌘[ are different shortcuts and must not be merged
         assert_eq!(titles, ["放大", "选择下一个标签", "后退", "Previous Tab"]);
         assert_eq!(merged[0].search_terms, ["Zoom In"]);
         assert_eq!(merged[0].shortcut.display(Os::MacOS), "⌘+");

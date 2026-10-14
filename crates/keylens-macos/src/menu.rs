@@ -1,4 +1,4 @@
-//! 读取前台应用菜单的数据来源。
+//! Data source that reads the frontmost app's menu.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -9,7 +9,7 @@ use crate::ax::{self, AxNode};
 use crate::menu_tree::collect;
 use crate::snapshots::Snapshots;
 
-/// 一次菜单读取的总时限。正常应用 30–130ms，Electron 首次约 900ms。
+/// Total time limit for one menu read. Normal apps take 30-130ms; Electron takes about 900ms the first time.
 const READ_DEADLINE: Duration = Duration::from_secs(2);
 
 pub struct AxMenuSource {

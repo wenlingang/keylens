@@ -1,4 +1,4 @@
-//! 菜单树遍历。通过 `MenuNode` trait 和具体的 AX 实现解耦，可以用假数据测试。
+//! Menu tree traversal. Decoupled from the concrete AX implementation via the `MenuNode` trait, so it can be tested with fake data.
 
 use std::time::Instant;
 
@@ -6,7 +6,7 @@ use keylens_core::{Entry, EntryId, EntrySource, Shortcut, SourceError};
 
 use crate::convert::menu_chord;
 
-/// 一个菜单节点的属性，对应 AX 的同名属性。
+/// Attributes of a menu node, corresponding to the AX attributes of the same names.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ItemInfo {
     pub role: String,
@@ -17,21 +17,21 @@ pub struct ItemInfo {
     pub cmd_modifiers: Option<i64>,
 }
 
-/// 菜单节点。读取失败（尤其是超时）时返回错误，遍历会立即中止，
-/// 而不是把失败的节点当成空节点继续，否则一次读取可能拖到几十秒且看不出失败。
+/// A menu node. When a read fails (especially a timeout) it returns an error and the traversal aborts immediately,
+/// rather than treating the failed node as empty and continuing, which could make one read drag on for tens of seconds with no sign of failure.
 pub trait MenuNode: Sized {
     fn info(&self) -> Result<ItemInfo, SourceError>;
     fn children(&self) -> Result<Vec<Self>, SourceError>;
 }
 
-/// 一次菜单读取的结果。`handles[i]` 是 `entries[i]` 对应的菜单元素。
+/// Result of one menu read. `handles[i]` is the menu element for `entries[i]`.
 pub struct MenuRead<N> {
     pub entries: Vec<Entry>,
     pub handles: Vec<N>,
 }
 
-/// 遍历菜单栏，收集有快捷键的菜单项。第一个顶层菜单（苹果菜单）跳过。
-/// 任何节点出错，或者超过 `deadline`，整次读取都失败。
+/// Traverses the menu bar, collecting menu items that have shortcuts. The first top-level menu (the Apple menu) is skipped.
+/// If any node errors or `deadline` is exceeded, the whole read fails.
 pub fn collect<N: MenuNode>(
     menu_bar: &N,
     snapshot: u64,
@@ -62,7 +62,7 @@ struct Walker<N> {
 }
 
 impl<N: MenuNode> Walker<N> {
-    /// 透传结果，并在超过总时限时返回超时。
+    /// Passes the result through, and returns a timeout once the total time limit is exceeded.
     fn check<T>(&self, result: Result<T, SourceError>) -> Result<T, SourceError> {
         let value = result?;
         if Instant::now() >= self.deadline {

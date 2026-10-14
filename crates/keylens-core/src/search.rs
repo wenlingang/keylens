@@ -1,4 +1,4 @@
-//! 按标题、菜单路径、搜索词和按键过滤条目。
+//! Filters entries by title, menu path, search terms and keys.
 
 use std::ops::Range;
 
@@ -7,11 +7,11 @@ use crate::model::Entry;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Match {
-    /// 在输入切片中的下标。
+    /// Index in the input slice.
     pub index: usize,
-    /// 3 = 标题以查询开头，2 = 标题包含查询，1 = 其他字段匹配，0 = 查询为空。
+    /// 3 = title starts with the query, 2 = title contains the query, 1 = other fields match, 0 = query is empty.
     pub score: u8,
-    /// 标题中要高亮的字节范围。
+    /// Byte range of the title to highlight.
     pub highlight: Option<Range<usize>>,
 }
 
@@ -68,7 +68,7 @@ fn haystack(entry: &Entry, os: Os) -> String {
     text
 }
 
-/// 只由修饰键符号组成的词，返回对应的修饰键集合。
+/// A word made up only of modifier symbols; returns the matching modifier set.
 fn modifier_token(token: &str) -> Option<Modifiers> {
     let mut modifiers = Modifiers::NONE;
     for c in token.chars() {
@@ -84,7 +84,7 @@ fn modifier_token(token: &str) -> Option<Modifiers> {
     Some(modifiers)
 }
 
-/// 完整写出的一个按键组合：`⌘⇧P` 这样的符号前缀加主键，或 `cmd+shift+p` 这样的 `+` 写法。
+/// A fully written key combination: a symbol prefix plus main key like `⌘⇧P`, or `+` notation like `cmd+shift+p`.
 fn chord_token(token: &str, os: Os) -> Option<Chord> {
     if token.contains('+') {
         return Chord::parse(token, os).ok();
@@ -109,7 +109,7 @@ fn token_matches(entry: &Entry, haystack: &str, token: &str, os: Os) -> bool {
     haystack.contains(token)
 }
 
-/// 在 `text` 中不区分大小写地查找 `query`，返回落在字符边界上的字节范围。
+/// Finds `query` in `text` case-insensitively, returning a byte range that falls on character boundaries.
 fn find_ignore_case(text: &str, query: &str) -> Option<Range<usize>> {
     let needle: Vec<char> = query.chars().flat_map(char::to_lowercase).collect();
     if needle.is_empty() {
@@ -214,7 +214,7 @@ mod tests {
                 "{query}"
             );
         }
-        // 修饰键必须完全一致：⌘P 不应该匹配 ⇧⌘P
+        // Modifiers must match exactly: ⌘P should not match ⇧⌘P
         assert!(filter(&sample(), "⌘P", Os::MacOS).is_empty());
         assert!(filter(&sample(), "ctrl+shift+p", Os::MacOS).is_empty());
     }

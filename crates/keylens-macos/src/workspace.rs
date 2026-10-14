@@ -1,4 +1,4 @@
-//! 前台应用、前台应用切换通知、应用图标。
+//! Frontmost app, frontmost-app change notifications, app icons.
 
 use std::ptr::NonNull;
 use std::sync::mpsc::Sender;
@@ -37,19 +37,19 @@ pub fn frontmost_app() -> Option<AppInfo> {
         .map(|app| app_info(&app))
 }
 
-/// 注册的通知观察者，drop 时注销。
+/// A registered notification observer, unregistered on drop.
 struct Observer {
     center: Retained<NSNotificationCenter>,
     token: Retained<ProtocolObject<dyn NSObjectProtocol>>,
 }
 
-// SAFETY: NSNotificationCenter 是线程安全的，可以在任意线程注销观察者。
+// SAFETY: NSNotificationCenter is thread-safe; observers can be unregistered from any thread.
 unsafe impl Send for Observer {}
 
 impl Drop for Observer {
     fn drop(&mut self) {
         let token: &AnyObject = (*self.token).as_ref();
-        // SAFETY: token 是 addObserverForName 返回的观察者对象。
+        // SAFETY: token is the observer object returned by addObserverForName.
         unsafe { self.center.removeObserver(token) };
     }
 }
@@ -61,7 +61,7 @@ pub fn watch_frontmost(tx: Sender<AppInfo>) -> ListenGuard {
             let _ = tx.send(app);
         }
     });
-    // SAFETY: 通知名是系统常量；block 会被通知中心 retain。
+    // SAFETY: The notification name is a system constant; the block is retained by the notification center.
     let token = unsafe {
         center.addObserverForName_object_queue_usingBlock(
             Some(NSWorkspaceDidActivateApplicationNotification),
@@ -73,13 +73,13 @@ pub fn watch_frontmost(tx: Sender<AppInfo>) -> ListenGuard {
     ListenGuard::new(Observer { center, token })
 }
 
-/// 应用图标，PNG 编码。可能在后台线程调用，所以用 autoreleasepool 及时释放中间对象。
+/// App icon, PNG-encoded. May be called from a background thread, so an autoreleasepool releases intermediate objects promptly.
 pub fn app_icon(pid: i32) -> Option<Vec<u8>> {
     objc2::rc::autoreleasepool(|_| {
         let app = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)?;
         let tiff = app.icon()?.TIFFRepresentation()?;
         let bitmap = NSBitmapImageRep::imageRepWithData(&tiff)?;
-        // SAFETY: 空字典是合法的 properties 参数。
+        // SAFETY: An empty dictionary is a valid properties argument.
         let png = unsafe {
             bitmap.representationUsingType_properties(
                 NSBitmapImageFileType::PNG,
@@ -90,7 +90,7 @@ pub fn app_icon(pid: i32) -> Option<Vec<u8>> {
     })
 }
 
-/// 打开「系统设置 › 隐私与安全性 › 辅助功能」。
+/// Opens "System Settings › Privacy & Security › Accessibility".
 pub fn open_accessibility_settings() {
     let url = NSString::from_str(
         "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",

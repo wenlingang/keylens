@@ -1,8 +1,8 @@
-//! 快捷键的表示、解析与显示。
+//! Shortcut representation, parsing and display.
 
 use std::ops::BitOr;
 
-/// 运行平台，决定 `Mod` 的含义和显示风格。
+/// The running platform; determines what `Mod` means and the display style.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Os {
     MacOS,
@@ -24,7 +24,7 @@ impl Os {
     }
 }
 
-/// 修饰键集合。`META` 是 macOS 的 ⌘、Windows 的 Win 键、Linux 的 Super 键。
+/// Set of modifier keys. `META` is ⌘ on macOS, the Win key on Windows, and the Super key on Linux.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Modifiers(u8);
 
@@ -44,7 +44,7 @@ impl Modifiers {
         self.0 == 0
     }
 
-    /// 数据文件里 `Mod` 对应的修饰键：macOS 上是 ⌘，其他平台是 Ctrl。
+    /// The modifier that `Mod` maps to in data files: ⌘ on macOS, Ctrl on other platforms.
     pub const fn primary(os: Os) -> Self {
         match os {
             Os::MacOS => Self::META,
@@ -61,7 +61,7 @@ impl BitOr for Modifiers {
     }
 }
 
-/// 主键。字母统一存成大写。
+/// The main key. Letters are always stored uppercase.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Key {
     Char(char),
@@ -84,7 +84,7 @@ pub enum Key {
 
 const PUNCTUATION: &str = "`-=[]\\;',./";
 
-/// 美式键盘上需要按 Shift 才能打出的符号，以及对应的基础键。
+/// Symbols that need Shift on a US keyboard, with their base keys.
 const SHIFTED_SYMBOLS: [(char, char); 21] = [
     ('~', '`'),
     ('!', '1'),
@@ -110,7 +110,7 @@ const SHIFTED_SYMBOLS: [(char, char); 21] = [
 ];
 
 impl Key {
-    /// 平台层把菜单里的字符转成 `Key` 时使用：字母统一大写，其他字符原样保留。
+    /// Used when the platform layer converts a menu character into a `Key`: letters are uppercased, other characters kept as-is.
     pub fn from_char(c: char) -> Key {
         Key::Char(c.to_ascii_uppercase())
     }
@@ -249,7 +249,7 @@ impl Key {
         text.to_string()
     }
 
-    /// 用户可能输入的键名（小写），用于搜索。
+    /// Key names (lowercase) a user might type, used for search.
     fn search_words(self) -> &'static str {
         match self {
             Key::Char(_) | Key::F(_) => "",
@@ -297,7 +297,7 @@ fn parse_modifier(token: &str, os: Os) -> Option<Modifiers> {
     }
 }
 
-/// 一次按键组合，例如 ⇧⌘P。
+/// A single key combination, e.g. ⇧⌘P.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Chord {
     pub modifiers: Modifiers,
@@ -305,7 +305,7 @@ pub struct Chord {
 }
 
 impl Chord {
-    /// 解析 `Mod+Shift+P` 这样的写法，大小写不敏感。
+    /// Parses notation like `Mod+Shift+P`, case-insensitively.
     pub fn parse(text: &str, os: Os) -> Result<Chord, KeyParseError> {
         let text = text.trim();
         if text.is_empty() {
@@ -335,7 +335,7 @@ impl Chord {
         Ok(Chord { modifiers, key })
     }
 
-    /// 按显示顺序拆成键帽，例如 macOS 上 ["⇧", "⌘", "P"]，Windows 上 ["Ctrl", "Shift", "P"]。
+    /// Splits into keycaps in display order, e.g. ["⇧", "⌘", "P"] on macOS, ["Ctrl", "Shift", "P"] on Windows.
     pub fn caps(&self, os: Os) -> Vec<String> {
         let names: [(Modifiers, &str); 5] = match os {
             Os::MacOS => [
@@ -369,8 +369,8 @@ impl Chord {
         caps
     }
 
-    /// 用于比较的规范形式：需要 Shift 才能打出的符号拆成「⇧ + 基础键」（按美式键盘），
-    /// 这样菜单里的 ⌘+ 和数据里的 ⇧⌘= 会被认为是同一个快捷键。显示时仍用原来的写法。
+    /// Canonical form for comparison: symbols that need Shift are split into "⇧ + base key" (per US keyboard),
+    /// so ⌘+ in a menu and ⇧⌘= in the data count as the same shortcut. Display still uses the original notation.
     pub fn canonical(self) -> Chord {
         if let Key::Char(c) = self.key
             && let Some(&(_, base)) = SHIFTED_SYMBOLS.iter().find(|(shifted, _)| *shifted == c)
@@ -393,7 +393,7 @@ impl Chord {
     }
 }
 
-/// 一个快捷键：一个或多个连续按下的组合，例如 ⌘K ⌘S。
+/// A shortcut: one or more combinations pressed in sequence, e.g. ⌘K ⌘S.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Shortcut(Vec<Chord>);
 
@@ -413,7 +413,7 @@ impl Shortcut {
             .map(Shortcut)
     }
 
-    /// 每个组合都取 `Chord::canonical`，用于合并去重。
+    /// Takes `Chord::canonical` of each combination, used for merging and deduplication.
     pub fn canonical(&self) -> Shortcut {
         Shortcut(self.0.iter().map(|c| c.canonical()).collect())
     }
@@ -430,7 +430,7 @@ impl Shortcut {
             .join(" ")
     }
 
-    /// 供搜索使用的小写文字：显示形式加上修饰键和特殊键的英文名。
+    /// Lowercase text for search: the display form plus English names of modifiers and special keys.
     pub fn search_text(&self, os: Os) -> String {
         let mut out = self.display(os).to_lowercase();
         for chord in &self.0 {

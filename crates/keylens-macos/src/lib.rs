@@ -1,7 +1,7 @@
-//! Keylens 的 macOS 平台层。
+//! Keylens' macOS platform layer.
 //!
-//! `convert`、`menu_tree`、`snapshots` 是纯逻辑，在所有平台编译并测试；
-//! 其余模块调用 macOS 系统 API，只在 macOS 上编译。
+//! `convert`, `menu_tree` and `snapshots` are pure logic, compiled and tested on all platforms;
+//! the remaining modules call macOS system APIs and are compiled only on macOS.
 
 pub mod convert;
 pub mod menu_tree;
@@ -29,7 +29,7 @@ pub use objc2::MainThreadMarker;
 #[cfg(target_os = "macos")]
 pub use platform::MacPlatform;
 
-/// 开发调试用的辅助函数，不属于稳定接口。
+/// Helper functions for development and debugging; not part of the stable interface.
 #[cfg(target_os = "macos")]
 #[doc(hidden)]
 pub mod debug {

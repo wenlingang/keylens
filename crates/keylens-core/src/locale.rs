@@ -1,8 +1,8 @@
-//! 语言识别、回退规则和多语言文字。
+//! Language detection, fallback rules and multilingual text.
 
 use std::collections::BTreeMap;
 
-/// 内容语言。顺序也是 `Localized::all` 的输出顺序。
+/// Content language. The order is also the output order of `Localized::all`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Lang {
     En,
@@ -14,7 +14,7 @@ pub enum Lang {
 impl Lang {
     pub const ALL: [Lang; 4] = [Lang::En, Lang::ZhHans, Lang::ZhHant, Lang::Ja];
 
-    /// 社区数据 `i18n` 表里的键。英文写在 `title`，没有键。
+    /// Key in the community data `i18n` table. English lives in `title` and has no key.
     pub fn data_key(self) -> Option<&'static str> {
         match self {
             Lang::En => None,
@@ -28,7 +28,7 @@ impl Lang {
         Lang::ALL.into_iter().find(|l| l.data_key() == Some(key))
     }
 
-    /// 缺少翻译时的查找顺序，最后都是英文。
+    /// Lookup order when a translation is missing; always ends at English.
     pub fn fallbacks(self) -> &'static [Lang] {
         match self {
             Lang::En => &[Lang::En],
@@ -39,7 +39,7 @@ impl Lang {
     }
 }
 
-/// `lang` 用来选社区数据的翻译，`ui` 是传给 rust-i18n 的界面语言代码（与 gpui-kit 一致）。
+/// `lang` selects the community data translation; `ui` is the UI language code passed to rust-i18n (consistent with gpui-kit).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Locale {
     pub lang: Lang,
@@ -51,7 +51,7 @@ const ENGLISH: Locale = Locale {
     ui: "en",
 };
 
-/// 把系统或配置里的语言标签（`zh-Hant-HK`、`zh_TW`、`ja-JP` 等）映射到支持的语言。
+/// Maps language tags from the system or config (`zh-Hant-HK`, `zh_TW`, `ja-JP`, etc.) to a supported language.
 pub fn resolve(tag: &str) -> Locale {
     let tag = tag.trim().replace('_', "-").to_ascii_lowercase();
     let parts: Vec<&str> = tag.split('-').collect();
@@ -81,7 +81,7 @@ pub fn resolve(tag: &str) -> Locale {
     }
 }
 
-/// 在用户的首选语言列表里找第一个支持的语言；英文本身也算支持。
+/// Finds the first supported language in the user's preferred language list; English itself counts as supported.
 pub fn resolve_preferred<'a>(tags: impl IntoIterator<Item = &'a str>) -> Locale {
     for tag in tags {
         let locale = resolve(tag);
@@ -92,7 +92,7 @@ pub fn resolve_preferred<'a>(tags: impl IntoIterator<Item = &'a str>) -> Locale 
     ENGLISH
 }
 
-/// 带翻译的文字：英文必有，其他语言可选。
+/// Text with translations: English is required, other languages are optional.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Localized {
     pub en: String,
@@ -112,7 +112,7 @@ impl Localized {
         &self.en
     }
 
-    /// 英文在前，之后按 `Lang` 的顺序列出全部翻译。
+    /// English first, then all translations in `Lang` order.
     pub fn all(&self) -> impl Iterator<Item = &str> {
         std::iter::once(self.en.as_str()).chain(self.translations.values().map(String::as_str))
     }

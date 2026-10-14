@@ -1,4 +1,4 @@
-//! 按应用保存最近一次菜单读取的元素，供执行时找回。与具体元素类型无关，可以用假数据测试。
+//! Keeps the elements of each app's most recent menu read for later lookup at execution time. Independent of the concrete element type; testable with fake data.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -31,10 +31,10 @@ impl<H: Clone> Snapshots<H> {
         self.next.fetch_add(1, Ordering::Relaxed)
     }
 
-    /// 保存一次读取，覆盖这个应用较旧的读取（比已保存的更旧则忽略）。超出容量时丢掉最旧的应用。
+    /// Stores a read, overwriting this app's older read (ignored if older than the stored one). When over capacity, the oldest app is dropped.
     pub fn store(&self, pid: i32, snapshot: u64, handles: Vec<H>) {
         let mut by_pid = self.by_pid.lock().unwrap();
-        // 预读和触发读取可能并发，较旧的读取晚完成时不能覆盖较新的结果。
+        // Prefetch and trigger reads may run concurrently; an older read finishing later must not overwrite a newer result.
         if by_pid.get(&pid).is_some_and(|s| s.snapshot > snapshot) {
             return;
         }
@@ -51,7 +51,7 @@ impl<H: Clone> Snapshots<H> {
         }
     }
 
-    /// 找回条目对应的菜单元素。条目不是来自某个应用的最新一次读取时返回 `Stale`。
+    /// Finds the menu element for an entry. Returns `Stale` if the entry is not from an app's latest read.
     pub fn handle(&self, entry: &Entry) -> Result<H, PlatformError> {
         let EntryId {
             snapshot, index, ..
@@ -137,7 +137,7 @@ mod tests {
         let store = Snapshots::new(8);
         let prefetch = store.next_id();
         let trigger = store.next_id();
-        // 触发读取先完成，预读后完成
+        // The trigger read finishes first, the prefetch later
         store.store(100, trigger, vec!["new"]);
         store.store(100, prefetch, vec!["old"]);
         assert_eq!(store.handle(&entry(trigger, 0)).unwrap(), "new");

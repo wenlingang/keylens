@@ -1,4 +1,4 @@
-//! Keylens 的平台无关核心：快捷键模型、合并、搜索、触发判断、语言和社区数据。
+//! Keylens' platform-independent core: shortcut model, merging, search, trigger detection, languages and community data.
 #![forbid(unsafe_code)]
 
 pub mod community;

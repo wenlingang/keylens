@@ -1,4 +1,4 @@
-//! `Platform` 的 macOS 实现。
+//! macOS implementation of `Platform`.
 
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
@@ -11,7 +11,7 @@ use crate::menu::AxMenuSource;
 use crate::snapshots::Snapshots;
 use crate::{exec, keytap, workspace};
 
-/// 最多保留多少个应用的菜单快照（spec §5）。
+/// Maximum number of apps whose menu snapshots are kept (spec §5).
 const SNAPSHOT_CAPACITY: usize = 8;
 
 pub struct MacPlatform {

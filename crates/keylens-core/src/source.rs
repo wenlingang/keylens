@@ -1,4 +1,4 @@
-//! 快捷键数据来源的接口，以及把多个来源汇总成界面数据。
+//! Interface for shortcut data sources, and aggregating multiple sources into UI data.
 
 use crate::merge::{group_entries, merge};
 use crate::model::{AppInfo, Entry, Group};
@@ -17,7 +17,7 @@ pub trait ShortcutSource: Send + Sync {
     fn load(&self, app: &AppInfo) -> Result<Vec<Entry>, SourceError>;
 }
 
-/// 一个应用的全部快捷键，已经合并去重并分组。
+/// All shortcuts of one app, already merged, deduplicated and grouped.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AppShortcuts {
     pub app: AppInfo,
@@ -25,7 +25,7 @@ pub struct AppShortcuts {
     pub warnings: Vec<SourceError>,
 }
 
-/// `sources` 按优先级从高到低排列。某个来源出错时记进 `warnings`，不影响其他来源。
+/// `sources` is ordered from highest to lowest priority. When a source fails it is recorded in `warnings` without affecting other sources.
 pub fn collect(app: AppInfo, sources: &[&dyn ShortcutSource]) -> AppShortcuts {
     let mut loaded = Vec::new();
     let mut warnings = Vec::new();

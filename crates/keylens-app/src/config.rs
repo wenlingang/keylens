@@ -1,4 +1,4 @@
-//! 用户配置（`~/.config/keylens/config.toml`）、界面语言选择和数据目录。
+//! User config (`~/.config/keylens/config.toml`), UI language selection and the data directory.
 
 use std::path::{Path, PathBuf};
 
@@ -8,11 +8,11 @@ use serde::Deserialize;
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    /// 覆盖系统语言，例如 `"ja"`、`"zh-TW"`。
+    /// Overrides the system language, e.g. `"ja"`, `"zh-TW"`.
     pub language: Option<String>,
 }
 
-/// 未知的键会被忽略，这样旧版本能读新版本写的配置。
+/// Unknown keys are ignored so older versions can read configs written by newer ones.
 pub fn parse_config(text: &str) -> Result<Config, String> {
     toml::from_str(text).map_err(|e| e.to_string())
 }
@@ -28,7 +28,7 @@ pub fn load_config(path: &Path) -> (Config, Option<String>) {
     }
 }
 
-/// 配置里写了语言就用它（不认识的语言回退到英文），否则按系统首选语言选择。
+/// Use the language set in the config (unknown languages fall back to English); otherwise pick from the system's preferred languages.
 pub fn choose_locale(config: &Config, system: &[String]) -> Locale {
     match &config.language {
         Some(tag) => resolve(tag),

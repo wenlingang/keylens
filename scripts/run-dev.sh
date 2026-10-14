@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 编译 Keylens，打包成签名的开发版 .app 并启动。输出写到 target/dev-apps/keylens.log。
+# Builds Keylens, bundles it into a signed dev .app and launches it. Output goes to target/dev-apps/keylens.log.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
