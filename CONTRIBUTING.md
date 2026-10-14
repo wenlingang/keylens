@@ -42,7 +42,11 @@ If your editor has the Even Better TOML extension, the `#:schema ../schema.json`
 
 Releases are built by `.github/workflows/release.yml` and signed with the self-signed "Keylens Release"
 certificate stored in the `RELEASE_CERT_P12` / `RELEASE_CERT_PASSWORD` secrets. Never replace that
-certificate: users would have to re-grant Accessibility permission. The one-time setup is `scripts/release-cert.sh`.
+certificate: users would have to re-grant Accessibility permission. The one-time setup is `scripts/release-cert.sh`
+(it writes to `~/keylens-release-cert/`, outside any synced folder).
+
+`scripts/release-cert.sha1` pins that certificate's SHA-1. Never change it: packaging with "Keylens Release"
+requires it, and CI fails if the app is signed by any other certificate.
 
 1. Bump `version` in `crates/keylens-app/Cargo.toml`, run `cargo check` to update `Cargo.lock`, and commit.
 2. Optional dry run: Actions › Release › Run workflow, then download the `keylens-dmg` artifact.
