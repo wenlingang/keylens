@@ -4,3 +4,4 @@
 //! 其余模块调用 macOS 系统 API，只在 macOS 上编译。
 
 pub mod convert;
+pub mod menu_tree;
