@@ -1,6 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/keylens-core", "crates/keylens-platform", "crates/keylens-macos"]
+members = [
+    "crates/keylens-core",
+    "crates/keylens-platform",
+    "crates/keylens-macos",
+    "crates/keylens-app",
+]
 exclude = ["spikes"]
 
 [workspace.package]
@@ -23,3 +28,8 @@ objc2-app-kit = "0.3.2"
 objc2-application-services = "0.3.2"
 objc2-core-foundation = "0.3.2"
 objc2-core-graphics = "0.3.2"
+gpui-kit = "0.7.3"
+async-channel = "2"
+rust-i18n = "4.2"
+sys-locale = "0.3"
+raw-window-handle = "0.6"
