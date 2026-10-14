@@ -8,12 +8,24 @@ pub mod menu_tree;
 pub mod snapshots;
 
 #[cfg(target_os = "macos")]
-pub mod ax;
+mod ax;
 #[cfg(target_os = "macos")]
-pub mod exec;
+mod exec;
 #[cfg(target_os = "macos")]
-pub mod keytap;
+mod keytap;
 #[cfg(target_os = "macos")]
-pub mod menu;
+mod menu;
 #[cfg(target_os = "macos")]
-pub mod workspace;
+mod platform;
+#[cfg(target_os = "macos")]
+mod workspace;
+
+#[cfg(target_os = "macos")]
+pub use platform::MacPlatform;
+
+/// 开发调试用的辅助函数，不属于稳定接口。
+#[cfg(target_os = "macos")]
+#[doc(hidden)]
+pub mod debug {
+    pub use crate::ax::window_titles;
+}
