@@ -249,6 +249,18 @@ i18n = { zh-Hans = "常规" }
     }
 
     #[test]
+    fn keys_table_errors_explain_the_problem() {
+        let line = "keys = { default = \"Alt+Up\", macos = \"Option+Up\" }";
+        let typo =
+            error(&VALID.replace(line, "keys = { default = \"Alt+Up\", mac = \"Option+Up\" }"));
+        assert!(typo.contains("mac"), "{typo}");
+        let missing = error(&VALID.replace(line, "keys = { macos = \"Option+Up\" }"));
+        assert!(missing.contains("default"), "{missing}");
+        let number = error(&VALID.replace(line, "keys = 5"));
+        assert!(number.contains("string, array or table"), "{number}");
+    }
+
+    #[test]
     fn rejects_wrong_schema_and_missing_ids() {
         assert!(error(&VALID.replace("schema = 1", "schema = 2")).contains("schema"));
         let no_ids = VALID

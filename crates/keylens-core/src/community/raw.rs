@@ -51,11 +51,42 @@ pub(crate) struct RawShortcut {
     pub keys: RawKeys,
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
 pub(crate) enum RawKeys {
     Same(RawSeq),
     PerOs(RawPerOs),
+}
+
+/// 按值的类型分派，而不是用 `untagged`：表的情况直接反序列化成 `RawPerOs`，
+/// 这样 `unknown field` 和 `missing field default` 这类报错能原样传给贡献者。
+impl<'de> Deserialize<'de> for RawKeys {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct KeysVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for KeysVisitor {
+            type Value = RawKeys;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a string, array or table of key combinations")
+            }
+
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<RawKeys, E> {
+                Ok(RawKeys::Same(RawSeq::One(value.to_string())))
+            }
+
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(self, seq: A) -> Result<RawKeys, A::Error> {
+                let parts =
+                    Vec::<String>::deserialize(serde::de::value::SeqAccessDeserializer::new(seq))?;
+                Ok(RawKeys::Same(RawSeq::Many(parts)))
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(self, map: A) -> Result<RawKeys, A::Error> {
+                RawPerOs::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+                    .map(RawKeys::PerOs)
+            }
+        }
+
+        deserializer.deserialize_any(KeysVisitor)
+    }
 }
 
 #[derive(Deserialize)]
