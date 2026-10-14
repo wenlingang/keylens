@@ -15,6 +15,11 @@ pub mod template;
 pub mod view;
 pub mod watch;
 
+/// Version line shown in the menu bar menu, e.g. "Keylens 0.1.0". Not translated.
+pub fn version_label() -> String {
+    format!("Keylens {}", env!("CARGO_PKG_VERSION"))
+}
+
 /// Starts Keylens (macOS only).
 #[cfg(target_os = "macos")]
 pub fn run() {
@@ -122,6 +127,7 @@ pub fn run() {
             let (tray_tx, tray_rx) = async_channel::unbounded::<TrayCommand>();
             let mtm = objc2_main_thread();
             let labels = TrayLabels {
+                version: version_label(),
                 permission_ok: t!("Tray.permission_ok").to_string(),
                 permission_missing: t!("Tray.permission_missing").to_string(),
                 edit_current: t!("Tray.edit_current").to_string(),
@@ -182,4 +188,15 @@ pub fn run() {
                 _log_guard: log_guard,
             });
         });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn version_label_names_the_app_and_package_version() {
+        assert_eq!(
+            super::version_label(),
+            format!("Keylens {}", env!("CARGO_PKG_VERSION"))
+        );
+    }
 }

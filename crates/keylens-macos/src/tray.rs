@@ -33,6 +33,8 @@ impl TrayCommand {
 }
 
 pub struct TrayLabels {
+    /// Disabled first menu item, e.g. "Keylens 0.1.0".
+    pub version: String,
     pub permission_ok: String,
     pub permission_missing: String,
     pub edit_current: String,
@@ -113,6 +115,8 @@ impl Tray {
         let target = Target::new(mtm, on_command);
         let item = NSStatusBar::systemStatusBar().statusItemWithLength(NSVariableStatusItemLength);
         let menu = NSMenu::new(mtm);
+        menu.addItem(&menu_item(mtm, &labels.version, &target, None));
+        menu.addItem(&NSMenuItem::separatorItem(mtm));
         let permission_item = menu_item(
             mtm,
             &labels.permission_ok,
