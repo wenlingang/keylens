@@ -1,6 +1,6 @@
 //! Combines the menu, user data and built-in data into one app's shortcuts, and caches results per app.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use keylens_core::community::{Catalog, CommunitySource};
@@ -37,6 +37,44 @@ impl Loader {
 }
 
 /// Most recently read app shortcuts, keyed by pid.
+/// Decides whether a finished read should replace what is shown and cached.
+///
+/// Several reads of the same app can be in flight (app switch, ⌘ press, panel shown) and may
+/// finish out of order. The platform keeps only the menu snapshot with the highest id, so the
+/// UI must too: otherwise every menu entry it shows is stale and executing it only beeps.
+/// A read whose menu failed (e.g. timed out) never replaces good menu data.
+#[derive(Default)]
+pub struct Freshness {
+    applied: HashMap<i32, u64>,
+}
+
+impl Freshness {
+    pub fn accept(&mut self, data: &AppShortcuts) -> bool {
+        let pid = data.app.pid;
+        let snapshot = data
+            .groups
+            .iter()
+            .flat_map(|g| &g.entries)
+            .filter(|e| e.source() == EntrySource::Menu)
+            .map(|e| e.id.snapshot)
+            .max();
+        match (snapshot, self.applied.get(&pid).copied()) {
+            (Some(new), Some(old)) if new <= old => false,
+            (Some(new), _) => {
+                self.applied.insert(pid, new);
+                true
+            }
+            // The menu was read successfully but has no shortcuts: take it.
+            (None, _) if data.warnings.is_empty() => {
+                self.applied.remove(&pid);
+                true
+            }
+            // The menu read failed: only use it if there is no good menu data to keep.
+            (None, old) => old.is_none(),
+        }
+    }
+}
+
 pub struct Cache {
     capacity: usize,
     items: VecDeque<AppShortcuts>,
@@ -149,6 +187,60 @@ keys = ["Mod+K", "Z"]
         let result = loader(platform).load(&app(7));
         assert_eq!(result.warnings, [SourceError::Timeout]);
         assert_eq!(result.groups.len(), 1);
+    }
+
+    fn read(pid: i32, snapshot: Option<u64>) -> AppShortcuts {
+        let mut entry = menu_entry();
+        let groups = match snapshot {
+            Some(id) => {
+                entry.id.snapshot = id;
+                vec![keylens_core::Group {
+                    title: "文件".into(),
+                    community: false,
+                    entries: vec![entry],
+                }]
+            }
+            None => vec![],
+        };
+        let warnings = if snapshot.is_some() {
+            vec![]
+        } else {
+            vec![SourceError::Timeout]
+        };
+        AppShortcuts {
+            app: app(pid),
+            groups,
+            warnings,
+        }
+    }
+
+    #[test]
+    fn an_older_read_arriving_late_is_ignored() {
+        let mut freshness = Freshness::default();
+        assert!(freshness.accept(&read(1, Some(6))));
+        assert!(!freshness.accept(&read(1, Some(5))));
+        assert!(freshness.accept(&read(1, Some(7))));
+        // Other apps are tracked separately.
+        assert!(freshness.accept(&read(2, Some(3))));
+    }
+
+    #[test]
+    fn a_failed_read_does_not_replace_good_menu_data() {
+        let mut freshness = Freshness::default();
+        // Nothing good yet: showing community data with a warning is the best we have.
+        assert!(freshness.accept(&read(1, None)));
+        assert!(freshness.accept(&read(1, Some(4))));
+        assert!(!freshness.accept(&read(1, None)));
+        assert!(freshness.accept(&read(1, Some(9))));
+    }
+
+    #[test]
+    fn apps_without_menu_shortcuts_are_always_refreshed() {
+        let mut freshness = Freshness::default();
+        let mut empty = read(1, None);
+        empty.warnings.clear();
+        assert!(freshness.accept(&empty));
+        assert!(freshness.accept(&empty));
     }
 
     #[test]

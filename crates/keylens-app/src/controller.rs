@@ -10,7 +10,7 @@ use keylens_core::{
 };
 use keylens_platform::{ListenGuard, PermissionState, Platform};
 
-use crate::loader::{Cache, Loader};
+use crate::loader::{Cache, Freshness, Loader};
 use crate::view::{PanelEvent, PanelView};
 
 /// Number of cached apps (spec §5).
@@ -31,6 +31,7 @@ pub struct Keylens {
     loader: Arc<Loader>,
     native: Native,
     cache: Cache,
+    freshness: Freshness,
     icons: HashMap<i32, Option<Arc<Image>>>,
     detector: TriggerDetector,
     window: AnyWindowHandle,
@@ -63,6 +64,7 @@ impl Keylens {
             loader,
             native,
             cache: Cache::new(CACHE_CAPACITY),
+            freshness: Freshness::default(),
             icons: HashMap::new(),
             detector,
             window,
@@ -256,6 +258,10 @@ impl Keylens {
                 pid,
                 icon.map(|png| Arc::new(Image::from_bytes(ImageFormat::Png, png))),
             );
+        }
+        // Out-of-order or failed reads must not replace newer/good data (see `Freshness`).
+        if !self.freshness.accept(&data) {
+            return;
         }
         self.cache.put(data.clone());
         if self.visible && self.target.as_ref().map(|t| t.pid) == Some(pid) {
