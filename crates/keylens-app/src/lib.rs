@@ -5,4 +5,5 @@ rust_i18n::i18n!("locales", fallback = "en");
 
 pub mod config;
 pub mod loader;
+pub mod model;
 pub mod strings;
