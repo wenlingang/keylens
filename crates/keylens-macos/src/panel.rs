@@ -6,7 +6,10 @@ use std::path::Path;
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSBeep, NSEvent, NSScreen, NSView, NSWindow, NSWorkspace};
-use objc2_foundation::{NSPoint, NSString, NSURL};
+use objc2_foundation::{NSPoint, NSRect, NSSize, NSString, NSURL};
+
+use crate::ax;
+use crate::geometry::{Rect, centered_origin, panel_size, quartz_to_cocoa, screen_containing};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 fn ns_window(window: &impl HasWindowHandle) -> Option<Retained<NSWindow>> {
@@ -25,31 +28,40 @@ pub fn hide(window: &impl HasWindowHandle) {
     }
 }
 
-/// Moves the window to the center (slightly above middle) of the visible area of the screen under the mouse; size is unchanged.
-pub fn center_on_mouse_screen(window: &impl HasWindowHandle) {
+/// Moves and resizes the panel onto the screen showing the app with `pid` (its focused window),
+/// or the screen under the mouse if that is unknown. The size is recomputed for that screen so
+/// the panel never overflows a smaller display (spec §6).
+pub fn place(window: &impl HasWindowHandle, pid: Option<i32>) {
     let (Some(window), Some(mtm)) = (ns_window(window), MainThreadMarker::new()) else {
         return;
     };
-    let mouse = NSEvent::mouseLocation();
     let screens = NSScreen::screens(mtm);
-    let screen = screens
-        .iter()
-        .find(|s| {
-            let f = s.frame();
-            mouse.x >= f.origin.x
-                && mouse.x < f.origin.x + f.size.width
-                && mouse.y >= f.origin.y
-                && mouse.y < f.origin.y + f.size.height
-        })
-        .or_else(|| NSScreen::mainScreen(mtm));
-    let Some(screen) = screen else { return };
-    let visible = screen.visibleFrame();
-    let size = window.frame().size;
-    let x = visible.origin.x + (visible.size.width - size.width) / 2.0;
-    // AppKit's coordinate origin is at the bottom left; placing it slightly above the midline looks more centered.
-    let y =
-        visible.origin.y + (visible.size.height - size.height) / 2.0 + visible.size.height * 0.04;
-    window.setFrameOrigin(NSPoint::new(x.round(), y.round()));
+    let frames: Vec<Rect> = screens.iter().map(|s| rect(s.frame())).collect();
+    let Some(primary_height) = frames.first().map(|f| f.height) else {
+        return;
+    };
+    let target = pid
+        .and_then(ax::focused_window_frame)
+        .map(|frame| quartz_to_cocoa(frame, primary_height).center())
+        .unwrap_or_else(|| {
+            let mouse = NSEvent::mouseLocation();
+            (mouse.x, mouse.y)
+        });
+    let index = screen_containing(&frames, target).unwrap_or(0);
+    let visible = rect(screens.objectAtIndex(index).visibleFrame());
+    let size = panel_size(visible);
+    let (x, y) = centered_origin(visible, size);
+    let frame = NSRect::new(NSPoint::new(x, y), NSSize::new(size.0, size.1));
+    window.setFrame_display(frame, true);
+}
+
+fn rect(r: NSRect) -> Rect {
+    Rect {
+        x: r.origin.x,
+        y: r.origin.y,
+        width: r.size.width,
+        height: r.size.height,
+    }
 }
 
 pub fn beep() {

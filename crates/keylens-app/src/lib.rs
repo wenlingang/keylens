@@ -104,7 +104,7 @@ pub fn run() {
 
             let native = Native {
                 hide: |w| keylens_macos::panel::hide(w),
-                center: |w| keylens_macos::panel::center_on_mouse_screen(w),
+                place: |w, pid| keylens_macos::panel::place(w, pid),
                 beep: keylens_macos::panel::beep,
             };
             let keylens = cx

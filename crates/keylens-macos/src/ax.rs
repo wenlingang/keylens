@@ -7,12 +7,13 @@ use keylens_core::SourceError;
 use keylens_platform::PlatformError;
 use objc2_application_services::{
     AXCopyMultipleAttributeOptions, AXError, AXIsProcessTrusted, AXIsProcessTrustedWithOptions,
-    AXUIElement, kAXTrustedCheckOptionPrompt,
+    AXUIElement, AXValue, AXValueType, kAXTrustedCheckOptionPrompt,
 };
 use objc2_core_foundation::{
-    CFArray, CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFType,
+    CFArray, CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFType, CGPoint, CGSize,
 };
 
+use crate::geometry::Rect;
 use crate::menu_tree::{ItemInfo, MenuNode};
 
 /// AX messaging timeout (spec §3.4).
@@ -197,6 +198,30 @@ pub fn press(node: &AxNode) -> Result<(), PlatformError> {
 }
 
 /// For debugging: lists an app's window titles.
+fn ax_value<T: Default>(element: &AXUIElement, name: &str, kind: AXValueType) -> Option<T> {
+    let value = attribute(element, name).ok()?.downcast::<AXValue>().ok()?;
+    let mut out = T::default();
+    // SAFETY: `out` has the C layout matching `kind` (CGPoint / CGSize).
+    let ok = unsafe { value.value(kind, NonNull::from(&mut out).cast()) };
+    ok.then_some(out)
+}
+
+/// Frame of the app's focused window in top-left-origin screen coordinates, if it has one.
+pub fn focused_window_frame(pid: i32) -> Option<Rect> {
+    let window = attribute(&application(pid), "AXFocusedWindow")
+        .ok()?
+        .downcast::<AXUIElement>()
+        .ok()?;
+    let origin: CGPoint = ax_value(&window, "AXPosition", AXValueType::CGPoint)?;
+    let size: CGSize = ax_value(&window, "AXSize", AXValueType::CGSize)?;
+    Some(Rect {
+        x: origin.x,
+        y: origin.y,
+        width: size.width,
+        height: size.height,
+    })
+}
+
 pub fn window_titles(pid: i32) -> Vec<String> {
     attribute(&application(pid), "AXWindows")
         .map(elements)

@@ -22,7 +22,8 @@ const PERMISSION_POLL: Duration = Duration::from_secs(1);
 /// Platform-specific operations the controller needs; replaceable in tests.
 pub struct Native {
     pub hide: fn(&Window),
-    pub center: fn(&Window),
+    /// Moves the panel onto the screen showing the app with this pid (or under the mouse).
+    pub place: fn(&Window, Option<i32>),
     pub beep: fn(),
 }
 
@@ -303,9 +304,10 @@ impl Keylens {
 
     fn present(&mut self, cx: &mut Context<Self>) {
         let view = self.view.clone();
-        let center = self.native.center;
+        let place = self.native.place;
+        let pid = self.target.as_ref().map(|t| t.pid);
         let _ = self.window.update(cx, |_, window, cx| {
-            center(window);
+            place(window, pid);
             window.activate_window();
             view.update(cx, |view, cx| view.focus_input(window, cx));
         });

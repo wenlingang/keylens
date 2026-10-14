@@ -4,6 +4,7 @@
 //! the remaining modules call macOS system APIs and are compiled only on macOS.
 
 pub mod convert;
+pub mod geometry;
 pub mod menu_tree;
 pub mod snapshots;
 
