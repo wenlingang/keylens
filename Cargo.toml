@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/keylens-core", "crates/keylens-platform"]
+members = ["crates/keylens-core", "crates/keylens-platform", "crates/keylens-macos"]
 exclude = ["spikes"]
 
 [workspace.package]
@@ -15,3 +15,11 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "1.1"
 thiserror = "2.0"
 include_dir = "0.7"
+keylens-macos = { path = "crates/keylens-macos" }
+objc2 = "0.6.5"
+block2 = "0.6.2"
+objc2-foundation = "0.3.2"
+objc2-app-kit = "0.3.2"
+objc2-application-services = "0.3.2"
+objc2-core-foundation = "0.3.2"
+objc2-core-graphics = "0.3.2"
