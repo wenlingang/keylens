@@ -9,6 +9,7 @@ use keylens_core::{AppInfo, AppShortcuts, Entry, KeyEvent, TriggerAction, Trigge
 use keylens_platform::{ListenGuard, PermissionState, Platform};
 
 use crate::loader::{Cache, Freshness, Loader};
+use crate::permission::{PermissionChange, PermissionWatch};
 use crate::session::{Effect, Session};
 use crate::view::{PanelEvent, PanelView};
 
@@ -36,7 +37,7 @@ pub struct Keylens {
     view: Entity<PanelView>,
     session: Session,
     tick: Option<Task<()>>,
-    permission_poll: Option<Task<()>>,
+    permission_task: Option<Task<()>>,
     on_permission: Option<Box<dyn Fn(bool)>>,
     guards: Vec<ListenGuard>,
     _subscriptions: Vec<Subscription>,
@@ -67,7 +68,7 @@ impl Keylens {
             view,
             session: Session::new(std::process::id() as i32),
             tick: None,
-            permission_poll: None,
+            permission_task: None,
             on_permission: None,
             guards: Vec::new(),
             _subscriptions: vec![on_panel],
@@ -80,11 +81,47 @@ impl Keylens {
     }
 
     pub fn start(&mut self, cx: &mut Context<Self>) {
-        if self.platform.permission() == PermissionState::Granted {
-            self.start_listening(cx);
-        } else {
-            self.show_permission_page(cx);
-            self.poll_permission(cx);
+        self.permission_task = Some(cx.spawn(async move |this, cx| {
+            let mut watch = PermissionWatch::default();
+            loop {
+                // The controller is gone: stop watching.
+                let Ok(change) = this.update(cx, |this, _| {
+                    watch.update(this.platform.permission() == PermissionState::Granted)
+                }) else {
+                    break;
+                };
+                if let Some(change) = change
+                    && this
+                        .update(cx, |this, cx| this.on_permission_change(change, cx))
+                        .is_err()
+                {
+                    break;
+                }
+                cx.background_executor().timer(PERMISSION_POLL).await;
+            }
+        }));
+    }
+
+    fn on_permission_change(&mut self, change: PermissionChange, cx: &mut Context<Self>) {
+        let granted = change == PermissionChange::Granted;
+        tracing::info!(granted, "accessibility permission changed");
+        if let Some(listener) = &self.on_permission {
+            listener(granted);
+        }
+        match change {
+            PermissionChange::Granted => {
+                // Fresh listeners: an event tap created before the permission was granted
+                // (or before it was revoked) never receives events again.
+                self.guards.clear();
+                self.start_listening(cx);
+                if self.session.visible() && self.session.target().is_none() {
+                    self.hide(cx);
+                }
+            }
+            PermissionChange::Revoked => {
+                self.guards.clear();
+                self.show_permission_page(cx);
+            }
         }
     }
 
@@ -98,8 +135,9 @@ impl Keylens {
         let (key_tx, key_rx) = std::sync::mpsc::channel();
         match self.platform.start_key_events(key_tx) {
             Ok(guard) => self.guards.push(guard),
-            Err(_) => {
-                self.poll_permission(cx);
+            Err(error) => {
+                // The next permission change retries.
+                tracing::warn!(%error, "cannot start the key listener");
                 return;
             }
         }
@@ -132,33 +170,6 @@ impl Keylens {
             })
             .detach();
         }
-        if let Some(listener) = &self.on_permission {
-            listener(true);
-        }
-    }
-
-    fn poll_permission(&mut self, cx: &mut Context<Self>) {
-        if let Some(listener) = &self.on_permission {
-            listener(false);
-        }
-        self.permission_poll = Some(cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor().timer(PERMISSION_POLL).await;
-                let granted = this
-                    .update(cx, |this, _| {
-                        this.platform.permission() == PermissionState::Granted
-                    })
-                    .unwrap_or(false);
-                if granted {
-                    let _ = this.update(cx, |this, cx| {
-                        this.permission_poll = None;
-                        this.start_listening(cx);
-                        this.hide(cx);
-                    });
-                    break;
-                }
-            }
-        }));
     }
 
     // ---- Trigger ----
