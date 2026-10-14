@@ -48,6 +48,8 @@ pub enum PanelEvent {
     Execute(Entry),
     Dismiss,
     OpenSettings,
+    /// Create (if missing) and open a user data file for this app.
+    AddShortcuts(AppInfo),
 }
 
 pub struct PanelView {
@@ -336,7 +338,7 @@ impl PanelView {
         &self,
         title: String,
         body: Vec<String>,
-        settings: bool,
+        action: Option<(String, PanelEvent)>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
@@ -355,18 +357,18 @@ impl PanelView {
                     .child(line),
             );
         }
-        if settings {
+        if let Some((label, event)) = action {
             page = page.child(
                 div()
-                    .id("open-settings")
+                    .id("state-action")
                     .mt_3()
                     .px_3()
                     .py_1()
                     .rounded(px(6.))
                     .bg(theme.accent)
                     .text_color(theme.accent_foreground)
-                    .child(t!("Panel.open_settings").to_string())
-                    .on_click(cx.listener(|_, _, _, cx| cx.emit(PanelEvent::OpenSettings))),
+                    .child(label)
+                    .on_click(cx.listener(move |_, _, _, cx| cx.emit(event.clone()))),
             );
         }
         page.into_any_element()
@@ -381,20 +383,38 @@ impl PanelView {
                         t!("Panel.perm_body").to_string(),
                         t!("Panel.perm_hint").to_string(),
                     ],
-                    true,
+                    Some((
+                        t!("Panel.open_settings").to_string(),
+                        PanelEvent::OpenSettings,
+                    )),
                     cx,
                 );
             }
             PanelStatus::Loading if !self.model.has_entries() => {
-                return self.render_state(t!("Panel.loading").to_string(), vec![], false, cx);
+                return self.render_state(t!("Panel.loading").to_string(), vec![], None, cx);
             }
             _ => {}
         }
         if !self.model.has_entries() {
+            if !self.model.warnings().is_empty() {
+                // The menu read failed and there is no community data either.
+                return self.render_state(
+                    t!("Panel.unreadable_title").to_string(),
+                    vec![t!("Panel.unreadable_body").to_string()],
+                    None,
+                    cx,
+                );
+            }
+            let add = self.model.app().map(|app| {
+                (
+                    t!("Panel.add_shortcuts").to_string(),
+                    PanelEvent::AddShortcuts(app.clone()),
+                )
+            });
             return self.render_state(
                 t!("Panel.empty_title").to_string(),
                 vec![t!("Panel.empty_body").to_string()],
-                false,
+                add,
                 cx,
             );
         }
@@ -402,7 +422,7 @@ impl PanelView {
             return self.render_state(
                 t!("Panel.no_match", query = self.model.query()).to_string(),
                 vec![t!("Panel.no_match_hint").to_string()],
-                false,
+                None,
                 cx,
             );
         }

@@ -8,7 +8,6 @@ pub const KEYS: &[&str] = &[
     "Panel.how_menu",
     "Panel.how_keys",
     "Panel.how_disabled",
-    "Panel.community",
     "Panel.loading",
     "Panel.no_match",
     "Panel.no_match_hint",
@@ -19,6 +18,9 @@ pub const KEYS: &[&str] = &[
     "Panel.perm_body",
     "Panel.perm_hint",
     "Panel.open_settings",
+    "Panel.add_shortcuts",
+    "Panel.unreadable_title",
+    "Panel.unreadable_body",
     "Tray.permission_ok",
     "Tray.permission_missing",
     "Tray.open_data",
@@ -55,7 +57,7 @@ mod tests {
 
     #[test]
     fn interpolation_works() {
-        assert_eq!(t!("Panel.count", locale = "en", count = 3), "3 shortcuts");
+        assert_eq!(t!("Panel.count", locale = "en", count = 3), "Shortcuts: 3");
         assert!(t!("Panel.no_match", locale = "zh-CN", query = "abc").contains("abc"));
     }
 }

@@ -12,6 +12,7 @@ use crate::loader::{Cache, Freshness, Loader};
 use crate::permission::{PermissionChange, PermissionWatch};
 use crate::session::{Effect, Session};
 use crate::view::{PanelEvent, PanelView};
+use crate::{config, template};
 
 /// Number of cached apps (spec §5).
 const CACHE_CAPACITY: usize = 8;
@@ -23,6 +24,8 @@ pub struct Native {
     /// Moves the panel onto the screen showing the app with this pid (or under the mouse).
     pub place: fn(&Window, Option<i32>),
     pub beep: fn(),
+    /// Opens a file or folder with its default app.
+    pub open: fn(&std::path::Path),
 }
 
 pub struct Keylens {
@@ -332,6 +335,21 @@ impl Keylens {
             PanelEvent::Execute(entry) => self.execute(entry, cx),
             PanelEvent::Dismiss => self.hide(cx),
             PanelEvent::OpenSettings => self.platform.request_permission(),
+            PanelEvent::AddShortcuts(app) => {
+                self.hide(cx);
+                if let Some((file, text)) = template::user_data_template(&app) {
+                    let dir = config::user_data_dir();
+                    let path = dir.join(file);
+                    // Never overwrite what the user has already written.
+                    if !path.exists() {
+                        let _ = std::fs::create_dir_all(&dir);
+                        if let Err(e) = std::fs::write(&path, text) {
+                            tracing::warn!(path = %path.display(), error = %e, "cannot create user data file");
+                        }
+                    }
+                    (self.native.open)(&path);
+                }
+            }
         }
     }
 

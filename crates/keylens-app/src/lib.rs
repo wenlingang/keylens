@@ -11,6 +11,7 @@ pub mod model;
 pub mod permission;
 pub mod session;
 pub mod strings;
+pub mod template;
 pub mod view;
 
 /// Starts Keylens (macOS only).
@@ -113,6 +114,7 @@ pub fn run() {
                 hide: |w| keylens_macos::panel::hide(w),
                 place: |w, pid| keylens_macos::panel::place(w, pid),
                 beep: keylens_macos::panel::beep,
+                open: keylens_macos::panel::open_path,
             };
             let keylens = cx
                 .new(|cx| Keylens::new(platform.clone(), loader.clone(), native, window, view, cx));

@@ -7,7 +7,7 @@ Panel:
     zh-HK: "搜尋快速鍵、選單或按鍵（如 ⌘⇧ 或 shift）"
     ja: "ショートカット、メニュー、キーを検索（例：⌘⇧、shift）"
   count:
-    en: "%{count} shortcuts"
+    en: "Shortcuts: %{count}"
     zh-CN: "%{count} 个快捷键"
     zh-TW: "%{count} 個快速鍵"
     zh-HK: "%{count} 個快速鍵"
@@ -42,12 +42,6 @@ Panel:
     zh-TW: "目前無法使用"
     zh-HK: "目前無法使用"
     ja: "現在は使用できません"
-  community:
-    en: "From community data"
-    zh-CN: "来自社区数据"
-    zh-TW: "來自社群資料"
-    zh-HK: "來自社群資料"
-    ja: "コミュニティデータ"
   loading:
     en: "Reading menus…"
     zh-CN: "正在读取菜单…"
@@ -108,6 +102,24 @@ Panel:
     zh-TW: "打開系統設定"
     zh-HK: "打開系統設定"
     ja: "システム設定を開く"
+  add_shortcuts:
+    en: "Add shortcuts for this app"
+    zh-CN: "为这个应用添加快捷键"
+    zh-TW: "為這個應用程式新增快速鍵"
+    zh-HK: "為這個應用程式新增快速鍵"
+    ja: "このアプリのショートカットを追加"
+  unreadable_title:
+    en: "Could not read this app's menus"
+    zh-CN: "无法读取这个应用的菜单"
+    zh-TW: "無法讀取這個應用程式的選單"
+    zh-HK: "無法讀取這個應用程式的選單"
+    ja: "このアプリのメニューを読み取れませんでした"
+  unreadable_body:
+    en: "The app did not respond. Try again in a moment."
+    zh-CN: "应用没有响应，请稍后再试。"
+    zh-TW: "應用程式沒有回應，請稍後再試。"
+    zh-HK: "應用程式沒有回應，請稍後再試。"
+    ja: "アプリが応答しませんでした。しばらくしてからもう一度お試しください。"
 Tray:
   permission_ok:
     en: "Accessibility: allowed"
@@ -128,7 +140,7 @@ Tray:
     zh-HK: "打開快速鍵資料夾"
     ja: "ショートカットデータのフォルダを開く"
   data_errors:
-    en: "%{count} data files have errors"
+    en: "Data files with errors: %{count}"
     zh-CN: "%{count} 个数据文件有错误"
     zh-TW: "%{count} 個資料檔案有錯誤"
     zh-HK: "%{count} 個資料檔案有錯誤"
