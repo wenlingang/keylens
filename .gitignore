@@ -1,3 +1,8 @@
 transcripts/
 .DS_Store
 target/
+# Release signing secrets must never be committed (scripts/release-cert.sh output).
+*.p12
+*.p12.base64
+password.txt
+keylens-release-cert/
