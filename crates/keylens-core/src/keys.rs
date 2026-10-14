@@ -372,13 +372,13 @@ impl Chord {
     /// 用于比较的规范形式：需要 Shift 才能打出的符号拆成「⇧ + 基础键」（按美式键盘），
     /// 这样菜单里的 ⌘+ 和数据里的 ⇧⌘= 会被认为是同一个快捷键。显示时仍用原来的写法。
     pub fn canonical(self) -> Chord {
-        if let Key::Char(c) = self.key {
-            if let Some(&(_, base)) = SHIFTED_SYMBOLS.iter().find(|(shifted, _)| *shifted == c) {
-                return Chord {
-                    modifiers: self.modifiers | Modifiers::SHIFT,
-                    key: Key::Char(base),
-                };
-            }
+        if let Key::Char(c) = self.key
+            && let Some(&(_, base)) = SHIFTED_SYMBOLS.iter().find(|(shifted, _)| *shifted == c)
+        {
+            return Chord {
+                modifiers: self.modifiers | Modifiers::SHIFT,
+                key: Key::Char(base),
+            };
         }
         self
     }
