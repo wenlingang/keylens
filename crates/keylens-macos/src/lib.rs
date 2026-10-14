@@ -20,6 +20,8 @@ pub mod panel;
 #[cfg(target_os = "macos")]
 mod platform;
 #[cfg(target_os = "macos")]
+pub mod tray;
+#[cfg(target_os = "macos")]
 mod workspace;
 
 #[cfg(target_os = "macos")]
