@@ -50,8 +50,8 @@ pub enum PanelEvent {
     Execute(Entry),
     Dismiss,
     OpenSettings,
-    /// Create (if missing) and open a user data file for this app.
-    AddShortcuts(AppInfo),
+    /// Create (if missing) and open the user data file for this app.
+    EditShortcuts(AppInfo),
 }
 
 pub struct PanelView {
@@ -423,7 +423,7 @@ impl PanelView {
                 .map(|app| {
                     (
                         t!("Panel.add_shortcuts").to_string(),
-                        PanelEvent::AddShortcuts(app.clone()),
+                        PanelEvent::EditShortcuts(app.clone()),
                     )
                 });
             return self.render_state(
@@ -491,6 +491,21 @@ impl PanelView {
                     .gap_2()
                     .child(div().text_color(theme.foreground).child(crumb))
                     .child(how),
+            )
+            .when_some(
+                self.model.app().filter(|app| !app.ids.is_empty()).cloned(),
+                |d, app| {
+                    d.child(
+                        div()
+                            .id("edit-shortcuts")
+                            .text_color(theme.accent)
+                            .cursor_pointer()
+                            .child(t!("Panel.edit_shortcuts").to_string())
+                            .on_click(cx.listener(move |_, _, _, cx| {
+                                cx.emit(PanelEvent::EditShortcuts(app.clone()))
+                            })),
+                    )
+                },
             )
             .child(format!("↩ {}", t!("Panel.execute")))
             .child(format!("esc {}", t!("Panel.close")))

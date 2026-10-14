@@ -60,7 +60,6 @@ pub fn run() {
     for error in builtin_errors.iter().chain(&user_errors) {
         tracing::warn!("data file error: {error}");
     }
-    let data_errors = builtin_errors.len() + user_errors.len();
 
     let platform: Arc<dyn Platform> = Arc::new(keylens_macos::MacPlatform::default());
     let loader = Arc::new(Loader::new(
@@ -125,9 +124,8 @@ pub fn run() {
             let labels = TrayLabels {
                 permission_ok: t!("Tray.permission_ok").to_string(),
                 permission_missing: t!("Tray.permission_missing").to_string(),
+                edit_current: t!("Tray.edit_current").to_string(),
                 open_data: t!("Tray.open_data").to_string(),
-                data_errors: (data_errors > 0)
-                    .then(|| t!("Tray.data_errors", count = data_errors).to_string()),
                 quit: t!("Tray.quit").to_string(),
             };
             let tray = std::rc::Rc::new(Tray::install(
@@ -145,6 +143,9 @@ pub fn run() {
                         TrayCommand::Permission => {
                             keylens_for_tray.update(cx, |k, _| k.request_permission())
                         }
+                        TrayCommand::EditCurrentApp => {
+                            keylens_for_tray.update(cx, |k, cx| k.edit_current_app(cx))
+                        }
                         TrayCommand::OpenDataFolder => {
                             let dir = config::user_data_dir();
                             let _ = std::fs::create_dir_all(&dir);
@@ -156,6 +157,18 @@ pub fn run() {
             })
             .detach();
 
+            let tray_for_errors = tray.clone();
+            keylens.update(cx, |k, _| {
+                k.set_data_errors_listener(
+                    Box::new(move |count| {
+                        let text =
+                            (count > 0).then(|| t!("Tray.data_errors", count = count).to_string());
+                        tray_for_errors.set_data_errors(text.as_deref());
+                    }),
+                    builtin_errors.len(),
+                    user_errors.len(),
+                )
+            });
             let tray_for_permission = tray.clone();
             keylens.update(cx, |k, _| {
                 k.set_permission_listener(Box::new(move |granted| {

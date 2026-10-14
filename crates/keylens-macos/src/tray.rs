@@ -9,13 +9,16 @@ use objc2_foundation::NSString;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TrayCommand {
     Permission,
+    /// Create or open the user data file for the frontmost app.
+    EditCurrentApp,
     OpenDataFolder,
     Quit,
 }
 
 impl TrayCommand {
-    const ALL: [TrayCommand; 3] = [
+    const ALL: [TrayCommand; 4] = [
         TrayCommand::Permission,
+        TrayCommand::EditCurrentApp,
         TrayCommand::OpenDataFolder,
         TrayCommand::Quit,
     ];
@@ -32,9 +35,8 @@ impl TrayCommand {
 pub struct TrayLabels {
     pub permission_ok: String,
     pub permission_missing: String,
+    pub edit_current: String,
     pub open_data: String,
-    /// Text shown when the data files have errors; `None` when there are none.
-    pub data_errors: Option<String>,
     pub quit: String,
 }
 
@@ -71,6 +73,7 @@ impl Target {
 pub struct Tray {
     item: Retained<NSStatusItem>,
     permission_item: Retained<NSMenuItem>,
+    errors_item: Retained<NSMenuItem>,
     labels: TrayLabels,
     mtm: MainThreadMarker,
     _menu: Retained<NSMenu>,
@@ -118,9 +121,16 @@ impl Tray {
         );
         menu.addItem(&permission_item);
         menu.addItem(&NSMenuItem::separatorItem(mtm));
-        if let Some(errors) = &labels.data_errors {
-            menu.addItem(&menu_item(mtm, errors, &target, None));
-        }
+        // Shown only while data files have errors (see `set_data_errors`).
+        let errors_item = menu_item(mtm, "", &target, None);
+        errors_item.setHidden(true);
+        menu.addItem(&errors_item);
+        menu.addItem(&menu_item(
+            mtm,
+            &labels.edit_current,
+            &target,
+            Some(TrayCommand::EditCurrentApp),
+        ));
         menu.addItem(&menu_item(
             mtm,
             &labels.open_data,
@@ -138,6 +148,7 @@ impl Tray {
         let tray = Tray {
             item,
             permission_item,
+            errors_item,
             labels,
             mtm,
             _menu: menu,
@@ -148,6 +159,17 @@ impl Tray {
     }
 
     /// Updates the permission status: the icon title and the first menu item.
+    /// Shows `text` (e.g. "2 data files have errors") in the menu, or hides the item for `None`.
+    pub fn set_data_errors(&self, text: Option<&str>) {
+        match text {
+            Some(text) => {
+                self.errors_item.setTitle(&NSString::from_str(text));
+                self.errors_item.setHidden(false);
+            }
+            None => self.errors_item.setHidden(true),
+        }
+    }
+
     pub fn set_permission(&self, granted: bool) {
         if let Some(button) = self.item.button(self.mtm) {
             button.setTitle(&NSString::from_str(if granted { "⌘" } else { "⌘!" }));
@@ -158,5 +180,24 @@ impl Tray {
             &self.labels.permission_missing
         };
         self.permission_item.setTitle(&NSString::from_str(title));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_command_round_trips_through_its_tag() {
+        let all = [
+            TrayCommand::Permission,
+            TrayCommand::EditCurrentApp,
+            TrayCommand::OpenDataFolder,
+            TrayCommand::Quit,
+        ];
+        for command in all {
+            assert_eq!(TrayCommand::from_tag(command.tag()), Some(command));
+        }
+        assert_eq!(TrayCommand::from_tag(0), None);
     }
 }

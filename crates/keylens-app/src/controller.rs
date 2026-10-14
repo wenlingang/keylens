@@ -12,11 +12,14 @@ use crate::loader::{Cache, Freshness, Loader};
 use crate::permission::{PermissionAction, PermissionWatch};
 use crate::session::{Effect, Session};
 use crate::view::{PanelEvent, PanelView};
-use crate::{config, template};
+use crate::{config, template, watch};
+use keylens_core::community::{Catalog, DataError, load_dir};
 
 /// Number of cached apps (spec §5).
 const CACHE_CAPACITY: usize = 8;
 const PERMISSION_POLL: Duration = Duration::from_secs(1);
+/// How often the user data folder is checked for edits.
+const USER_DATA_POLL: Duration = Duration::from_secs(2);
 
 /// Platform-specific operations the controller needs; replaceable in tests.
 pub struct Native {
@@ -41,7 +44,11 @@ pub struct Keylens {
     session: Session,
     tick: Option<Task<()>>,
     permission_task: Option<Task<()>>,
+    user_data_task: Option<Task<()>>,
     on_permission: Option<Box<dyn Fn(bool)>>,
+    /// Reports the number of data files with errors (built-in plus user).
+    on_data_errors: Option<Box<dyn Fn(usize)>>,
+    builtin_errors: usize,
     guards: Vec<ListenGuard>,
     /// Whether the key listener is running (it can fail to start right after a grant).
     listening: bool,
@@ -74,7 +81,10 @@ impl Keylens {
             session: Session::new(std::process::id() as i32),
             tick: None,
             permission_task: None,
+            user_data_task: None,
             on_permission: None,
+            on_data_errors: None,
+            builtin_errors: 0,
             guards: Vec::new(),
             listening: false,
             _subscriptions: vec![on_panel],
@@ -82,11 +92,25 @@ impl Keylens {
     }
 
     /// Callback invoked when the status bar item etc. needs to know about permission changes.
+    /// Callback for the number of data files with errors; called right away with
+    /// `builtin_errors + user_errors` and again after every reload of the user data.
+    pub fn set_data_errors_listener(
+        &mut self,
+        listener: Box<dyn Fn(usize)>,
+        builtin_errors: usize,
+        user_errors: usize,
+    ) {
+        listener(builtin_errors + user_errors);
+        self.builtin_errors = builtin_errors;
+        self.on_data_errors = Some(listener);
+    }
+
     pub fn set_permission_listener(&mut self, listener: Box<dyn Fn(bool)>) {
         self.on_permission = Some(listener);
     }
 
     pub fn start(&mut self, cx: &mut Context<Self>) {
+        self.watch_user_data(cx);
         self.permission_task = Some(cx.spawn(async move |this, cx| {
             let mut watch = PermissionWatch::default();
             loop {
@@ -145,6 +169,85 @@ impl Keylens {
     fn notify_permission(&self, ok: bool) {
         if let Some(listener) = &self.on_permission {
             listener(ok);
+        }
+    }
+
+    /// Reloads the user data whenever a `.toml` file in the user data folder changes, so edits
+    /// take effect without restarting.
+    fn watch_user_data(&mut self, cx: &mut Context<Self>) {
+        self.user_data_task = Some(cx.spawn(async move |this, cx| {
+            let dir = config::user_data_dir();
+            let mut last = watch::fingerprint(&dir);
+            loop {
+                cx.background_executor().timer(USER_DATA_POLL).await;
+                let scan = dir.clone();
+                let (now, loaded) = cx
+                    .background_executor()
+                    .spawn(async move {
+                        let now = watch::fingerprint(&scan);
+                        let loaded = load_dir(&scan);
+                        (now, loaded)
+                    })
+                    .await;
+                if now == last {
+                    continue;
+                }
+                last = now;
+                let (catalog, errors) = loaded;
+                if this
+                    .update(cx, |this, cx| {
+                        this.on_user_data_changed(catalog, errors, cx)
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        }));
+    }
+
+    fn on_user_data_changed(
+        &mut self,
+        catalog: Catalog,
+        errors: Vec<DataError>,
+        cx: &mut Context<Self>,
+    ) {
+        tracing::info!(errors = errors.len(), "user shortcut data reloaded");
+        for error in &errors {
+            tracing::warn!("data file error: {error}");
+        }
+        if let Some(listener) = &self.on_data_errors {
+            listener(self.builtin_errors + errors.len());
+        }
+        self.loader.set_user_catalog(Arc::new(catalog));
+        // Cached shortcuts were built from the old user data.
+        self.cache = Cache::new(CACHE_CAPACITY);
+        if self.session.visible()
+            && let Some(app) = self.session.target().cloned()
+        {
+            self.prefetch(app, cx);
+        }
+    }
+
+    /// Edits the shortcuts of the frontmost app (from the menu bar icon).
+    pub fn edit_current_app(&mut self, cx: &mut Context<Self>) {
+        let own = std::process::id() as i32;
+        if let Some(app) = self.platform.frontmost_app().filter(|a| a.pid != own) {
+            self.edit_shortcuts(app, cx);
+        }
+    }
+
+    /// Creates (if missing) and opens the user data file for `app`. Never overwrites what the
+    /// user has already written (see `create_user_file`).
+    fn edit_shortcuts(&mut self, app: AppInfo, cx: &mut Context<Self>) {
+        self.hide(cx);
+        match template::create_user_file(&config::user_data_dir(), &app) {
+            Ok(Some(path)) => (self.native.open)(&path),
+            Ok(None) => {}
+            Err(error) => {
+                tracing::warn!(%error, "cannot create the user data file");
+                (self.native.beep)();
+            }
         }
     }
 
@@ -358,18 +461,7 @@ impl Keylens {
             PanelEvent::Execute(entry) => self.execute(entry, cx),
             PanelEvent::Dismiss => self.hide(cx),
             PanelEvent::OpenSettings => self.platform.request_permission(),
-            PanelEvent::AddShortcuts(app) => {
-                self.hide(cx);
-                // Never overwrites what the user has already written (see `create_user_file`).
-                match template::create_user_file(&config::user_data_dir(), &app) {
-                    Ok(Some(path)) => (self.native.open)(&path),
-                    Ok(None) => {}
-                    Err(error) => {
-                        tracing::warn!(%error, "cannot create the user data file");
-                        (self.native.beep)();
-                    }
-                }
-            }
+            PanelEvent::EditShortcuts(app) => self.edit_shortcuts(app, cx),
         }
     }
 
