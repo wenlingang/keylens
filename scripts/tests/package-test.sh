@@ -11,6 +11,18 @@ fi
   && echo "ok - missing identity fails before building" \
   || { echo "FAIL - unexpected output: $out"; exit 1; }
 
+# The release identity requires the committed certificate pin, checked before anything is built.
+if [[ ! -e scripts/release-cert.sha1 ]]; then
+  if out=$(scripts/package.sh --identity "Keylens Release" 2>&1); then
+    echo "FAIL - release identity without a pin file should fail"; exit 1
+  fi
+  [[ $out == *"release-cert.sha1"* && $out != *Compiling* ]] \
+    && echo "ok - release identity without scripts/release-cert.sha1 fails before building" \
+    || { echo "FAIL - unexpected output: $out"; exit 1; }
+else
+  echo "skip - missing-pin check (scripts/release-cert.sha1 exists)"
+fi
+
 dev="Keylens Development"
 if ! security find-identity -v -p codesigning | grep -q "\"$dev\""; then
   echo "skip - full package build (no \"$dev\" certificate)"; exit 0

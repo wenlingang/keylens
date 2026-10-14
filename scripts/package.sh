@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds a universal, signed Keylens.app and wraps it in a .dmg for release.
 # Usage: scripts/package.sh [--identity <name>]   (default identity: "Keylens Release")
+#   With "Keylens Release", the signature must match the committed pin scripts/release-cert.sha1.
 # Env:   BUILD_NUMBER  CFBundleVersion (default 0; CI passes github.run_number)
 # Output: target/release-dist/{Keylens.app, Keylens-<version>.dmg, Keylens-<version>.dmg.sha256}
 set -euo pipefail
@@ -20,6 +21,17 @@ min_macos="11.0"
 build="${BUILD_NUMBER:-0}"
 dist="$root/target/release-dist"
 app="$dist/Keylens.app"
+pin_args=()
+
+# The release certificate is irreplaceable: refuse to sign with any other "Keylens Release" certificate.
+if [[ $identity == "Keylens Release" ]]; then
+  pin_file="$root/scripts/release-cert.sha1"
+  if [[ ! -s $pin_file ]]; then
+    echo "❌ scripts/release-cert.sha1 is missing: run scripts/release-cert.sh once and commit the pin file it writes." >&2
+    exit 1
+  fi
+  pin_args=("$pin_file")
+fi
 
 # Never fall back to ad-hoc signing: users would lose Accessibility permission on every upgrade.
 if ! security find-identity -p codesigning | grep -q "\"$identity\""; then
@@ -77,5 +89,5 @@ hdiutil create -quiet -volname Keylens -srcfolder "$staging" -ov -format UDZO "$
 rm -rf "$staging"
 (cd "$dist" && shasum -a 256 "$(basename "$dmg")" > "$(basename "$dmg").sha256")
 
-scripts/verify-package.sh "$app" "$dmg" "$identity" "$version"
+scripts/verify-package.sh "$app" "$dmg" "$identity" "$version" ${pin_args[@]+"${pin_args[@]}"}
 echo "$dmg"
