@@ -94,7 +94,7 @@ i18n = { zh-Hans = "页面和工具", zh-Hant = "網頁和工具", ja = "ペー�
   [[group.shortcut]]
   title = "Zoom In"
   i18n = { zh-Hans = "放大", zh-Hant = "放大", ja = "拡大" }
-  keys = "Mod+="
+  keys = { default = "Mod+=", macos = "Cmd+Shift+=" }
 
   [[group.shortcut]]
   title = "Zoom Out"

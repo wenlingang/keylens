@@ -84,7 +84,37 @@ pub enum Key {
 
 const PUNCTUATION: &str = "`-=[]\\;',./";
 
+/// 美式键盘上需要按 Shift 才能打出的符号，以及对应的基础键。
+const SHIFTED_SYMBOLS: [(char, char); 21] = [
+    ('~', '`'),
+    ('!', '1'),
+    ('@', '2'),
+    ('#', '3'),
+    ('$', '4'),
+    ('%', '5'),
+    ('^', '6'),
+    ('&', '7'),
+    ('*', '8'),
+    ('(', '9'),
+    (')', '0'),
+    ('_', '-'),
+    ('+', '='),
+    ('{', '['),
+    ('}', ']'),
+    ('|', '\\'),
+    (':', ';'),
+    ('"', '\''),
+    ('<', ','),
+    ('>', '.'),
+    ('?', '/'),
+];
+
 impl Key {
+    /// 平台层把菜单里的字符转成 `Key` 时使用：字母统一大写，其他字符原样保留。
+    pub fn from_char(c: char) -> Key {
+        Key::Char(c.to_ascii_uppercase())
+    }
+
     fn parse(token: &str) -> Option<Key> {
         let lower = token.to_ascii_lowercase();
         let named = match lower.as_str() {
@@ -339,6 +369,20 @@ impl Chord {
         caps
     }
 
+    /// 用于比较的规范形式：需要 Shift 才能打出的符号拆成「⇧ + 基础键」（按美式键盘），
+    /// 这样菜单里的 ⌘+ 和数据里的 ⇧⌘= 会被认为是同一个快捷键。显示时仍用原来的写法。
+    pub fn canonical(self) -> Chord {
+        if let Key::Char(c) = self.key {
+            if let Some(&(_, base)) = SHIFTED_SYMBOLS.iter().find(|(shifted, _)| *shifted == c) {
+                return Chord {
+                    modifiers: self.modifiers | Modifiers::SHIFT,
+                    key: Key::Char(base),
+                };
+            }
+        }
+        self
+    }
+
     pub fn display(&self, os: Os) -> String {
         let caps = self.caps(os);
         if os == Os::MacOS {
@@ -367,6 +411,11 @@ impl Shortcut {
             .map(|p| Chord::parse(p.as_ref(), os))
             .collect::<Result<Vec<_>, _>>()
             .map(Shortcut)
+    }
+
+    /// 每个组合都取 `Chord::canonical`，用于合并去重。
+    pub fn canonical(&self) -> Shortcut {
+        Shortcut(self.0.iter().map(|c| c.canonical()).collect())
     }
 
     pub fn chords(&self) -> &[Chord] {
@@ -472,6 +521,17 @@ mod tests {
         assert_eq!(chord("Mod+/", Os::MacOS).key, Key::Char('/'));
         assert_eq!(chord("Ctrl+`", Os::Windows).display(Os::Windows), "Ctrl+`");
         assert_eq!(chord("F", Os::MacOS).key, Key::Char('F'));
+    }
+
+    #[test]
+    fn from_char_uppercases_letters_and_keeps_symbols() {
+        assert_eq!(Key::from_char('s'), Key::Char('S'));
+        assert_eq!(Key::from_char('+'), Key::Char('+'));
+        let plus = Chord {
+            modifiers: Modifiers::META,
+            key: Key::from_char('+'),
+        };
+        assert_eq!(plus.display(Os::MacOS), "⌘+");
     }
 
     #[test]
