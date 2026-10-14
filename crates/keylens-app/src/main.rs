@@ -1,3 +1,6 @@
 fn main() {
-    eprintln!("Keylens 的界面在后续任务中接入");
+    #[cfg(target_os = "macos")]
+    keylens_app::run();
+    #[cfg(not(target_os = "macos"))]
+    eprintln!("Keylens 目前只支持 macOS");
 }

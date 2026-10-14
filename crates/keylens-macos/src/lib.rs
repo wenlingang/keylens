@@ -25,6 +25,8 @@ pub mod tray;
 mod workspace;
 
 #[cfg(target_os = "macos")]
+pub use objc2::MainThreadMarker;
+#[cfg(target_os = "macos")]
 pub use platform::MacPlatform;
 
 /// 开发调试用的辅助函数，不属于稳定接口。
