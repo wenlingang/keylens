@@ -8,6 +8,7 @@ pub mod controller;
 pub mod loader;
 pub mod logging;
 pub mod model;
+pub mod session;
 pub mod strings;
 pub mod view;
 

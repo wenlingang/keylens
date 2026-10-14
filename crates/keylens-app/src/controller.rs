@@ -9,6 +9,7 @@ use keylens_core::{AppInfo, AppShortcuts, Entry, KeyEvent, TriggerAction, Trigge
 use keylens_platform::{ListenGuard, PermissionState, Platform};
 
 use crate::loader::{Cache, Freshness, Loader};
+use crate::session::{Effect, Session};
 use crate::view::{PanelEvent, PanelView};
 
 /// Number of cached apps (spec §5).
@@ -33,8 +34,7 @@ pub struct Keylens {
     detector: TriggerDetector,
     window: AnyWindowHandle,
     view: Entity<PanelView>,
-    visible: bool,
-    target: Option<AppInfo>,
+    session: Session,
     tick: Option<Task<()>>,
     permission_poll: Option<Task<()>>,
     on_permission: Option<Box<dyn Fn(bool)>>,
@@ -65,8 +65,7 @@ impl Keylens {
             detector,
             window,
             view,
-            visible: false,
-            target: None,
+            session: Session::new(std::process::id() as i32),
             tick: None,
             permission_poll: None,
             on_permission: None,
@@ -190,29 +189,30 @@ impl Keylens {
     }
 
     fn on_trigger(&mut self, action: TriggerAction, cx: &mut Context<Self>) {
-        match action {
-            TriggerAction::Prefetch => {
-                if self.visible {
-                    return;
-                }
-                if let Some(app) = self.platform.frontmost_app().filter(|a| !is_self(a)) {
-                    self.target = Some(app.clone());
-                    self.prefetch(app, cx);
-                }
+        let effects = match action {
+            TriggerAction::Prefetch => self.session.on_prefetch(self.platform.frontmost_app()),
+            TriggerAction::Show => self.session.on_show(self.platform.frontmost_app()),
+            TriggerAction::Cancel => {
+                self.session.on_cancel();
+                Vec::new()
             }
-            TriggerAction::Show => self.show(cx),
-            TriggerAction::Cancel => {}
-        }
+        };
+        self.apply(effects, cx);
     }
 
     fn on_frontmost(&mut self, app: AppInfo, cx: &mut Context<Self>) {
-        if is_self(&app) {
-            return;
+        let effects = self.session.on_frontmost(app);
+        self.apply(effects, cx);
+    }
+
+    fn apply(&mut self, effects: Vec<Effect>, cx: &mut Context<Self>) {
+        for effect in effects {
+            match effect {
+                Effect::Prefetch(app) => self.prefetch(app, cx),
+                Effect::Present(app) => self.show(app, cx),
+                Effect::Hide => self.hide(cx),
+            }
         }
-        if self.visible && self.target.as_ref().map(|t| t.pid) != Some(app.pid) {
-            self.hide(cx);
-        }
-        self.prefetch(app, cx);
     }
 
     // ---- Reading ----
@@ -259,7 +259,7 @@ impl Keylens {
             return;
         }
         self.cache.put(data.clone());
-        if self.visible && self.target.as_ref().map(|t| t.pid) == Some(pid) {
+        if self.session.shows(pid) {
             let icon = self.icons.get(&pid).cloned().flatten();
             self.view
                 .update(cx, |view, cx| view.set_data(data, icon, cx));
@@ -268,15 +268,8 @@ impl Keylens {
 
     // ---- Show and hide ----
 
-    fn show(&mut self, cx: &mut Context<Self>) {
-        let Some(app) = self
-            .target
-            .clone()
-            .or_else(|| self.platform.frontmost_app().filter(|a| !is_self(a)))
-        else {
-            return;
-        };
-        self.target = Some(app.clone());
+    /// Shows the panel for `app` (the session already made it the target).
+    fn show(&mut self, app: AppInfo, cx: &mut Context<Self>) {
         let icon = self.icons.get(&app.pid).cloned().flatten();
         let cached = self.cache.get(app.pid).cloned();
         let has_cache = cached.is_some();
@@ -292,6 +285,7 @@ impl Keylens {
     }
 
     fn show_permission_page(&mut self, cx: &mut Context<Self>) {
+        self.session.on_permission_page();
         self.view.update(cx, |view, cx| view.set_no_permission(cx));
         self.present(cx);
     }
@@ -299,21 +293,19 @@ impl Keylens {
     fn present(&mut self, cx: &mut Context<Self>) {
         let view = self.view.clone();
         let place = self.native.place;
-        let pid = self.target.as_ref().map(|t| t.pid);
+        let pid = self.session.target().map(|t| t.pid);
         let _ = self.window.update(cx, |_, window, cx| {
             place(window, pid);
             window.activate_window();
             view.update(cx, |view, cx| view.focus_input(window, cx));
         });
-        self.visible = true;
     }
 
     fn hide(&mut self, cx: &mut Context<Self>) {
-        if !self.visible {
+        if !self.session.visible() {
             return;
         }
-        self.visible = false;
-        self.target = None;
+        self.session.on_hidden();
         let view = self.view.clone();
         let hide = self.native.hide;
         let _ = self.window.update(cx, |_, window, cx| {
@@ -349,10 +341,6 @@ impl Keylens {
         })
         .detach();
     }
-}
-
-fn is_self(app: &AppInfo) -> bool {
-    app.pid == std::process::id() as i32
 }
 
 /// Turns a std channel into an async channel: a background thread blocks on receive and forwards to gpui's async loop.
