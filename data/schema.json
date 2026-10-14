@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/keylens/keylens/data/schema.json",
+  "title": "Keylens app shortcuts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "app", "group"],
+  "properties": {
+    "schema": { "const": 1 },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "match"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "match": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "macos": { "$ref": "#/$defs/ids", "description": "Bundle IDs" },
+            "windows": { "$ref": "#/$defs/ids", "description": "Process names, e.g. Code.exe" },
+            "linux": { "$ref": "#/$defs/ids", "description": ".desktop IDs or WM_CLASS" }
+          }
+        }
+      }
+    },
+    "group": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "shortcut"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "i18n": { "$ref": "#/$defs/i18n" },
+          "shortcut": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["title", "keys"],
+              "properties": {
+                "title": { "type": "string", "minLength": 1, "description": "Write it in your own words" },
+                "i18n": { "$ref": "#/$defs/i18n" },
+                "keys": {
+                  "oneOf": [
+                    { "$ref": "#/$defs/seq" },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["default"],
+                      "properties": {
+                        "default": { "$ref": "#/$defs/seq" },
+                        "macos": { "$ref": "#/$defs/seq" },
+                        "windows": { "$ref": "#/$defs/seq" },
+                        "linux": { "$ref": "#/$defs/seq" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "i18n": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "zh-Hans": { "type": "string", "minLength": 1 },
+        "zh-Hant": { "type": "string", "minLength": 1 },
+        "ja": { "type": "string", "minLength": 1 }
+      }
+    },
+    "chord": {
+      "type": "string",
+      "pattern": "^((Mod|Cmd|Command|Ctrl|Control|Alt|Option|Opt|Shift|Super|Win|Meta|Fn)\\+)*[^+\\s]+$",
+      "description": "e.g. Mod+Shift+P; Mod is ⌘ on macOS and Ctrl elsewhere"
+    },
+    "seq": {
+      "oneOf": [
+        { "$ref": "#/$defs/chord" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/chord" } }
+      ]
+    }
+  }
+}

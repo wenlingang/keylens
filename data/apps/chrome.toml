@@ -1,0 +1,142 @@
+#:schema ../schema.json
+schema = 1
+
+[app]
+name = "Google Chrome"
+
+[app.match]
+macos = ["com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary"]
+windows = ["chrome.exe"]
+linux = ["google-chrome", "google-chrome-stable"]
+
+[[group]]
+title = "Tabs and Windows"
+i18n = { zh-Hans = "标签页和窗口", zh-Hant = "分頁和視窗", ja = "タブとウインドウ" }
+
+  [[group.shortcut]]
+  title = "New Tab"
+  i18n = { zh-Hans = "新建标签页", zh-Hant = "新增分頁", ja = "新しいタブ" }
+  keys = "Mod+T"
+
+  [[group.shortcut]]
+  title = "Close Tab"
+  i18n = { zh-Hans = "关闭标签页", zh-Hant = "關閉分頁", ja = "タブを閉じる" }
+  keys = "Mod+W"
+
+  [[group.shortcut]]
+  title = "Reopen Closed Tab"
+  i18n = { zh-Hans = "重新打开关闭的标签页", zh-Hant = "重新開啟已關閉的分頁", ja = "閉じたタブを開き直す" }
+  keys = "Mod+Shift+T"
+
+  [[group.shortcut]]
+  title = "Next Tab"
+  i18n = { zh-Hans = "下一个标签页", zh-Hant = "下一個分頁", ja = "次のタブ" }
+  keys = { default = "Ctrl+Tab", macos = "Alt+Cmd+Right" }
+
+  [[group.shortcut]]
+  title = "Previous Tab"
+  i18n = { zh-Hans = "上一个标签页", zh-Hant = "上一個分頁", ja = "前のタブ" }
+  keys = { default = "Ctrl+Shift+Tab", macos = "Alt+Cmd+Left" }
+
+  [[group.shortcut]]
+  title = "Jump to Last Tab"
+  i18n = { zh-Hans = "跳到最后一个标签页", zh-Hant = "跳到最後一個分頁", ja = "最後のタブへ移動" }
+  keys = "Mod+9"
+
+  [[group.shortcut]]
+  title = "New Window"
+  i18n = { zh-Hans = "新建窗口", zh-Hant = "新增視窗", ja = "新しいウインドウ" }
+  keys = "Mod+N"
+
+  [[group.shortcut]]
+  title = "New Incognito Window"
+  i18n = { zh-Hans = "新建无痕窗口", zh-Hant = "新增無痕式視窗", ja = "新しいシークレットウインドウ" }
+  keys = "Mod+Shift+N"
+
+[[group]]
+title = "Navigation"
+i18n = { zh-Hans = "浏览", zh-Hant = "瀏覽", ja = "ナビゲーション" }
+
+  [[group.shortcut]]
+  title = "Focus Address Bar"
+  i18n = { zh-Hans = "聚焦地址栏", zh-Hant = "移至網址列", ja = "アドレスバーへ移動" }
+  keys = "Mod+L"
+
+  [[group.shortcut]]
+  title = "Back"
+  i18n = { zh-Hans = "后退", zh-Hant = "上一頁", ja = "戻る" }
+  keys = { default = "Alt+Left", macos = "Cmd+[" }
+
+  [[group.shortcut]]
+  title = "Forward"
+  i18n = { zh-Hans = "前进", zh-Hant = "下一頁", ja = "進む" }
+  keys = { default = "Alt+Right", macos = "Cmd+]" }
+
+  [[group.shortcut]]
+  title = "Reload"
+  i18n = { zh-Hans = "重新加载", zh-Hant = "重新載入", ja = "再読み込み" }
+  keys = "Mod+R"
+
+  [[group.shortcut]]
+  title = "Reload Ignoring Cache"
+  i18n = { zh-Hans = "忽略缓存重新加载", zh-Hant = "略過快取重新載入", ja = "キャッシュを無視して再読み込み" }
+  keys = "Mod+Shift+R"
+
+[[group]]
+title = "Page and Tools"
+i18n = { zh-Hans = "页面和工具", zh-Hant = "網頁和工具", ja = "ページとツール" }
+
+  [[group.shortcut]]
+  title = "Find in Page"
+  i18n = { zh-Hans = "在页面中查找", zh-Hant = "在網頁中尋找", ja = "ページ内を検索" }
+  keys = "Mod+F"
+
+  [[group.shortcut]]
+  title = "Zoom In"
+  i18n = { zh-Hans = "放大", zh-Hant = "放大", ja = "拡大" }
+  keys = "Mod+="
+
+  [[group.shortcut]]
+  title = "Zoom Out"
+  i18n = { zh-Hans = "缩小", zh-Hant = "縮小", ja = "縮小" }
+  keys = "Mod+-"
+
+  [[group.shortcut]]
+  title = "Reset Zoom"
+  i18n = { zh-Hans = "恢复默认缩放", zh-Hant = "重設縮放", ja = "ズームをリセット" }
+  keys = "Mod+0"
+
+  [[group.shortcut]]
+  title = "Bookmark This Page"
+  i18n = { zh-Hans = "为此页添加书签", zh-Hant = "將這個網頁加入書籤", ja = "このページをブックマーク" }
+  keys = "Mod+D"
+
+  [[group.shortcut]]
+  title = "Show or Hide Bookmarks Bar"
+  i18n = { zh-Hans = "显示或隐藏书签栏", zh-Hant = "顯示或隱藏書籤列", ja = "ブックマークバーの表示切替" }
+  keys = "Mod+Shift+B"
+
+  [[group.shortcut]]
+  title = "Open History"
+  i18n = { zh-Hans = "打开历史记录", zh-Hant = "開啟記錄", ja = "履歴を開く" }
+  keys = { default = "Ctrl+H", macos = "Cmd+Y" }
+
+  [[group.shortcut]]
+  title = "Open Downloads"
+  i18n = { zh-Hans = "打开下载内容", zh-Hant = "開啟下載項目", ja = "ダウンロードを開く" }
+  keys = { default = "Ctrl+J", macos = "Cmd+Shift+J" }
+
+  [[group.shortcut]]
+  title = "Developer Tools"
+  i18n = { zh-Hans = "开发者工具", zh-Hant = "開發人員工具", ja = "デベロッパー ツール" }
+  keys = { default = "Ctrl+Shift+I", macos = "Alt+Cmd+I" }
+
+  [[group.shortcut]]
+  title = "JavaScript Console"
+  i18n = { zh-Hans = "JavaScript 控制台", zh-Hant = "JavaScript 控制台", ja = "JavaScript コンソール" }
+  keys = { default = "Ctrl+Shift+J", macos = "Alt+Cmd+J" }
+
+  [[group.shortcut]]
+  title = "View Page Source"
+  i18n = { zh-Hans = "查看网页源代码", zh-Hant = "檢視網頁原始碼", ja = "ページのソースを表示" }
+  keys = { default = "Ctrl+U", macos = "Alt+Cmd+U" }

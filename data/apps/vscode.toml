@@ -1,0 +1,157 @@
+#:schema ../schema.json
+schema = 1
+
+[app]
+name = "Visual Studio Code"
+
+[app.match]
+macos = ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders"]
+windows = ["Code.exe", "Code - Insiders.exe"]
+linux = ["code", "code-insiders"]
+
+[[group]]
+title = "General"
+i18n = { zh-Hans = "常规", zh-Hant = "一般", ja = "一般" }
+
+  [[group.shortcut]]
+  title = "Show Command Palette"
+  i18n = { zh-Hans = "显示命令面板", zh-Hant = "顯示命令選擇區", ja = "コマンドパレットを表示" }
+  keys = "Mod+Shift+P"
+
+  [[group.shortcut]]
+  title = "Quick Open a File"
+  i18n = { zh-Hans = "快速打开文件", zh-Hant = "快速開啟檔案", ja = "ファイルをすばやく開く" }
+  keys = "Mod+P"
+
+  [[group.shortcut]]
+  title = "Open Settings"
+  i18n = { zh-Hans = "打开设置", zh-Hant = "開啟設定", ja = "設定を開く" }
+  keys = "Mod+,"
+
+  [[group.shortcut]]
+  title = "Open Keyboard Shortcuts"
+  i18n = { zh-Hans = "打开键盘快捷方式", zh-Hant = "開啟鍵盤快速鍵", ja = "キーボードショートカットを開く" }
+  keys = ["Mod+K", "Mod+S"]
+
+  [[group.shortcut]]
+  title = "Toggle Sidebar"
+  i18n = { zh-Hans = "显示或隐藏侧边栏", zh-Hant = "顯示或隱藏側邊欄", ja = "サイドバーの表示切替" }
+  keys = "Mod+B"
+
+  [[group.shortcut]]
+  title = "Toggle Integrated Terminal"
+  i18n = { zh-Hans = "显示或隐藏终端", zh-Hant = "顯示或隱藏終端機", ja = "ターミナルの表示切替" }
+  keys = "Ctrl+`"
+
+  [[group.shortcut]]
+  title = "Zen Mode"
+  i18n = { zh-Hans = "禅模式", zh-Hant = "禪模式", ja = "Zen モード" }
+  keys = ["Mod+K", "Z"]
+
+  [[group.shortcut]]
+  title = "Close All Editors"
+  i18n = { zh-Hans = "关闭所有编辑器", zh-Hant = "關閉所有編輯器", ja = "すべてのエディターを閉じる" }
+  keys = ["Mod+K", "Mod+W"]
+
+[[group]]
+title = "Editing"
+i18n = { zh-Hans = "编辑", zh-Hant = "編輯", ja = "編集" }
+
+  [[group.shortcut]]
+  title = "Move Line Up"
+  i18n = { zh-Hans = "上移当前行", zh-Hant = "上移目前行", ja = "行を上へ移動" }
+  keys = "Alt+Up"
+
+  [[group.shortcut]]
+  title = "Move Line Down"
+  i18n = { zh-Hans = "下移当前行", zh-Hant = "下移目前行", ja = "行を下へ移動" }
+  keys = "Alt+Down"
+
+  [[group.shortcut]]
+  title = "Copy Line Down"
+  i18n = { zh-Hans = "向下复制当前行", zh-Hant = "向下複製目前行", ja = "行を下へコピー" }
+  keys = { default = "Shift+Alt+Down", linux = "Ctrl+Shift+Alt+Down" }
+
+  [[group.shortcut]]
+  title = "Delete Line"
+  i18n = { zh-Hans = "删除当前行", zh-Hant = "刪除目前行", ja = "行を削除" }
+  keys = "Mod+Shift+K"
+
+  [[group.shortcut]]
+  title = "Toggle Line Comment"
+  i18n = { zh-Hans = "切换行注释", zh-Hant = "切換行註解", ja = "行コメントの切替" }
+  keys = "Mod+/"
+
+  [[group.shortcut]]
+  title = "Add Cursor Below"
+  i18n = { zh-Hans = "在下方添加光标", zh-Hant = "在下方新增游標", ja = "下にカーソルを追加" }
+  keys = { default = "Ctrl+Alt+Down", macos = "Alt+Cmd+Down", linux = "Shift+Alt+Down" }
+
+  [[group.shortcut]]
+  title = "Select Next Occurrence"
+  i18n = { zh-Hans = "选中下一个相同内容", zh-Hant = "選取下一個相同內容", ja = "次の一致箇所を選択" }
+  keys = "Mod+D"
+
+  [[group.shortcut]]
+  title = "Fold Region"
+  i18n = { zh-Hans = "折叠代码块", zh-Hant = "摺疊程式碼區塊", ja = "領域を折りたたむ" }
+  keys = { default = "Ctrl+Shift+[", macos = "Alt+Cmd+[" }
+
+  [[group.shortcut]]
+  title = "Unfold Region"
+  i18n = { zh-Hans = "展开代码块", zh-Hant = "展開程式碼區塊", ja = "領域を展開" }
+  keys = { default = "Ctrl+Shift+]", macos = "Alt+Cmd+]" }
+
+  [[group.shortcut]]
+  title = "Format Document"
+  i18n = { zh-Hans = "格式化文档", zh-Hant = "格式化文件", ja = "ドキュメントのフォーマット" }
+  keys = { default = "Shift+Alt+F", linux = "Ctrl+Shift+I" }
+
+  [[group.shortcut]]
+  title = "Trigger Suggestions"
+  i18n = { zh-Hans = "显示补全建议", zh-Hant = "顯示補全建議", ja = "候補を表示" }
+  keys = "Ctrl+Space"
+
+[[group]]
+title = "Navigation"
+i18n = { zh-Hans = "导航", zh-Hant = "導覽", ja = "ナビゲーション" }
+
+  [[group.shortcut]]
+  title = "Go to Line"
+  i18n = { zh-Hans = "转到行", zh-Hant = "移至行", ja = "指定行へ移動" }
+  keys = "Ctrl+G"
+
+  [[group.shortcut]]
+  title = "Go to Definition"
+  i18n = { zh-Hans = "转到定义", zh-Hant = "移至定義", ja = "定義へ移動" }
+  keys = "F12"
+
+  [[group.shortcut]]
+  title = "Rename Symbol"
+  i18n = { zh-Hans = "重命名符号", zh-Hant = "重新命名符號", ja = "シンボルの名前を変更" }
+  keys = "F2"
+
+  [[group.shortcut]]
+  title = "Go to Symbol in File"
+  i18n = { zh-Hans = "转到文件中的符号", zh-Hant = "移至檔案中的符號", ja = "ファイル内のシンボルへ移動" }
+  keys = "Mod+Shift+O"
+
+  [[group.shortcut]]
+  title = "Search in All Files"
+  i18n = { zh-Hans = "在所有文件中搜索", zh-Hant = "在所有檔案中搜尋", ja = "すべてのファイルを検索" }
+  keys = "Mod+Shift+F"
+
+  [[group.shortcut]]
+  title = "Show Problems"
+  i18n = { zh-Hans = "显示问题面板", zh-Hant = "顯示問題面板", ja = "問題パネルを表示" }
+  keys = "Mod+Shift+M"
+
+  [[group.shortcut]]
+  title = "Go Back"
+  i18n = { zh-Hans = "后退", zh-Hant = "返回", ja = "戻る" }
+  keys = { default = "Alt+Left", macos = "Ctrl+-", linux = "Ctrl+Alt+-" }
+
+  [[group.shortcut]]
+  title = "Go Forward"
+  i18n = { zh-Hans = "前进", zh-Hant = "前進", ja = "進む" }
+  keys = { default = "Alt+Right", macos = "Ctrl+Shift+-", linux = "Ctrl+Shift+-" }

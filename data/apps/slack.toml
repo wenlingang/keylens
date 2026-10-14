@@ -1,0 +1,103 @@
+#:schema ../schema.json
+schema = 1
+
+[app]
+name = "Slack"
+
+[app.match]
+macos = ["com.tinyspeck.slackmacgap"]
+windows = ["slack.exe"]
+linux = ["slack"]
+
+[[group]]
+title = "Navigation"
+i18n = { zh-Hans = "导航", zh-Hant = "導覽", ja = "ナビゲーション" }
+
+  [[group.shortcut]]
+  title = "Jump to a Conversation"
+  i18n = { zh-Hans = "跳转到会话", zh-Hant = "跳至對話", ja = "会話へジャンプ" }
+  keys = "Mod+K"
+
+  [[group.shortcut]]
+  title = "Previous Channel or DM"
+  i18n = { zh-Hans = "上一个频道或私信", zh-Hant = "上一個頻道或私訊", ja = "前のチャンネルまたは DM" }
+  keys = "Alt+Up"
+
+  [[group.shortcut]]
+  title = "Next Channel or DM"
+  i18n = { zh-Hans = "下一个频道或私信", zh-Hant = "下一個頻道或私訊", ja = "次のチャンネルまたは DM" }
+  keys = "Alt+Down"
+
+  [[group.shortcut]]
+  title = "Previous Unread Channel"
+  i18n = { zh-Hans = "上一个未读频道", zh-Hant = "上一個未讀頻道", ja = "前の未読チャンネル" }
+  keys = "Alt+Shift+Up"
+
+  [[group.shortcut]]
+  title = "Next Unread Channel"
+  i18n = { zh-Hans = "下一个未读频道", zh-Hant = "下一個未讀頻道", ja = "次の未読チャンネル" }
+  keys = "Alt+Shift+Down"
+
+  [[group.shortcut]]
+  title = "Go Back in History"
+  i18n = { zh-Hans = "返回上一个位置", zh-Hant = "返回上一個位置", ja = "履歴を戻る" }
+  keys = { default = "Alt+Left", macos = "Cmd+[" }
+
+  [[group.shortcut]]
+  title = "Go Forward in History"
+  i18n = { zh-Hans = "前往下一个位置", zh-Hant = "前往下一個位置", ja = "履歴を進む" }
+  keys = { default = "Alt+Right", macos = "Cmd+]" }
+
+  [[group.shortcut]]
+  title = "Open Threads"
+  i18n = { zh-Hans = "打开消息列", zh-Hant = "開啟討論串", ja = "スレッドを開く" }
+  keys = "Mod+Shift+T"
+
+  [[group.shortcut]]
+  title = "Open Direct Messages"
+  i18n = { zh-Hans = "打开私信", zh-Hant = "開啟私訊", ja = "DM を開く" }
+  keys = "Mod+Shift+K"
+
+  [[group.shortcut]]
+  title = "Open Mentions and Reactions"
+  i18n = { zh-Hans = "打开提及和回应", zh-Hant = "開啟提及與回應", ja = "メンションとリアクションを開く" }
+  keys = "Mod+Shift+M"
+
+  [[group.shortcut]]
+  title = "Toggle Sidebar"
+  i18n = { zh-Hans = "显示或隐藏侧边栏", zh-Hant = "顯示或隱藏側邊欄", ja = "サイドバーの表示切替" }
+  keys = "Mod+Shift+D"
+
+[[group]]
+title = "Messages"
+i18n = { zh-Hans = "消息", zh-Hant = "訊息", ja = "メッセージ" }
+
+  [[group.shortcut]]
+  title = "Edit Your Last Message"
+  i18n = { zh-Hans = "编辑你的上一条消息", zh-Hant = "編輯你的上一則訊息", ja = "直前のメッセージを編集" }
+  keys = "Mod+Up"
+
+  [[group.shortcut]]
+  title = "Upload a File"
+  i18n = { zh-Hans = "上传文件", zh-Hant = "上傳檔案", ja = "ファイルをアップロード" }
+  keys = "Mod+U"
+
+  [[group.shortcut]]
+  title = "Set Your Status"
+  i18n = { zh-Hans = "设置状态", zh-Hant = "設定狀態", ja = "ステータスを設定" }
+  keys = "Mod+Shift+Y"
+
+  [[group.shortcut]]
+  title = "Mark Current Channel as Read"
+  i18n = { zh-Hans = "将当前频道标为已读", zh-Hant = "將目前頻道標為已讀", ja = "現在のチャンネルを既読にする" }
+  keys = "Escape"
+
+  [[group.shortcut]]
+  title = "Mark All Messages as Read"
+  i18n = { zh-Hans = "将所有消息标为已读", zh-Hant = "將所有訊息標為已讀", ja = "すべてのメッセージを既読にする" }
+  keys = "Shift+Escape"
+
+  [[group.shortcut]]
+  title = "Show Keyboard Shortcuts"
+  i18n = { zh-Hans = "显示键盘快捷键", zh-Hant = "顯示鍵盤快速鍵", ja = "キーボードショートカットを表示" }
+  keys = "Mod+/"
