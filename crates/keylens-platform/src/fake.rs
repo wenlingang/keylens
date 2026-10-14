@@ -22,6 +22,7 @@ pub struct FakePlatform {
     permission: Mutex<PermissionState>,
     app: Mutex<Option<AppInfo>>,
     menu: Arc<Mutex<Menu>>,
+    menu_error: Arc<Mutex<Option<SourceError>>>,
     executed: Mutex<Vec<EntryId>>,
     key_sender: SharedSender<KeyEvent>,
     app_sender: SharedSender<AppInfo>,
@@ -34,6 +35,7 @@ impl Default for FakePlatform {
             permission: Mutex::new(PermissionState::Granted),
             app: Mutex::new(None),
             menu: Arc::default(),
+            menu_error: Arc::default(),
             executed: Mutex::default(),
             key_sender: Arc::default(),
             app_sender: Arc::default(),
@@ -65,6 +67,11 @@ impl FakePlatform {
         menu.entries = entries;
     }
 
+    /// 让菜单读取返回错误（`None` 恢复正常）。
+    pub fn set_menu_error(&self, error: Option<SourceError>) {
+        *self.menu_error.lock().unwrap() = error;
+    }
+
     pub fn executed(&self) -> Vec<EntryId> {
         self.executed.lock().unwrap().clone()
     }
@@ -77,11 +84,17 @@ impl FakePlatform {
     }
 }
 
-struct FakeMenu(Arc<Mutex<Menu>>);
+struct FakeMenu {
+    menu: Arc<Mutex<Menu>>,
+    error: Arc<Mutex<Option<SourceError>>>,
+}
 
 impl ShortcutSource for FakeMenu {
     fn load(&self, _: &AppInfo) -> Result<Vec<Entry>, SourceError> {
-        let menu = self.0.lock().unwrap();
+        if let Some(error) = self.error.lock().unwrap().clone() {
+            return Err(error);
+        }
+        let menu = self.menu.lock().unwrap();
         Ok(menu
             .entries
             .iter()
@@ -115,7 +128,10 @@ impl Platform for FakePlatform {
     }
 
     fn menu_source(&self) -> Box<dyn ShortcutSource> {
-        Box::new(FakeMenu(self.menu.clone()))
+        Box::new(FakeMenu {
+            menu: self.menu.clone(),
+            error: self.menu_error.clone(),
+        })
     }
 
     fn execute(&self, entry: &Entry) -> Result<(), PlatformError> {
@@ -270,6 +286,21 @@ mod tests {
         assert_eq!(platform.app_icon(&app), None);
         platform.set_icon(Some(vec![0x89, b'P', b'N', b'G']));
         assert_eq!(platform.app_icon(&app), Some(vec![0x89, b'P', b'N', b'G']));
+    }
+
+    #[test]
+    fn menu_source_can_be_made_to_fail() {
+        let platform = FakePlatform::default();
+        platform.set_menu_error(Some(keylens_core::SourceError::Timeout));
+        let app = AppInfo {
+            pid: 1,
+            name: "Demo".into(),
+            ids: vec![],
+        };
+        assert_eq!(
+            platform.menu_source().load(&app),
+            Err(keylens_core::SourceError::Timeout)
+        );
     }
 
     #[test]
