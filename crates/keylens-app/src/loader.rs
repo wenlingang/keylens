@@ -1,7 +1,7 @@
 //! Combines the menu, user data and built-in data into one app's shortcuts, and caches results per app.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use keylens_core::community::{Catalog, CommunitySource};
 use keylens_core::{AppInfo, AppShortcuts, EntrySource, Lang, Os, ShortcutSource, collect};
@@ -10,7 +10,10 @@ use keylens_platform::Platform;
 pub struct Loader {
     platform: Arc<dyn Platform>,
     builtin: CommunitySource,
-    user: CommunitySource,
+    /// Replaced when the user edits files in the user data folder.
+    user: RwLock<CommunitySource>,
+    os: Os,
+    lang: Lang,
 }
 
 impl Loader {
@@ -24,19 +27,27 @@ impl Loader {
         Self {
             platform,
             builtin: CommunitySource::new(builtin, os, lang, EntrySource::Community),
-            user: CommunitySource::new(user, os, lang, EntrySource::User),
+            user: RwLock::new(CommunitySource::new(user, os, lang, EntrySource::User)),
+            os,
+            lang,
         }
+    }
+
+    /// Replaces the user data (after the user saved a file); later loads use it.
+    pub fn set_user_catalog(&self, catalog: Arc<Catalog>) {
+        let source = CommunitySource::new(catalog, self.os, self.lang, EntrySource::User);
+        *self.user.write().unwrap() = source;
     }
 
     /// Reads one app's shortcuts. Blocks (reading the menu takes up to ~2 s), so call it from a background thread.
     pub fn load(&self, app: &AppInfo) -> AppShortcuts {
         let menu = self.platform.menu_source();
-        let sources: [&dyn ShortcutSource; 3] = [menu.as_ref(), &self.user, &self.builtin];
+        let user = self.user.read().unwrap();
+        let sources: [&dyn ShortcutSource; 3] = [menu.as_ref(), &*user, &self.builtin];
         collect(app.clone(), &sources)
     }
 }
 
-/// Most recently read app shortcuts, keyed by pid.
 /// Decides whether a finished read should replace what is shown and cached.
 ///
 /// Several reads of the same app can be in flight (app switch, ⌘ press, panel shown) and may
@@ -75,6 +86,7 @@ impl Freshness {
     }
 }
 
+/// Most recently read app shortcuts, keyed by pid.
 pub struct Cache {
     capacity: usize,
     items: VecDeque<AppShortcuts>,
@@ -241,6 +253,25 @@ keys = ["Mod+K", "Z"]
         empty.warnings.clear();
         assert!(freshness.accept(&empty));
         assert!(freshness.accept(&empty));
+    }
+
+    #[test]
+    fn user_data_can_be_replaced_while_running() {
+        let platform = Arc::new(FakePlatform::default());
+        let l = loader(platform);
+        let titles = |data: &AppShortcuts| -> Vec<String> {
+            data.groups
+                .iter()
+                .flat_map(|g| g.entries.iter().map(|e| e.title.clone()))
+                .collect()
+        };
+        assert!(!titles(&l.load(&app(7))).contains(&"My Shortcut".to_string()));
+        let mine = "schema = 1\n[app]\nname = \"Demo\"\n[app.match]\nmacos = [\"com.demo\"]\n\
+                    [[group]]\ntitle = \"Mine\"\n[[group.shortcut]]\ntitle = \"My Shortcut\"\nkeys = \"Mod+J\"\n";
+        let (user, errors) = Catalog::from_files([("demo.toml", mine)]);
+        assert!(errors.is_empty());
+        l.set_user_catalog(Arc::new(user));
+        assert!(titles(&l.load(&app(7))).contains(&"My Shortcut".to_string()));
     }
 
     #[test]

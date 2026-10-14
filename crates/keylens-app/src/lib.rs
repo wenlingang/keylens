@@ -13,6 +13,7 @@ pub mod session;
 pub mod strings;
 pub mod template;
 pub mod view;
+pub mod watch;
 
 /// Starts Keylens (macOS only).
 #[cfg(target_os = "macos")]
