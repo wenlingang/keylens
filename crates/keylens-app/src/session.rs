@@ -51,12 +51,18 @@ impl Session {
     }
 
     pub fn on_show(&mut self, frontmost: Option<AppInfo>) -> Vec<Effect> {
-        let Some(app) = self.target.clone().or_else(|| self.other(frontmost)) else {
+        if let Some(app) = self.target.clone() {
+            self.visible = true;
+            return vec![Effect::Present(app)];
+        }
+        // No prefetched target (e.g. the ⌘ press started over Keylens itself): fall back to the
+        // frontmost app and read it now, or the panel would wait forever.
+        let Some(app) = self.other(frontmost) else {
             return Vec::new();
         };
         self.target = Some(app.clone());
         self.visible = true;
-        vec![Effect::Present(app)]
+        vec![Effect::Present(app.clone()), Effect::Prefetch(app)]
     }
 
     pub fn on_cancel(&mut self) {
@@ -126,8 +132,12 @@ mod tests {
         s.on_prefetch(Some(app(1)));
         assert_eq!(s.on_show(Some(app(2))), [Effect::Present(app(1))]);
         assert!(s.visible());
+        // Falling back to the frontmost app also reads it: nothing was prefetched for it.
         let mut s = Session::new(OWN);
-        assert_eq!(s.on_show(Some(app(2))), [Effect::Present(app(2))]);
+        assert_eq!(
+            s.on_show(Some(app(2))),
+            [Effect::Present(app(2)), Effect::Prefetch(app(2))]
+        );
         let mut s = Session::new(OWN);
         assert_eq!(s.on_show(Some(app(OWN))), []);
         assert!(!s.visible());
@@ -138,7 +148,10 @@ mod tests {
         let mut s = Session::new(OWN);
         s.on_prefetch(Some(app(1)));
         s.on_cancel();
-        assert_eq!(s.on_show(Some(app(2))), [Effect::Present(app(2))]);
+        assert_eq!(
+            s.on_show(Some(app(2))),
+            [Effect::Present(app(2)), Effect::Prefetch(app(2))]
+        );
     }
 
     #[test]
@@ -146,7 +159,10 @@ mod tests {
         let mut s = Session::new(OWN);
         s.on_prefetch(Some(app(1)));
         assert_eq!(s.on_frontmost(app(2)), [Effect::Prefetch(app(2))]);
-        assert_eq!(s.on_show(Some(app(2))), [Effect::Present(app(2))]);
+        assert_eq!(
+            s.on_show(Some(app(2))),
+            [Effect::Present(app(2)), Effect::Prefetch(app(2))]
+        );
     }
 
     #[test]
