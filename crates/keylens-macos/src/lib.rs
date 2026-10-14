@@ -15,3 +15,5 @@ pub mod exec;
 pub mod keytap;
 #[cfg(target_os = "macos")]
 pub mod menu;
+#[cfg(target_os = "macos")]
+pub mod workspace;
