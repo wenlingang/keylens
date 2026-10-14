@@ -73,16 +73,21 @@ pub fn watch_frontmost(tx: Sender<AppInfo>) -> ListenGuard {
     ListenGuard::new(Observer { center, token })
 }
 
-/// 应用图标，PNG 编码。
+/// 应用图标，PNG 编码。可能在后台线程调用，所以用 autoreleasepool 及时释放中间对象。
 pub fn app_icon(pid: i32) -> Option<Vec<u8>> {
-    let app = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)?;
-    let tiff = app.icon()?.TIFFRepresentation()?;
-    let bitmap = NSBitmapImageRep::imageRepWithData(&tiff)?;
-    // SAFETY: 空字典是合法的 properties 参数。
-    let png = unsafe {
-        bitmap.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())
-    }?;
-    Some(png.to_vec())
+    objc2::rc::autoreleasepool(|_| {
+        let app = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)?;
+        let tiff = app.icon()?.TIFFRepresentation()?;
+        let bitmap = NSBitmapImageRep::imageRepWithData(&tiff)?;
+        // SAFETY: 空字典是合法的 properties 参数。
+        let png = unsafe {
+            bitmap.representationUsingType_properties(
+                NSBitmapImageFileType::PNG,
+                &NSDictionary::new(),
+            )
+        }?;
+        Some(png.to_vec())
+    })
 }
 
 /// 打开「系统设置 › 隐私与安全性 › 辅助功能」。

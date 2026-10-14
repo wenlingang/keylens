@@ -16,6 +16,8 @@ mod keytap;
 #[cfg(target_os = "macos")]
 mod menu;
 #[cfg(target_os = "macos")]
+pub mod panel;
+#[cfg(target_os = "macos")]
 mod platform;
 #[cfg(target_os = "macos")]
 mod workspace;
