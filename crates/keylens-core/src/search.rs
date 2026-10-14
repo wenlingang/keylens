@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-use crate::keys::{Modifiers, Os};
+use crate::keys::{Chord, Modifiers, Os};
 use crate::model::Entry;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,7 +35,7 @@ pub fn filter(entries: &[Entry], query: &str, os: Os) -> Vec<Match> {
             let haystack = haystack(entry, os);
             tokens
                 .iter()
-                .all(|token| token_matches(entry, &haystack, token))
+                .all(|token| token_matches(entry, &haystack, token, os))
         })
         .map(|(index, entry)| {
             let title = entry.title.to_lowercase();
@@ -84,15 +84,29 @@ fn modifier_token(token: &str) -> Option<Modifiers> {
     Some(modifiers)
 }
 
-fn token_matches(entry: &Entry, haystack: &str, token: &str) -> bool {
-    match modifier_token(token) {
-        Some(wanted) => entry
-            .shortcut
-            .chords()
-            .iter()
-            .any(|c| c.modifiers.contains(wanted)),
-        None => haystack.contains(token),
+/// 完整写出的一个按键组合：`⌘⇧P` 这样的符号前缀加主键，或 `cmd+shift+p` 这样的 `+` 写法。
+fn chord_token(token: &str, os: Os) -> Option<Chord> {
+    if token.contains('+') {
+        return Chord::parse(token, os).ok();
     }
+    let key_start = token.find(|c| !"⌘⇧⌥⌃".contains(c))?;
+    let modifiers = modifier_token(&token[..key_start]).filter(|m| !m.is_empty())?;
+    let key = Chord::parse(&token[key_start..], os).ok()?;
+    key.modifiers.is_empty().then_some(Chord {
+        modifiers,
+        key: key.key,
+    })
+}
+
+fn token_matches(entry: &Entry, haystack: &str, token: &str, os: Os) -> bool {
+    let chords = entry.shortcut.chords();
+    if let Some(wanted) = modifier_token(token) {
+        return chords.iter().any(|c| c.modifiers.contains(wanted));
+    }
+    if let Some(wanted) = chord_token(token, os) {
+        return chords.contains(&wanted);
+    }
+    haystack.contains(token)
 }
 
 /// 在 `text` 中不区分大小写地查找 `query`，返回落在字符边界上的字节范围。
@@ -181,6 +195,27 @@ mod tests {
     fn modifier_symbols_match_in_any_order() {
         assert_eq!(indexes(&filter(&sample(), "⌘⇧", Os::MacOS)), [1, 2]);
         assert_eq!(indexes(&filter(&sample(), "⇧⌘", Os::MacOS)), [1, 2]);
+    }
+
+    #[test]
+    fn full_shortcut_matches_regardless_of_modifier_order_or_spelling() {
+        for query in [
+            "⌘⇧P",
+            "⇧⌘P",
+            "⇧⌘p",
+            "cmd+shift+p",
+            "Shift+Cmd+P",
+            "mod+shift+p",
+        ] {
+            assert_eq!(
+                indexes(&filter(&sample(), query, Os::MacOS)),
+                [2],
+                "{query}"
+            );
+        }
+        // 修饰键必须完全一致：⌘P 不应该匹配 ⇧⌘P
+        assert!(filter(&sample(), "⌘P", Os::MacOS).is_empty());
+        assert!(filter(&sample(), "ctrl+shift+p", Os::MacOS).is_empty());
     }
 
     #[test]
