@@ -195,6 +195,21 @@ pub fn modifier_flags(modifiers: Modifiers) -> u64 {
         .fold(0, |acc, (bit, _)| acc | bit)
 }
 
+/// 字母、数字和标点位置与美式键盘相同的布局。`keycode` 只在这些布局下能打出预期的字符；
+/// 其他布局（如 AZERTY 上的键码 0 是 Q）会执行错误的命令，所以拒绝模拟按键。
+pub fn us_compatible_layout(layout_id: &str) -> bool {
+    const COMPATIBLE: [&str; 7] = [
+        "com.apple.keylayout.US",
+        "com.apple.keylayout.ABC",
+        "com.apple.keylayout.USExtended",
+        "com.apple.keylayout.USInternational-PC",
+        "com.apple.keylayout.ABC-India",
+        "com.apple.keylayout.Canadian",
+        "com.apple.keylayout.Australian",
+    ];
+    COMPATIBLE.contains(&layout_id)
+}
+
 /// 按键对应的虚拟键码（美式键盘）。需要 Shift 才能打出的符号返回 `None`，
 /// 调用方应先用 `Chord::canonical` 转成「⇧ + 基础键」。
 pub fn keycode(key: Key) -> Option<u16> {
@@ -297,6 +312,30 @@ mod tests {
             Modifiers::CTRL | Modifiers::ALT | Modifiers::FN,
         ] {
             assert_eq!(event_modifiers(modifier_flags(m)), m);
+        }
+    }
+
+    #[test]
+    fn only_us_compatible_layouts_allow_synthesized_keys() {
+        for id in [
+            "com.apple.keylayout.US",
+            "com.apple.keylayout.ABC",
+            "com.apple.keylayout.USExtended",
+            "com.apple.keylayout.USInternational-PC",
+            "com.apple.keylayout.Canadian",
+            "com.apple.keylayout.Australian",
+        ] {
+            assert!(us_compatible_layout(id), "{id}");
+        }
+        for id in [
+            "com.apple.keylayout.French",
+            "com.apple.keylayout.German",
+            "com.apple.keylayout.ABC-AZERTY",
+            "com.apple.keylayout.ABC-QWERTZ",
+            "com.apple.keylayout.Dvorak",
+            "com.apple.keylayout.British",
+        ] {
+            assert!(!us_compatible_layout(id), "{id}");
         }
     }
 
