@@ -6,6 +6,15 @@
     cargo clippy --all-targets -- -D warnings
     cargo fmt
 
+## 本地运行需要辅助功能权限的程序
+
+读取其他应用的菜单、监听全局按键都需要「辅助功能」权限。macOS 按代码签名识别程序，ad-hoc 签名的程序每次重新编译后权限都会失效。
+
+1. 一次性运行 `scripts/dev-cert.sh`，创建本地开发证书（会弹出密码框）。
+2. 用 `scripts/dev-bundle.sh <可执行文件> <应用名> <bundle-id>` 打包成 `.app`。
+3. 在「系统设置 › 隐私与安全性 › 辅助功能」里添加这个 `.app` 并打开开关，只需要一次。
+4. 用 `open -W -n <app> --stdout <文件> --args …` 运行，输出会写进文件。
+
 ## 贡献快捷键数据
 
 数据放在 `data/apps/`，每个应用一个 TOML 文件，协议是 CC0。
