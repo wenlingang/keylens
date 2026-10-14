@@ -12,4 +12,6 @@ pub mod ax;
 #[cfg(target_os = "macos")]
 pub mod exec;
 #[cfg(target_os = "macos")]
+pub mod keytap;
+#[cfg(target_os = "macos")]
 pub mod menu;
