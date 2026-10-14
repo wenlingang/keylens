@@ -2,7 +2,7 @@
 
 use keylens_core::{Chord, Key, Modifiers};
 
-/// `AXMenuItemCmdModifiers`: bit0 = ⇧, bit1 = ⌥, bit2 = ⌃, bit3 = no ⌘.
+/// `AXMenuItemCmdModifiers`: bit0 = ⇧, bit1 = ⌥, bit2 = ⌃, bit3 = no ⌘, bit4 = fn/🌐 (globe; e.g. window tiling items).
 /// For the encoding see `docs/spikes/2026-10-14-macos-probe.md`.
 pub fn ax_modifiers(raw: i64) -> Modifiers {
     let mut modifiers = Modifiers::NONE;
@@ -17,6 +17,9 @@ pub fn ax_modifiers(raw: i64) -> Modifiers {
     }
     if raw & 4 != 0 {
         modifiers = modifiers | Modifiers::CTRL;
+    }
+    if raw & 16 != 0 {
+        modifiers = modifiers | Modifiers::FN;
     }
     modifiers
 }
@@ -243,6 +246,17 @@ mod tests {
         assert_eq!(ax_modifiers(8), Modifiers::NONE);
         assert_eq!(ax_modifiers(10), Modifiers::ALT);
         assert_eq!(ax_modifiers(12), Modifiers::CTRL);
+    }
+
+    #[test]
+    fn bit_four_is_the_globe_fn_key() {
+        // Window tiling items such as "Center" (🌐⌃C) report 28 = fn | no-⌘ | ⌃.
+        assert_eq!(ax_modifiers(28), Modifiers::FN | Modifiers::CTRL);
+        assert_eq!(
+            ax_modifiers(29),
+            Modifiers::FN | Modifiers::CTRL | Modifiers::SHIFT
+        );
+        assert_eq!(ax_modifiers(16), Modifiers::FN | Modifiers::META);
     }
 
     #[test]

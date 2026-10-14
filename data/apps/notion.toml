@@ -1,0 +1,145 @@
+#:schema ../schema.json
+schema = 1
+
+[app]
+name = "Notion"
+
+[app.match]
+macos = ["notion.id"]
+
+[[group]]
+title = "Navigation"
+i18n = { zh-Hans = "导航", zh-Hant = "導覽", ja = "ナビゲーション" }
+
+  [[group.shortcut]]
+  title = "Search"
+  i18n = { zh-Hans = "搜索", zh-Hant = "搜尋", ja = "検索" }
+  keys = "Cmd+P"
+
+  [[group.shortcut]]
+  title = "New Page"
+  i18n = { zh-Hans = "新建页面", zh-Hant = "新增頁面", ja = "新規ページ" }
+  keys = "Cmd+N"
+
+  [[group.shortcut]]
+  title = "Toggle Sidebar"
+  i18n = { zh-Hans = "显示或隐藏侧边栏", zh-Hant = "顯示或隱藏側邊欄", ja = "サイドバーの表示切替" }
+  keys = "Cmd+\\"
+
+  [[group.shortcut]]
+  title = "Copy Link to the Current Page"
+  i18n = { zh-Hans = "复制当前页面的链接", zh-Hant = "複製目前頁面的連結", ja = "現在のページのリンクをコピー" }
+  keys = "Cmd+L"
+
+  [[group.shortcut]]
+  title = "Toggle Dark Mode"
+  i18n = { zh-Hans = "切换深色模式", zh-Hant = "切換深色模式", ja = "ダークモードの切替" }
+  keys = "Shift+Cmd+L"
+
+[[group]]
+title = "Text"
+i18n = { zh-Hans = "文本", zh-Hant = "文字", ja = "テキスト" }
+
+  [[group.shortcut]]
+  title = "Bold"
+  i18n = { zh-Hans = "粗体", zh-Hant = "粗體", ja = "太字" }
+  keys = "Cmd+B"
+
+  [[group.shortcut]]
+  title = "Italic"
+  i18n = { zh-Hans = "斜体", zh-Hant = "斜體", ja = "斜体" }
+  keys = "Cmd+I"
+
+  [[group.shortcut]]
+  title = "Underline"
+  i18n = { zh-Hans = "下划线", zh-Hant = "底線", ja = "下線" }
+  keys = "Cmd+U"
+
+  [[group.shortcut]]
+  title = "Strikethrough"
+  i18n = { zh-Hans = "删除线", zh-Hant = "刪除線", ja = "取り消し線" }
+  keys = "Shift+Cmd+S"
+
+  [[group.shortcut]]
+  title = "Inline Code"
+  i18n = { zh-Hans = "行内代码", zh-Hant = "行內程式碼", ja = "インラインコード" }
+  keys = "Cmd+E"
+
+  [[group.shortcut]]
+  title = "Add a Link"
+  i18n = { zh-Hans = "添加链接", zh-Hant = "新增連結", ja = "リンクを追加" }
+  keys = "Cmd+K"
+
+  [[group.shortcut]]
+  title = "Comment"
+  i18n = { zh-Hans = "添加评论", zh-Hant = "新增留言", ja = "コメント" }
+  keys = "Shift+Cmd+M"
+
+[[group]]
+title = "Blocks"
+i18n = { zh-Hans = "块", zh-Hant = "區塊", ja = "ブロック" }
+
+  [[group.shortcut]]
+  title = "Turn into Text"
+  i18n = { zh-Hans = "转为文本", zh-Hant = "轉換為文字", ja = "テキストに変換" }
+  keys = "Option+Cmd+0"
+
+  [[group.shortcut]]
+  title = "Turn into Heading 1"
+  i18n = { zh-Hans = "转为一级标题", zh-Hant = "轉換為標題 1", ja = "見出し1に変換" }
+  keys = "Option+Cmd+1"
+
+  [[group.shortcut]]
+  title = "Turn into Heading 2"
+  i18n = { zh-Hans = "转为二级标题", zh-Hant = "轉換為標題 2", ja = "見出し2に変換" }
+  keys = "Option+Cmd+2"
+
+  [[group.shortcut]]
+  title = "Turn into Heading 3"
+  i18n = { zh-Hans = "转为三级标题", zh-Hant = "轉換為標題 3", ja = "見出し3に変換" }
+  keys = "Option+Cmd+3"
+
+  [[group.shortcut]]
+  title = "Turn into To-do List"
+  i18n = { zh-Hans = "转为待办清单", zh-Hant = "轉換為待辦清單", ja = "ToDoリストに変換" }
+  keys = "Option+Cmd+4"
+
+  [[group.shortcut]]
+  title = "Turn into Bulleted List"
+  i18n = { zh-Hans = "转为无序列表", zh-Hant = "轉換為項目符號清單", ja = "箇条書きリストに変換" }
+  keys = "Option+Cmd+5"
+
+  [[group.shortcut]]
+  title = "Turn into Numbered List"
+  i18n = { zh-Hans = "转为有序列表", zh-Hant = "轉換為編號清單", ja = "番号付きリストに変換" }
+  keys = "Option+Cmd+6"
+
+  [[group.shortcut]]
+  title = "Turn into Toggle List"
+  i18n = { zh-Hans = "转为折叠列表", zh-Hant = "轉換為切換清單", ja = "トグルリストに変換" }
+  keys = "Option+Cmd+7"
+
+  [[group.shortcut]]
+  title = "Turn into Code Block"
+  i18n = { zh-Hans = "转为代码块", zh-Hant = "轉換為程式碼區塊", ja = "コードブロックに変換" }
+  keys = "Option+Cmd+8"
+
+  [[group.shortcut]]
+  title = "Duplicate Block"
+  i18n = { zh-Hans = "复制块", zh-Hant = "複製區塊", ja = "ブロックを複製" }
+  keys = "Cmd+D"
+
+  [[group.shortcut]]
+  title = "Move Block Up"
+  i18n = { zh-Hans = "上移块", zh-Hant = "上移區塊", ja = "ブロックを上へ移動" }
+  keys = "Shift+Cmd+Up"
+
+  [[group.shortcut]]
+  title = "Move Block Down"
+  i18n = { zh-Hans = "下移块", zh-Hant = "下移區塊", ja = "ブロックを下へ移動" }
+  keys = "Shift+Cmd+Down"
+
+  [[group.shortcut]]
+  title = "Expand or Collapse All Toggles"
+  i18n = { zh-Hans = "展开或折叠全部折叠块", zh-Hant = "展開或收合全部切換區塊", ja = "すべてのトグルを開閉" }
+  keys = "Option+Cmd+T"

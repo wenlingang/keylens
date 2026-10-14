@@ -1,0 +1,101 @@
+#:schema ../schema.json
+schema = 1
+
+[app]
+name = "Safari"
+
+[app.match]
+macos = ["com.apple.Safari"]
+
+[[group]]
+title = "Page"
+i18n = { zh-Hans = "页面", zh-Hant = "網頁", ja = "ページ" }
+
+  [[group.shortcut]]
+  title = "Scroll Down One Screen"
+  i18n = { zh-Hans = "向下滚动一屏", zh-Hant = "向下捲動一頁", ja = "1画面下へスクロール" }
+  keys = "Space"
+
+  [[group.shortcut]]
+  title = "Scroll Up One Screen"
+  i18n = { zh-Hans = "向上滚动一屏", zh-Hant = "向上捲動一頁", ja = "1画面上へスクロール" }
+  keys = "Shift+Space"
+
+  [[group.shortcut]]
+  title = "Page Down"
+  i18n = { zh-Hans = "向下翻页", zh-Hant = "向下翻頁", ja = "ページダウン" }
+  keys = "Option+Down"
+
+  [[group.shortcut]]
+  title = "Page Up"
+  i18n = { zh-Hans = "向上翻页", zh-Hant = "向上翻頁", ja = "ページアップ" }
+  keys = "Option+Up"
+
+  [[group.shortcut]]
+  title = "Scroll to Top"
+  i18n = { zh-Hans = "滚动到顶部", zh-Hant = "捲動到頂端", ja = "先頭へスクロール" }
+  keys = "Cmd+Up"
+
+  [[group.shortcut]]
+  title = "Scroll to Bottom"
+  i18n = { zh-Hans = "滚动到底部", zh-Hant = "捲動到底部", ja = "末尾へスクロール" }
+  keys = "Cmd+Down"
+
+  [[group.shortcut]]
+  title = "Find on Page"
+  i18n = { zh-Hans = "在页面中查找", zh-Hant = "在網頁中尋找", ja = "ページ内を検索" }
+  keys = "Cmd+F"
+
+  [[group.shortcut]]
+  title = "Find Next"
+  i18n = { zh-Hans = "查找下一个", zh-Hant = "尋找下一個", ja = "次を検索" }
+  keys = "Cmd+G"
+
+  [[group.shortcut]]
+  title = "Show Reader"
+  i18n = { zh-Hans = "显示阅读器", zh-Hant = "顯示閱讀器", ja = "リーダーを表示" }
+  keys = "Shift+Cmd+R"
+
+[[group]]
+title = "Tabs and Navigation"
+i18n = { zh-Hans = "标签页和浏览", zh-Hant = "標籤頁和瀏覽", ja = "タブと移動" }
+
+  [[group.shortcut]]
+  title = "Open Address in a New Tab"
+  i18n = { zh-Hans = "在新标签页中打开地址", zh-Hant = "在新標籤頁中打開網址", ja = "アドレスを新規タブで開く" }
+  keys = "Cmd+Enter"
+
+  [[group.shortcut]]
+  title = "Focus the Address Bar"
+  i18n = { zh-Hans = "聚焦地址栏", zh-Hant = "移至網址列", ja = "アドレスバーへ移動" }
+  keys = "Cmd+L"
+
+  [[group.shortcut]]
+  title = "Next Tab"
+  i18n = { zh-Hans = "下一个标签页", zh-Hant = "下一個標籤頁", ja = "次のタブ" }
+  keys = "Ctrl+Tab"
+
+  [[group.shortcut]]
+  title = "Previous Tab"
+  i18n = { zh-Hans = "上一个标签页", zh-Hant = "上一個標籤頁", ja = "前のタブ" }
+  keys = "Ctrl+Shift+Tab"
+
+  [[group.shortcut]]
+  title = "Reopen the Last Closed Tab or Window"
+  i18n = { zh-Hans = "重新打开刚关闭的标签页或窗口", zh-Hant = "重新打開剛關閉的標籤頁或視窗", ja = "最後に閉じたタブまたはウインドウを開き直す" }
+  keys = "Shift+Cmd+T"
+
+  [[group.shortcut]]
+  title = "Back"
+  i18n = { zh-Hans = "后退", zh-Hant = "上一頁", ja = "戻る" }
+  keys = "Cmd+["
+
+  [[group.shortcut]]
+  title = "Forward"
+  i18n = { zh-Hans = "前进", zh-Hant = "下一頁", ja = "進む" }
+  keys = "Cmd+]"
+
+  [[group.shortcut]]
+  title = "Add to Reading List"
+  i18n = { zh-Hans = "添加到阅读列表", zh-Hant = "加入閱讀列表", ja = "リーディングリストに追加" }
+  keys = "Shift+Cmd+D"

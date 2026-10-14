@@ -10,7 +10,7 @@ fn all_builtin_files_are_valid() {
     let (catalog, errors) = builtin();
     assert!(errors.is_empty(), "built-in data has errors:\n{errors:#?}");
     assert!(
-        catalog.len() >= 3,
+        catalog.len() >= 9,
         "built-in data has only {} apps",
         catalog.len()
     );
@@ -24,6 +24,12 @@ fn every_builtin_app_has_macos_ids_and_simplified_chinese() {
         ("com.microsoft.VSCode", "Visual Studio Code"),
         ("com.google.Chrome", "Google Chrome"),
         ("com.tinyspeck.slackmacgap", "Slack"),
+        ("com.apple.Safari", "Safari"),
+        ("com.apple.finder", "Finder"),
+        ("com.apple.Terminal", "Terminal"),
+        ("com.googlecode.iterm2", "iTerm2"),
+        ("notion.id", "Notion"),
+        ("dev.zed.Zed", "Zed"),
     ] {
         let data = catalog
             .find(Os::MacOS, &[bundle_id.to_string()])

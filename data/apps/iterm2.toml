@@ -1,0 +1,86 @@
+#:schema ../schema.json
+schema = 1
+
+[app]
+name = "iTerm2"
+
+[app.match]
+macos = ["com.googlecode.iterm2"]
+
+[[group]]
+title = "Panes and Tabs"
+i18n = { zh-Hans = "窗格和标签页", zh-Hant = "面板和標籤頁", ja = "ペインとタブ" }
+
+  [[group.shortcut]]
+  title = "Split Vertically"
+  i18n = { zh-Hans = "左右拆分", zh-Hant = "左右分割", ja = "左右に分割" }
+  keys = "Cmd+D"
+
+  [[group.shortcut]]
+  title = "Split Horizontally"
+  i18n = { zh-Hans = "上下拆分", zh-Hant = "上下分割", ja = "上下に分割" }
+  keys = "Shift+Cmd+D"
+
+  [[group.shortcut]]
+  title = "Next Pane"
+  i18n = { zh-Hans = "下一个窗格", zh-Hant = "下一個面板", ja = "次のペイン" }
+  keys = "Cmd+]"
+
+  [[group.shortcut]]
+  title = "Previous Pane"
+  i18n = { zh-Hans = "上一个窗格", zh-Hant = "上一個面板", ja = "前のペイン" }
+  keys = "Cmd+["
+
+  [[group.shortcut]]
+  title = "Maximize or Restore the Current Pane"
+  i18n = { zh-Hans = "最大化或还原当前窗格", zh-Hant = "放大或還原目前面板", ja = "現在のペインを最大化／元に戻す" }
+  keys = "Shift+Cmd+Enter"
+
+  [[group.shortcut]]
+  title = "New Tab"
+  i18n = { zh-Hans = "新建标签页", zh-Hant = "新增標籤頁", ja = "新規タブ" }
+  keys = "Cmd+T"
+
+  [[group.shortcut]]
+  title = "Next Tab"
+  i18n = { zh-Hans = "下一个标签页", zh-Hant = "下一個標籤頁", ja = "次のタブ" }
+  keys = "Shift+Cmd+]"
+
+  [[group.shortcut]]
+  title = "Previous Tab"
+  i18n = { zh-Hans = "上一个标签页", zh-Hant = "上一個標籤頁", ja = "前のタブ" }
+  keys = "Shift+Cmd+["
+
+  [[group.shortcut]]
+  title = "Toggle Full Screen"
+  i18n = { zh-Hans = "切换全屏", zh-Hant = "切換全螢幕", ja = "フルスクリーンの切替" }
+  keys = "Cmd+Enter"
+
+[[group]]
+title = "Tools"
+i18n = { zh-Hans = "工具", zh-Hant = "工具", ja = "ツール" }
+
+  [[group.shortcut]]
+  title = "Find"
+  i18n = { zh-Hans = "查找", zh-Hant = "尋找", ja = "検索" }
+  keys = "Cmd+F"
+
+  [[group.shortcut]]
+  title = "Clear Buffer"
+  i18n = { zh-Hans = "清除缓冲区", zh-Hant = "清除緩衝區", ja = "バッファを消去" }
+  keys = "Cmd+K"
+
+  [[group.shortcut]]
+  title = "Paste History"
+  i18n = { zh-Hans = "粘贴历史", zh-Hant = "貼上歷史", ja = "ペースト履歴" }
+  keys = "Shift+Cmd+H"
+
+  [[group.shortcut]]
+  title = "Instant Replay"
+  i18n = { zh-Hans = "即时回放", zh-Hant = "即時重播", ja = "インスタントリプレイ" }
+  keys = "Option+Cmd+B"
+
+  [[group.shortcut]]
+  title = "Autocomplete"
+  i18n = { zh-Hans = "自动补全", zh-Hant = "自動完成", ja = "オートコンプリート" }
+  keys = "Cmd+;"

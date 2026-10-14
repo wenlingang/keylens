@@ -1,0 +1,96 @@
+#:schema ../schema.json
+schema = 1
+
+[app]
+name = "Finder"
+
+[app.match]
+macos = ["com.apple.finder"]
+
+[[group]]
+title = "Files"
+i18n = { zh-Hans = "文件", zh-Hant = "檔案", ja = "ファイル" }
+
+  [[group.shortcut]]
+  title = "Quick Look"
+  i18n = { zh-Hans = "快速查看", zh-Hant = "快速查看", ja = "クイックルック" }
+  keys = "Space"
+
+  [[group.shortcut]]
+  title = "Rename"
+  i18n = { zh-Hans = "重命名", zh-Hant = "重新命名", ja = "名前を変更" }
+  keys = "Enter"
+
+  [[group.shortcut]]
+  title = "Open"
+  i18n = { zh-Hans = "打开", zh-Hant = "打開", ja = "開く" }
+  keys = "Cmd+Down"
+
+  [[group.shortcut]]
+  title = "Move to Trash"
+  i18n = { zh-Hans = "移到废纸篓", zh-Hant = "丟到垃圾桶", ja = "ゴミ箱に入れる" }
+  keys = "Cmd+Backspace"
+
+  [[group.shortcut]]
+  title = "Duplicate"
+  i18n = { zh-Hans = "复制一份", zh-Hant = "複製", ja = "複製" }
+  keys = "Cmd+D"
+
+  [[group.shortcut]]
+  title = "Make Alias"
+  i18n = { zh-Hans = "制作替身", zh-Hant = "製作替身", ja = "エイリアスを作成" }
+  keys = "Ctrl+Cmd+A"
+
+  [[group.shortcut]]
+  title = "Get Info"
+  i18n = { zh-Hans = "显示简介", zh-Hant = "取得資訊", ja = "情報を見る" }
+  keys = "Cmd+I"
+
+  [[group.shortcut]]
+  title = "New Folder"
+  i18n = { zh-Hans = "新建文件夹", zh-Hant = "新增檔案夾", ja = "新規フォルダ" }
+  keys = "Shift+Cmd+N"
+
+[[group]]
+title = "View and Go"
+i18n = { zh-Hans = "显示和前往", zh-Hant = "顯示方式和前往", ja = "表示と移動" }
+
+  [[group.shortcut]]
+  title = "Show or Hide Hidden Files"
+  i18n = { zh-Hans = "显示或隐藏隐藏文件", zh-Hant = "顯示或隱藏隱藏檔案", ja = "隠しファイルの表示切替" }
+  keys = "Shift+Cmd+."
+
+  [[group.shortcut]]
+  title = "Open the Enclosing Folder"
+  i18n = { zh-Hans = "打开上层文件夹", zh-Hant = "打開上層檔案夾", ja = "親フォルダを開く" }
+  keys = "Cmd+Up"
+
+  [[group.shortcut]]
+  title = "Go to Folder"
+  i18n = { zh-Hans = "前往文件夹", zh-Hant = "前往檔案夾", ja = "フォルダへ移動" }
+  keys = "Shift+Cmd+G"
+
+  [[group.shortcut]]
+  title = "Show Path Bar"
+  i18n = { zh-Hans = "显示路径栏", zh-Hant = "顯示路徑列", ja = "パスバーを表示" }
+  keys = "Option+Cmd+P"
+
+  [[group.shortcut]]
+  title = "View as Icons"
+  i18n = { zh-Hans = "以图标显示", zh-Hant = "以圖像顯示", ja = "アイコン表示" }
+  keys = "Cmd+1"
+
+  [[group.shortcut]]
+  title = "View as List"
+  i18n = { zh-Hans = "以列表显示", zh-Hant = "以列表顯示", ja = "リスト表示" }
+  keys = "Cmd+2"
+
+  [[group.shortcut]]
+  title = "View in Columns"
+  i18n = { zh-Hans = "以分栏显示", zh-Hant = "以直欄顯示", ja = "カラム表示" }
+  keys = "Cmd+3"
+
+  [[group.shortcut]]
+  title = "Connect to Server"
+  i18n = { zh-Hans = "连接服务器", zh-Hant = "連接伺服器", ja = "サーバへ接続" }
+  keys = "Cmd+K"
