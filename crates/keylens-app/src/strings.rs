@@ -35,16 +35,18 @@ mod tests {
 
     #[test]
     fn every_key_is_translated_in_every_locale() {
+        // Query the backend directly: `t!` falls back to English, so it would hide missing translations.
+        let backend = crate::_rust_i18n_backend();
         let mut missing = Vec::new();
         for locale in LOCALES {
             for key in KEYS {
-                let text = t!(*key, locale = locale, count = 2, query = "x");
-                if text.contains(key) || text.trim().is_empty() {
+                let text = backend.translate(locale, key);
+                if text.as_deref().is_none_or(|t| t.trim().is_empty()) {
                     missing.push(format!("{locale}: {key}"));
                 }
             }
         }
-        assert!(missing.is_empty(), "缺少翻译：\n{}", missing.join("\n"));
+        assert!(missing.is_empty(), "missing translations:\n{}", missing.join("\n"));
     }
 
     #[test]
