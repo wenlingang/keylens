@@ -31,9 +31,13 @@ impl<H: Clone> Snapshots<H> {
         self.next.fetch_add(1, Ordering::Relaxed)
     }
 
-    /// 保存一次读取，覆盖这个应用之前的读取。超出容量时丢掉最旧的应用。
+    /// 保存一次读取，覆盖这个应用较旧的读取（比已保存的更旧则忽略）。超出容量时丢掉最旧的应用。
     pub fn store(&self, pid: i32, snapshot: u64, handles: Vec<H>) {
         let mut by_pid = self.by_pid.lock().unwrap();
+        // 预读和触发读取可能并发，较旧的读取晚完成时不能覆盖较新的结果。
+        if by_pid.get(&pid).is_some_and(|s| s.snapshot > snapshot) {
+            return;
+        }
         by_pid.insert(pid, Stored { snapshot, handles });
         while by_pid.len() > self.capacity {
             let oldest = by_pid
@@ -126,6 +130,18 @@ mod tests {
             store.handle(&entry(id + 99, 0)),
             Err(PlatformError::Stale)
         ));
+    }
+
+    #[test]
+    fn a_slower_older_read_does_not_replace_a_newer_one() {
+        let store = Snapshots::new(8);
+        let prefetch = store.next_id();
+        let trigger = store.next_id();
+        // 触发读取先完成，预读后完成
+        store.store(100, trigger, vec!["new"]);
+        store.store(100, prefetch, vec!["old"]);
+        assert_eq!(store.handle(&entry(trigger, 0)).unwrap(), "new");
+        assert!(matches!(store.handle(&entry(prefetch, 0)), Err(PlatformError::Stale)));
     }
 
     #[test]
