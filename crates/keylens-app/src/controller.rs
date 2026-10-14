@@ -360,17 +360,14 @@ impl Keylens {
             PanelEvent::OpenSettings => self.platform.request_permission(),
             PanelEvent::AddShortcuts(app) => {
                 self.hide(cx);
-                if let Some((file, text)) = template::user_data_template(&app) {
-                    let dir = config::user_data_dir();
-                    let path = dir.join(file);
-                    // Never overwrite what the user has already written.
-                    if !path.exists() {
-                        let _ = std::fs::create_dir_all(&dir);
-                        if let Err(e) = std::fs::write(&path, text) {
-                            tracing::warn!(path = %path.display(), error = %e, "cannot create user data file");
-                        }
+                // Never overwrites what the user has already written (see `create_user_file`).
+                match template::create_user_file(&config::user_data_dir(), &app) {
+                    Ok(Some(path)) => (self.native.open)(&path),
+                    Ok(None) => {}
+                    Err(error) => {
+                        tracing::warn!(%error, "cannot create the user data file");
+                        (self.native.beep)();
                     }
-                    (self.native.open)(&path);
                 }
             }
         }

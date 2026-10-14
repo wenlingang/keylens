@@ -415,12 +415,17 @@ impl PanelView {
                     cx,
                 );
             }
-            let add = self.model.app().map(|app| {
-                (
-                    t!("Panel.add_shortcuts").to_string(),
-                    PanelEvent::AddShortcuts(app.clone()),
-                )
-            });
+            // Only apps with a bundle ID can get a user data file.
+            let add = self
+                .model
+                .app()
+                .filter(|app| !app.ids.is_empty())
+                .map(|app| {
+                    (
+                        t!("Panel.add_shortcuts").to_string(),
+                        PanelEvent::AddShortcuts(app.clone()),
+                    )
+                });
             return self.render_state(
                 t!("Panel.empty_title").to_string(),
                 vec![t!("Panel.empty_body").to_string()],
