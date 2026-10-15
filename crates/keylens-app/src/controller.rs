@@ -25,6 +25,7 @@ const USER_DATA_POLL: Duration = Duration::from_secs(2);
 pub type PanelMove = Box<dyn FnOnce()>;
 
 /// Platform-specific operations the controller needs; replaceable in tests.
+#[derive(Clone, Copy)]
 pub struct Native {
     pub hide: fn(&Window),
     /// Works out how to move the panel onto the screen showing the app with this pid (or under the

@@ -1,4 +1,5 @@
-//! File logging (spec §9): daily files under ~/Library/Logs/Keylens, kept for 7 days.
+//! File logging (spec §9): daily files, kept for 7 days, under ~/Library/Logs/Keylens on macOS
+//! and $XDG_STATE_HOME/keylens/logs (default ~/.local/state/keylens/logs) elsewhere.
 
 use std::path::{Path, PathBuf};
 
@@ -6,10 +7,21 @@ use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 
 pub fn log_dir() -> PathBuf {
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-    home.join("Library").join("Logs").join("Keylens")
+    log_dir_in(
+        &crate::config::home_dir(),
+        std::env::var_os("XDG_STATE_HOME").map(PathBuf::from),
+    )
+}
+
+fn log_dir_in(home: &Path, xdg_state_home: Option<PathBuf>) -> PathBuf {
+    if cfg!(target_os = "macos") {
+        return home.join("Library").join("Logs").join("Keylens");
+    }
+    xdg_state_home
+        .filter(|dir| dir.is_absolute())
+        .unwrap_or_else(|| home.join(".local").join("state"))
+        .join("keylens")
+        .join("logs")
 }
 
 /// A daily-rolling appender in `dir`, or `None` if the directory cannot be created.
@@ -64,7 +76,22 @@ mod tests {
     }
 
     #[test]
-    fn log_dir_is_under_library_logs() {
-        assert!(log_dir().ends_with("Library/Logs/Keylens"));
+    fn log_dir_follows_the_platform_convention() {
+        let home = Path::new("/home/u");
+        if cfg!(target_os = "macos") {
+            assert_eq!(
+                log_dir_in(home, Some("/xdg".into())),
+                Path::new("/home/u/Library/Logs/Keylens")
+            );
+        } else {
+            assert_eq!(
+                log_dir_in(home, None),
+                Path::new("/home/u/.local/state/keylens/logs")
+            );
+            assert_eq!(
+                log_dir_in(home, Some("/xdg".into())),
+                Path::new("/xdg/keylens/logs")
+            );
+        }
     }
 }

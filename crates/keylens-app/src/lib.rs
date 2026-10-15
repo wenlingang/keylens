@@ -15,38 +15,76 @@ pub mod template;
 pub mod view;
 pub mod watch;
 
+use std::rc::Rc;
+use std::sync::Arc;
+
+use keylens_platform::Platform;
+use keylens_platform::tray::{TrayCommand, TrayHandle, TrayLabels};
+
 /// Version line shown in the menu bar menu, e.g. "Keylens 0.1.0". Not translated.
 pub fn version_label() -> String {
     format!("Keylens {}", env!("CARGO_PKG_VERSION"))
 }
 
+/// Installs the tray, forwarding menu clicks to the callback. Called on the main thread once the
+/// UI is running.
+pub type InstallTray = fn(TrayLabels, Box<dyn Fn(TrayCommand)>) -> Rc<dyn TrayHandle>;
+
+/// The platform-specific pieces `run_with` needs; everything else in startup is shared.
+pub struct Host {
+    pub platform: Arc<dyn Platform>,
+    pub native: controller::Native,
+    pub install_tray: InstallTray,
+}
+
 /// Starts Keylens (macOS only).
 #[cfg(target_os = "macos")]
 pub fn run() {
-    use std::sync::Arc;
+    fn install_tray(
+        labels: TrayLabels,
+        on_command: Box<dyn Fn(TrayCommand)>,
+    ) -> Rc<dyn TrayHandle> {
+        let mtm = keylens_macos::MainThreadMarker::new().expect("must run on the main thread");
+        Rc::new(keylens_macos::tray::Tray::install(mtm, labels, on_command))
+    }
 
+    run_with(Host {
+        platform: Arc::new(keylens_macos::MacPlatform::default()),
+        native: controller::Native {
+            hide: |w| keylens_macos::panel::hide(w),
+            place: |w, pid| keylens_macos::panel::place(w, pid),
+            beep: keylens_macos::panel::beep,
+            open: keylens_macos::panel::open_path,
+        },
+        install_tray,
+    });
+}
+
+/// Starts Keylens on top of the given platform pieces. Contains no platform-specific code, so it
+/// compiles on every target; a new platform only has to provide a [`Host`].
+pub fn run_with(host: Host) {
     use gpui_kit::component::Theme;
     use gpui_kit::*;
     use keylens_core::Os;
     use keylens_core::community::{builtin, load_dir};
-    use keylens_macos::tray::{Tray, TrayCommand, TrayLabels};
-    use keylens_platform::Platform;
     use rust_i18n::t;
 
-    use crate::controller::{Keylens, Native};
+    use crate::controller::Keylens;
     use crate::loader::Loader;
     use crate::view::{PanelView, bind_keys};
 
-    fn objc2_main_thread() -> keylens_macos::MainThreadMarker {
-        keylens_macos::MainThreadMarker::new().expect("must run on the main thread")
-    }
-
     struct KeylensApp {
         _keylens: Entity<Keylens>,
-        _tray: std::rc::Rc<Tray>,
+        _tray: Rc<dyn TrayHandle>,
         _log_guard: Option<tracing_appender::non_blocking::WorkerGuard>,
     }
     impl Global for KeylensApp {}
+
+    let Host {
+        platform,
+        native,
+        install_tray,
+    } = host;
 
     let log_guard = logging::init(&logging::log_dir());
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "Keylens starting");
@@ -66,7 +104,6 @@ pub fn run() {
         tracing::warn!("data file error: {error}");
     }
 
-    let platform: Arc<dyn Platform> = Arc::new(keylens_macos::MacPlatform::default());
     let loader = Arc::new(Loader::new(
         platform.clone(),
         Arc::new(builtin_catalog),
@@ -115,17 +152,10 @@ pub fn run() {
                 Theme::sync_system_appearance(Some(window), cx)
             });
 
-            let native = Native {
-                hide: |w| keylens_macos::panel::hide(w),
-                place: |w, pid| keylens_macos::panel::place(w, pid),
-                beep: keylens_macos::panel::beep,
-                open: keylens_macos::panel::open_path,
-            };
             let keylens = cx
                 .new(|cx| Keylens::new(platform.clone(), loader.clone(), native, window, view, cx));
 
             let (tray_tx, tray_rx) = async_channel::unbounded::<TrayCommand>();
-            let mtm = objc2_main_thread();
             let labels = TrayLabels {
                 version: version_label(),
                 permission_ok: t!("Tray.permission_ok").to_string(),
@@ -134,13 +164,12 @@ pub fn run() {
                 open_data: t!("Tray.open_data").to_string(),
                 quit: t!("Tray.quit").to_string(),
             };
-            let tray = std::rc::Rc::new(Tray::install(
-                mtm,
+            let tray = install_tray(
                 labels,
                 Box::new(move |command| {
                     let _ = tray_tx.try_send(command);
                 }),
-            ));
+            );
 
             let keylens_for_tray = keylens.clone();
             cx.spawn(async move |cx| {
@@ -155,7 +184,7 @@ pub fn run() {
                         TrayCommand::OpenDataFolder => {
                             let dir = config::user_data_dir();
                             let _ = std::fs::create_dir_all(&dir);
-                            keylens_macos::panel::open_path(&dir);
+                            (native.open)(&dir);
                         }
                         TrayCommand::Quit => cx.quit(),
                     });

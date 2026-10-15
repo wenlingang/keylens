@@ -37,10 +37,25 @@ pub fn choose_locale(config: &Config, system: &[String]) -> Locale {
 }
 
 pub fn config_dir() -> PathBuf {
-    let home = std::env::var_os("HOME")
+    config_dir_in(
+        &home_dir(),
+        std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from),
+    )
+}
+
+/// `~/.config/keylens` on macOS. Elsewhere `$XDG_CONFIG_HOME/keylens` when that is set to an
+/// absolute path (the XDG spec says to ignore relative ones), otherwise `~/.config/keylens`.
+fn config_dir_in(home: &Path, xdg_config_home: Option<PathBuf>) -> PathBuf {
+    let base = xdg_config_home
+        .filter(|dir| cfg!(not(target_os = "macos")) && dir.is_absolute())
+        .unwrap_or_else(|| home.join(".config"));
+    base.join("keylens")
+}
+
+pub(crate) fn home_dir() -> PathBuf {
+    std::env::var_os("HOME")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-    home.join(".config").join("keylens")
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 pub fn config_path() -> PathBuf {
@@ -111,6 +126,29 @@ mod tests {
             language: Some("klingon".into()),
         };
         assert_eq!(choose_locale(&config, &["ja-JP".into()]).lang, Lang::En);
+    }
+
+    #[test]
+    fn config_dir_defaults_to_dot_config() {
+        assert_eq!(
+            config_dir_in(Path::new("/home/u"), None),
+            Path::new("/home/u/.config/keylens")
+        );
+        // Relative XDG paths are invalid and ignored.
+        assert_eq!(
+            config_dir_in(Path::new("/home/u"), Some("rel".into())),
+            Path::new("/home/u/.config/keylens")
+        );
+    }
+
+    #[test]
+    fn xdg_config_home_is_honored_outside_macos() {
+        let dir = config_dir_in(Path::new("/home/u"), Some("/xdg".into()));
+        if cfg!(target_os = "macos") {
+            assert_eq!(dir, Path::new("/home/u/.config/keylens"));
+        } else {
+            assert_eq!(dir, Path::new("/xdg/keylens"));
+        }
     }
 
     #[test]

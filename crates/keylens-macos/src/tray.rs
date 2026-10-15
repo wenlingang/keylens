@@ -6,40 +6,14 @@ use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_se
 use objc2_app_kit::{NSMenu, NSMenuItem, NSStatusBar, NSStatusItem, NSVariableStatusItemLength};
 use objc2_foundation::NSString;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TrayCommand {
-    Permission,
-    /// Create or open the user data file for the frontmost app.
-    EditCurrentApp,
-    OpenDataFolder,
-    Quit,
+pub use keylens_platform::tray::{TrayCommand, TrayHandle, TrayLabels};
+
+fn tag(command: TrayCommand) -> isize {
+    command as isize + 1
 }
 
-impl TrayCommand {
-    const ALL: [TrayCommand; 4] = [
-        TrayCommand::Permission,
-        TrayCommand::EditCurrentApp,
-        TrayCommand::OpenDataFolder,
-        TrayCommand::Quit,
-    ];
-
-    fn tag(self) -> isize {
-        self as isize + 1
-    }
-
-    fn from_tag(tag: isize) -> Option<Self> {
-        Self::ALL.into_iter().find(|c| c.tag() == tag)
-    }
-}
-
-pub struct TrayLabels {
-    /// Disabled first menu item, e.g. "Keylens 0.1.0".
-    pub version: String,
-    pub permission_ok: String,
-    pub permission_missing: String,
-    pub edit_current: String,
-    pub open_data: String,
-    pub quit: String,
+fn from_tag(tag: isize) -> Option<TrayCommand> {
+    TrayCommand::ALL.into_iter().find(|c| self::tag(*c) == tag)
 }
 
 pub struct TargetIvars {
@@ -56,7 +30,7 @@ define_class!(
     impl Target {
         #[unsafe(method(menuItemClicked:))]
         fn menu_item_clicked(&self, sender: &NSMenuItem) {
-            if let Some(command) = TrayCommand::from_tag(sender.tag()) {
+            if let Some(command) = from_tag(sender.tag()) {
                 (self.ivars().on_command)(command);
             }
         }
@@ -99,7 +73,7 @@ fn menu_item(
         )
     };
     if let Some(command) = command {
-        item.setTag(command.tag());
+        item.setTag(tag(command));
         // SAFETY: target is held by Tray, whose lifetime covers the menu items.
         unsafe { item.setTarget(Some(&**target as &AnyObject)) };
     }
@@ -161,10 +135,10 @@ impl Tray {
         tray.set_permission(true);
         tray
     }
+}
 
-    /// Updates the permission status: the icon title and the first menu item.
-    /// Shows `text` (e.g. "2 data files have errors") in the menu, or hides the item for `None`.
-    pub fn set_data_errors(&self, text: Option<&str>) {
+impl TrayHandle for Tray {
+    fn set_data_errors(&self, text: Option<&str>) {
         match text {
             Some(text) => {
                 self.errors_item.setTitle(&NSString::from_str(text));
@@ -174,7 +148,7 @@ impl Tray {
         }
     }
 
-    pub fn set_permission(&self, granted: bool) {
+    fn set_permission(&self, granted: bool) {
         if let Some(button) = self.item.button(self.mtm) {
             button.setTitle(&NSString::from_str(if granted { "⌘" } else { "⌘!" }));
         }
@@ -193,15 +167,9 @@ mod tests {
 
     #[test]
     fn every_command_round_trips_through_its_tag() {
-        let all = [
-            TrayCommand::Permission,
-            TrayCommand::EditCurrentApp,
-            TrayCommand::OpenDataFolder,
-            TrayCommand::Quit,
-        ];
-        for command in all {
-            assert_eq!(TrayCommand::from_tag(command.tag()), Some(command));
+        for command in TrayCommand::ALL {
+            assert_eq!(from_tag(tag(command)), Some(command));
         }
-        assert_eq!(TrayCommand::from_tag(0), None);
+        assert_eq!(from_tag(0), None);
     }
 }

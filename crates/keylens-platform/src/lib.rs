@@ -7,6 +7,7 @@ use keylens_core::{AppInfo, Entry, KeyEvent, ShortcutSource, Trigger};
 
 #[cfg(any(test, feature = "fake"))]
 pub mod fake;
+pub mod tray;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PermissionState {
