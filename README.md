@@ -6,6 +6,23 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 
 > **Status:** v0.1, macOS only for now (universal build for Apple Silicon and Intel; the Intel build has not been verified on real hardware). Windows and Linux are on the roadmap.
 
+<p align="center">
+  <img src="docs/screenshots/en-hero.png" alt="Keylens panel over Zed, listing its menu shortcuts in three columns" width="800">
+</p>
+
+## A look around
+
+**Forgot a shortcut? Just hold ⌘.** The panel reads the menus of whatever app is in front, so there's nothing to set up per app — the picture above is Zed, and VS Code, Notion or Slack open just the same.
+
+**Type keys, not just words.** Searching `⌘⇧` lists everything bound to Command + Shift, in any order, alongside regular title matches. Press Return on a result and Keylens runs it for you.
+
+**Dark mode comes for free.** The panel follows the system appearance, so it fits in at night as well as it does during the day.
+
+<p align="center">
+  <img src="docs/screenshots/en-search.png" alt="Searching ⌘⇧ in Zed shows the 17 shortcuts that use Command + Shift" width="49%">
+  <img src="docs/screenshots/en-dark.png" alt="The same panel in dark appearance" width="49%">
+</p>
+
 ## Features
 
 - **Long-press ⌘** to open a panel listing all menu shortcuts of the frontmost app, grouped by menu in columns. The panel stays open after you release ⌘.

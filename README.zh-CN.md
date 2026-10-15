@@ -6,6 +6,23 @@
 
 > **状态：** v0.1，目前仅支持 macOS（Universal 版本，Apple Silicon + Intel；Intel 版本未经真机验证）。Windows 和 Linux 在路线图上。
 
+<p align="center">
+  <img src="docs/screenshots/zh-hero.png" alt="在 VS Code 上长按 ⌘ 弹出的 Keylens 浮层，按菜单分三列列出快捷键" width="800">
+</p>
+
+## 看一眼
+
+**想不起快捷键？按住 ⌘ 就行。** 浮层直接读取前台应用的菜单，不需要为每个应用单独配置。上图是 VS Code，换成 Zed、Notion、Slack 也是同样的用法。
+
+**用字搜，也能用键搜。** 输入「行」能找到所有和行相关的操作；输入 `⌘⇧` 则列出所有用到 Command + Shift 的快捷键，不用管修饰键的顺序。选中后按回车，Keylens 会替你执行。
+
+**深色模式不用管。** 浮层跟随系统外观，白天晚上看着都顺眼。
+
+<p align="center">
+  <img src="docs/screenshots/zh-search.png" alt="在 VS Code 里搜索「行」，列出 21 个相关快捷键" width="49%">
+  <img src="docs/screenshots/zh-dark.png" alt="深色外观下的同一个浮层" width="49%">
+</p>
+
 ## 功能
 
 - **长按 ⌘ 呼出**：浮层显示前台应用的全部菜单快捷键，按菜单分列；松开 ⌘ 后浮层保持显示。
