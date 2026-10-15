@@ -28,18 +28,20 @@ pub fn hide(window: &impl HasWindowHandle) {
     }
 }
 
-/// Moves and resizes the panel onto the screen showing the app with `pid` (its focused window),
-/// or the screen under the mouse if that is unknown. The size is recomputed for that screen so
-/// the panel never overflows a smaller display (spec §6).
-pub fn place(window: &impl HasWindowHandle, pid: Option<i32>) {
+/// Works out where the panel goes: the screen showing the app with `pid` (its focused window), or
+/// the screen under the mouse if that is unknown. The size is recomputed for that screen so the
+/// panel never overflows a smaller display (spec §6).
+///
+/// Returns the move instead of making it: AppKit reports a frame change to gpui synchronously from
+/// `setFrame`, and gpui drops that report (logging "RefCell already borrowed") when the App is
+/// already borrowed, as it is inside any window update. Call the result outside such an update.
+pub fn place(window: &impl HasWindowHandle, pid: Option<i32>) -> Option<Box<dyn FnOnce()>> {
     let (Some(window), Some(mtm)) = (ns_window(window), MainThreadMarker::new()) else {
-        return;
+        return None;
     };
     let screens = NSScreen::screens(mtm);
     let frames: Vec<Rect> = screens.iter().map(|s| rect(s.frame())).collect();
-    let Some(primary_height) = frames.first().map(|f| f.height) else {
-        return;
-    };
+    let primary_height = frames.first()?.height;
     let target = pid
         .and_then(ax::focused_window_frame)
         .map(|frame| quartz_to_cocoa(frame, primary_height).center())
@@ -52,7 +54,7 @@ pub fn place(window: &impl HasWindowHandle, pid: Option<i32>) {
     let size = panel_size(visible);
     let (x, y) = centered_origin(visible, size);
     let frame = NSRect::new(NSPoint::new(x, y), NSSize::new(size.0, size.1));
-    window.setFrame_display(frame, true);
+    Some(Box::new(move || window.setFrame_display(frame, true)))
 }
 
 fn rect(r: NSRect) -> Rect {

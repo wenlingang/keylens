@@ -21,11 +21,15 @@ const PERMISSION_POLL: Duration = Duration::from_secs(1);
 /// How often the user data folder is checked for edits.
 const USER_DATA_POLL: Duration = Duration::from_secs(2);
 
+/// A deferred panel move returned by [`Native::place`].
+pub type PanelMove = Box<dyn FnOnce()>;
+
 /// Platform-specific operations the controller needs; replaceable in tests.
 pub struct Native {
     pub hide: fn(&Window),
-    /// Moves the panel onto the screen showing the app with this pid (or under the mouse).
-    pub place: fn(&Window, Option<i32>),
+    /// Works out how to move the panel onto the screen showing the app with this pid (or under the
+    /// mouse). The returned move must run outside any window update.
+    pub place: fn(&Window, Option<i32>) -> Option<PanelMove>,
     pub beep: fn(),
     /// Opens a file or folder with its default app.
     pub open: fn(&std::path::Path),
@@ -431,14 +435,28 @@ impl Keylens {
     }
 
     fn present(&mut self, cx: &mut Context<Self>) {
-        let view = self.view.clone();
+        let window = self.window;
         let place = self.native.place;
         let pid = self.session.target().map(|t| t.pid);
-        let _ = self.window.update(cx, |_, window, cx| {
-            place(window, pid);
-            window.activate_window();
-            view.update(cx, |view, cx| view.focus_input(window, cx));
-        });
+        // Placing the panel has to happen while the App is not borrowed (see `Native::place`), so
+        // it runs from a task, between two updates.
+        cx.spawn(async move |this, cx| {
+            if let Ok(Some(apply)) = window.update(cx, |_, window, _| place(window, pid)) {
+                apply();
+            }
+            let _ = this.update(cx, |this, cx| {
+                // The panel may have been dismissed before this task ran.
+                if !this.session.visible() {
+                    return;
+                }
+                let view = this.view.clone();
+                let _ = this.window.update(cx, |_, window, cx| {
+                    window.activate_window();
+                    view.update(cx, |view, cx| view.focus_input(window, cx));
+                });
+            });
+        })
+        .detach();
     }
 
     fn hide(&mut self, cx: &mut Context<Self>) {
