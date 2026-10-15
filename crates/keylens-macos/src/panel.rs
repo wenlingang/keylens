@@ -5,7 +5,10 @@ use std::path::Path;
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSBeep, NSEvent, NSScreen, NSView, NSWindow, NSWorkspace};
+use objc2_app_kit::{
+    NSBeep, NSEvent, NSNormalWindowLevel, NSPopUpMenuWindowLevel, NSScreen, NSView, NSWindow,
+    NSWorkspace,
+};
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString, NSURL};
 
 use crate::ax;
@@ -25,6 +28,18 @@ fn ns_window(window: &impl HasWindowHandle) -> Option<Retained<NSWindow>> {
 pub fn hide(window: &impl HasWindowHandle) {
     if let Some(window) = ns_window(window) {
         window.orderOut(None);
+    }
+}
+
+/// Puts the panel at its pop-up level, above ordinary windows (`raised`), or at the normal level
+/// so another Keylens window (settings) can come in front of it. gpui has no API for this.
+pub fn set_raised(window: &impl HasWindowHandle, raised: bool) {
+    if let Some(window) = ns_window(window) {
+        window.setLevel(if raised {
+            NSPopUpMenuWindowLevel
+        } else {
+            NSNormalWindowLevel
+        });
     }
 }
 

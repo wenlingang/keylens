@@ -18,6 +18,7 @@ keylens-core = { path = "crates/keylens-core" }
 keylens-platform = { path = "crates/keylens-platform" }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1.1"
+toml_edit = "0.25"
 thiserror = "2.0"
 include_dir = "0.7"
 keylens-macos = { path = "crates/keylens-macos" }

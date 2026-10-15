@@ -29,6 +29,7 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 - **Search** by title, menu path or keys. `⌘⇧`, `shift` and `cmd+shift+p` all work, regardless of modifier order.
 - **Run directly**: click to select, double-click or press Return to run. Menu items are pressed via Accessibility; community shortcuts are sent as synthesized key strokes.
 - **Community shortcut data** fills in shortcuts that menus don't expose (e.g. VS Code, Chrome, Slack), marked with ◇.
+- **Add your own shortcuts** from the panel's "Edit Shortcuts" or the menu bar: record keys by pressing them; they are saved to your data folder and show up in the panel within 2 seconds.
 - **Keyboard-first**: ↑↓←→ to move; Esc clears the search first, then closes the panel.
 - **Localized UI**: Simplified Chinese, English, Traditional Chinese and Japanese, following the system language by default.
 - **Dark / light** appearance follows the system.
@@ -59,14 +60,22 @@ On first launch, add `target/dev-apps/Keylens.app` under System Settings › Pri
 
 ## Configuration
 
-`~/.config/keylens/config.toml`:
+Open **Settings…** from the "⌘" menu bar icon, or press ⌘, while the panel is open. You can choose how to open the panel (hold or double-tap), which modifier key to use, how long to hold or how fast to double-tap, and the interface language. Changes apply immediately.
+
+Settings are saved to `~/.config/keylens/config.toml` (`$XDG_CONFIG_HOME/keylens` on Linux), which you can also edit by hand. Your comments are kept when the settings window saves, and hand edits take effect within two seconds:
 
 ```toml
 # Override the system language: zh-CN, zh-TW, zh-HK, en, ja
 language = "ja"
+
+[trigger]
+mode = "hold"          # hold | double-tap
+key = "cmd"            # cmd, option, ctrl or shift (also super, alt, win, control)
+hold-ms = 800          # 300–2000
+double-tap-ms = 350    # 200–600
 ```
 
-Your own shortcut data goes in `~/.config/keylens/apps/*.toml`, using the same format as the built-in data; it overrides built-in entries with the same shortcut for the same app. The "⌘" menu bar icon has an item that opens this folder.
+Your own shortcut data goes in `~/.config/keylens/apps/*.toml`, using the same format as the built-in data; it overrides built-in entries with the same shortcut for the same app. The "⌘" menu bar icon has an item that opens this folder. You can also edit them in a window: choose "Edit Shortcuts" in the panel footer.
 
 ## Project layout
 

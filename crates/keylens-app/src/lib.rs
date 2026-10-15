@@ -4,14 +4,21 @@
 rust_i18n::i18n!("locales", fallback = "en");
 
 pub mod config;
+pub mod config_write;
 pub mod controller;
 pub mod loader;
 pub mod logging;
 pub mod model;
 pub mod permission;
+pub mod prefs;
+pub mod recorder;
 pub mod session;
+pub mod settings_view;
+pub mod shortcut_editor;
 pub mod strings;
 pub mod template;
+pub mod ui;
+pub mod user_data_edit;
 pub mod view;
 pub mod watch;
 
@@ -24,6 +31,20 @@ use keylens_platform::tray::{TrayCommand, TrayHandle, TrayLabels};
 /// Version line shown in the menu bar menu, e.g. "Keylens 0.1.0". Not translated.
 pub fn version_label() -> String {
     format!("Keylens {}", env!("CARGO_PKG_VERSION"))
+}
+
+/// Tray labels in the current UI language.
+fn tray_labels() -> TrayLabels {
+    use rust_i18n::t;
+    TrayLabels {
+        version: version_label(),
+        permission_ok: t!("Tray.permission_ok").to_string(),
+        permission_missing: t!("Tray.permission_missing").to_string(),
+        edit_current: t!("Tray.edit_current").to_string(),
+        open_data: t!("Tray.open_data").to_string(),
+        settings: t!("Tray.settings").to_string(),
+        quit: t!("Tray.quit").to_string(),
+    }
 }
 
 /// Installs the tray, forwarding menu clicks to the callback. Called on the main thread once the
@@ -52,6 +73,7 @@ pub fn run() {
         platform: Arc::new(keylens_macos::MacPlatform::default()),
         native: controller::Native {
             hide: |w| keylens_macos::panel::hide(w),
+            raise: |w, raised| keylens_macos::panel::set_raised(w, raised),
             place: |w, pid| keylens_macos::panel::place(w, pid),
             beep: keylens_macos::panel::beep,
             open: keylens_macos::panel::open_path,
@@ -89,12 +111,13 @@ pub fn run_with(host: Host) {
     let log_guard = logging::init(&logging::log_dir());
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "Keylens starting");
 
-    let (config, config_error) = config::load_config(&config::config_path());
-    if let Some(error) = config_error {
-        tracing::warn!("config file has errors, using defaults: {error}");
-    }
-    let system: Vec<String> = sys_locale::get_locales().collect();
-    let locale = config::choose_locale(&config, &system);
+    let prefs_state = prefs::Prefs::load(
+        config::config_path(),
+        sys_locale::get_locales().collect(),
+        platform.default_trigger(),
+        keylens_core::Os::current(),
+    );
+    let locale = prefs_state.locale();
     rust_i18n::set_locale(locale.ui);
 
     let os = Os::current();
@@ -116,6 +139,11 @@ pub fn run_with(host: Host) {
         .with_assets(gpui_kit::assets::Assets)
         .run(move |cx| {
             gpui_kit::init(cx);
+            let prefs = cx.new(|cx| {
+                let mut prefs = prefs_state;
+                prefs.watch(cx);
+                prefs
+            });
             cx.set_activation_policy(ActivationPolicy::Accessory);
             cx.set_quit_mode(QuitMode::Explicit);
             bind_keys(cx);
@@ -152,18 +180,20 @@ pub fn run_with(host: Host) {
                 Theme::sync_system_appearance(Some(window), cx)
             });
 
-            let keylens = cx
-                .new(|cx| Keylens::new(platform.clone(), loader.clone(), native, window, view, cx));
+            let keylens = cx.new(|cx| {
+                Keylens::new(
+                    platform.clone(),
+                    loader.clone(),
+                    native,
+                    prefs.clone(),
+                    window,
+                    view,
+                    cx,
+                )
+            });
 
             let (tray_tx, tray_rx) = async_channel::unbounded::<TrayCommand>();
-            let labels = TrayLabels {
-                version: version_label(),
-                permission_ok: t!("Tray.permission_ok").to_string(),
-                permission_missing: t!("Tray.permission_missing").to_string(),
-                edit_current: t!("Tray.edit_current").to_string(),
-                open_data: t!("Tray.open_data").to_string(),
-                quit: t!("Tray.quit").to_string(),
-            };
+            let labels = tray_labels();
             let tray = install_tray(
                 labels,
                 Box::new(move |command| {
@@ -185,6 +215,9 @@ pub fn run_with(host: Host) {
                             let dir = config::user_data_dir();
                             let _ = std::fs::create_dir_all(&dir);
                             (native.open)(&dir);
+                        }
+                        TrayCommand::Settings => {
+                            keylens_for_tray.update(cx, |k, cx| k.open_settings(cx))
                         }
                         TrayCommand::Quit => cx.quit(),
                     });
@@ -209,6 +242,10 @@ pub fn run_with(host: Host) {
                 k.set_permission_listener(Box::new(move |granted| {
                     tray_for_permission.set_permission(granted)
                 }))
+            });
+            let tray_for_locale = tray.clone();
+            keylens.update(cx, |k, _| {
+                k.set_locale_listener(Box::new(move || tray_for_locale.set_labels(tray_labels())))
             });
             keylens.update(cx, |k, cx| k.start(cx));
             cx.set_global(KeylensApp {

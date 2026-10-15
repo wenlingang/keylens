@@ -104,6 +104,10 @@ impl TriggerDetector {
         }
     }
 
+    pub fn trigger(&self) -> &Trigger {
+        &self.trigger
+    }
+
     /// The next time `on_tick` needs to be called.
     pub fn next_deadline(&self) -> Option<Instant> {
         match (self.state, &self.trigger) {
@@ -374,5 +378,14 @@ mod tests {
             assert_eq!(d.on_event(ModifiersChanged(CMD), t0), None);
             assert_eq!(d.on_tick(t0 + ms(5000)), None);
         }
+    }
+
+    #[test]
+    fn detector_reports_its_trigger() {
+        let trigger = Trigger::DoubleTap {
+            key: Modifiers::ALT,
+            interval: Trigger::DEFAULT_DOUBLE_TAP_INTERVAL,
+        };
+        assert_eq!(TriggerDetector::new(trigger.clone()).trigger(), &trigger);
     }
 }

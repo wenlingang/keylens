@@ -1,5 +1,7 @@
 //! Status bar item. Can only be created and used on the main thread.
 
+use std::cell::{Cell, RefCell};
+
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
@@ -50,7 +52,13 @@ pub struct Tray {
     item: Retained<NSStatusItem>,
     permission_item: Retained<NSMenuItem>,
     errors_item: Retained<NSMenuItem>,
-    labels: TrayLabels,
+    version_item: Retained<NSMenuItem>,
+    edit_item: Retained<NSMenuItem>,
+    open_item: Retained<NSMenuItem>,
+    settings_item: Retained<NSMenuItem>,
+    quit_item: Retained<NSMenuItem>,
+    labels: RefCell<TrayLabels>,
+    granted: Cell<bool>,
     mtm: MainThreadMarker,
     _menu: Retained<NSMenu>,
     _target: Retained<Target>,
@@ -89,7 +97,8 @@ impl Tray {
         let target = Target::new(mtm, on_command);
         let item = NSStatusBar::systemStatusBar().statusItemWithLength(NSVariableStatusItemLength);
         let menu = NSMenu::new(mtm);
-        menu.addItem(&menu_item(mtm, &labels.version, &target, None));
+        let version_item = menu_item(mtm, &labels.version, &target, None);
+        menu.addItem(&version_item);
         menu.addItem(&NSMenuItem::separatorItem(mtm));
         let permission_item = menu_item(
             mtm,
@@ -103,31 +112,37 @@ impl Tray {
         let errors_item = menu_item(mtm, "", &target, None);
         errors_item.setHidden(true);
         menu.addItem(&errors_item);
-        menu.addItem(&menu_item(
+        let edit_item = menu_item(
             mtm,
             &labels.edit_current,
             &target,
             Some(TrayCommand::EditCurrentApp),
-        ));
-        menu.addItem(&menu_item(
+        );
+        menu.addItem(&edit_item);
+        let open_item = menu_item(
             mtm,
             &labels.open_data,
             &target,
             Some(TrayCommand::OpenDataFolder),
-        ));
+        );
+        menu.addItem(&open_item);
+        let settings_item = menu_item(mtm, &labels.settings, &target, Some(TrayCommand::Settings));
+        menu.addItem(&settings_item);
         menu.addItem(&NSMenuItem::separatorItem(mtm));
-        menu.addItem(&menu_item(
-            mtm,
-            &labels.quit,
-            &target,
-            Some(TrayCommand::Quit),
-        ));
+        let quit_item = menu_item(mtm, &labels.quit, &target, Some(TrayCommand::Quit));
+        menu.addItem(&quit_item);
         item.setMenu(Some(&menu));
         let tray = Tray {
             item,
             permission_item,
             errors_item,
-            labels,
+            version_item,
+            edit_item,
+            open_item,
+            settings_item,
+            quit_item,
+            labels: RefCell::new(labels),
+            granted: Cell::new(true),
             mtm,
             _menu: menu,
             _target: target,
@@ -149,15 +164,28 @@ impl TrayHandle for Tray {
     }
 
     fn set_permission(&self, granted: bool) {
+        self.granted.set(granted);
         if let Some(button) = self.item.button(self.mtm) {
             button.setTitle(&NSString::from_str(if granted { "⌘" } else { "⌘!" }));
         }
+        let labels = self.labels.borrow();
         let title = if granted {
-            &self.labels.permission_ok
+            &labels.permission_ok
         } else {
-            &self.labels.permission_missing
+            &labels.permission_missing
         };
         self.permission_item.setTitle(&NSString::from_str(title));
+    }
+
+    fn set_labels(&self, labels: TrayLabels) {
+        let title = |item: &NSMenuItem, text: &str| item.setTitle(&NSString::from_str(text));
+        title(&self.version_item, &labels.version);
+        title(&self.edit_item, &labels.edit_current);
+        title(&self.open_item, &labels.open_data);
+        title(&self.settings_item, &labels.settings);
+        title(&self.quit_item, &labels.quit);
+        *self.labels.borrow_mut() = labels;
+        self.set_permission(self.granted.get());
     }
 }
 

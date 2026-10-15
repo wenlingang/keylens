@@ -9,11 +9,39 @@ use keylens_platform::Platform;
 
 pub struct Loader {
     platform: Arc<dyn Platform>,
-    builtin: CommunitySource,
-    /// Replaced when the user edits files in the user data folder.
-    user: RwLock<CommunitySource>,
     os: Os,
+    /// Rebuilt when the user edits their data files or switches the UI language.
+    sources: RwLock<Sources>,
+}
+
+struct Sources {
     lang: Lang,
+    builtin_catalog: Arc<Catalog>,
+    user_catalog: Arc<Catalog>,
+    builtin: Arc<CommunitySource>,
+    user: Arc<CommunitySource>,
+}
+
+impl Sources {
+    fn new(builtin_catalog: Arc<Catalog>, user_catalog: Arc<Catalog>, os: Os, lang: Lang) -> Self {
+        Self {
+            builtin: Arc::new(CommunitySource::new(
+                builtin_catalog.clone(),
+                os,
+                lang,
+                EntrySource::Community,
+            )),
+            user: Arc::new(CommunitySource::new(
+                user_catalog.clone(),
+                os,
+                lang,
+                EntrySource::User,
+            )),
+            lang,
+            builtin_catalog,
+            user_catalog,
+        }
+    }
 }
 
 impl Loader {
@@ -26,25 +54,48 @@ impl Loader {
     ) -> Self {
         Self {
             platform,
-            builtin: CommunitySource::new(builtin, os, lang, EntrySource::Community),
-            user: RwLock::new(CommunitySource::new(user, os, lang, EntrySource::User)),
             os,
-            lang,
+            sources: RwLock::new(Sources::new(builtin, user, os, lang)),
         }
     }
 
     /// Replaces the user data (after the user saved a file); later loads use it.
     pub fn set_user_catalog(&self, catalog: Arc<Catalog>) {
-        let source = CommunitySource::new(catalog, self.os, self.lang, EntrySource::User);
-        *self.user.write().unwrap() = source;
+        let mut sources = self.sources.write().unwrap();
+        *sources = Sources::new(
+            sources.builtin_catalog.clone(),
+            catalog,
+            self.os,
+            sources.lang,
+        );
+    }
+
+    /// Switches the language of community titles; later loads use it.
+    pub fn set_lang(&self, lang: Lang) {
+        let mut sources = self.sources.write().unwrap();
+        *sources = Sources::new(
+            sources.builtin_catalog.clone(),
+            sources.user_catalog.clone(),
+            self.os,
+            lang,
+        );
+    }
+
+    pub fn lang(&self) -> Lang {
+        self.sources.read().unwrap().lang
     }
 
     /// Reads one app's shortcuts. Blocks (reading the menu takes up to ~2 s), so call it from a background thread.
     pub fn load(&self, app: &AppInfo) -> AppShortcuts {
         let menu = self.platform.menu_source();
-        let user = self.user.read().unwrap();
-        let sources: [&dyn ShortcutSource; 3] = [menu.as_ref(), &*user, &self.builtin];
-        collect(app.clone(), &sources)
+        // Clone the sources and release the lock before reading the menu (up to ~2 s), so
+        // `set_lang` / `set_user_catalog` on the UI thread never wait for it.
+        let (user, builtin) = {
+            let sources = self.sources.read().unwrap();
+            (Arc::clone(&sources.user), Arc::clone(&sources.builtin))
+        };
+        let list: [&dyn ShortcutSource; 3] = [menu.as_ref(), user.as_ref(), builtin.as_ref()];
+        collect(app.clone(), &list)
     }
 }
 
@@ -286,5 +337,51 @@ keys = ["Mod+K", "Z"]
         assert!(cache.get(2).is_none());
         assert!(cache.get(1).is_some());
         assert!(cache.get(3).is_some());
+    }
+
+    #[test]
+    fn switching_language_changes_community_titles() {
+        let platform = Arc::new(FakePlatform::default());
+        platform.set_menu(vec![]);
+        let text = r#"
+schema = 1
+[app]
+name = "Demo"
+[app.match]
+macos = ["com.demo"]
+[[group]]
+title = "General"
+i18n = { ja = "一般" }
+  [[group.shortcut]]
+  title = "Open"
+  i18n = { ja = "開く" }
+  keys = "Mod+O"
+"#;
+        let (catalog, errors) = Catalog::from_files([("demo.toml", text)]);
+        assert!(errors.is_empty(), "{errors:?}");
+        let loader = Loader::new(
+            platform,
+            Arc::new(catalog),
+            Arc::new(Catalog::default()),
+            Os::MacOS,
+            Lang::En,
+        );
+        let app = AppInfo {
+            pid: 1,
+            name: "Demo".into(),
+            ids: vec!["com.demo".into()],
+        };
+        let title = |loader: &Loader| loader.load(&app).groups[0].entries[0].title.clone();
+        assert_eq!(title(&loader), "Open");
+        loader.set_lang(Lang::Ja);
+        assert_eq!(loader.lang(), Lang::Ja);
+        assert_eq!(title(&loader), "開く");
+        // Changing the user data must keep the language, and vice versa.
+        loader.set_user_catalog(Arc::new(Catalog::default()));
+        assert_eq!(loader.lang(), Lang::Ja);
+        assert_eq!(title(&loader), "開く");
+        loader.set_lang(Lang::En);
+        assert_eq!(loader.lang(), Lang::En);
+        assert_eq!(title(&loader), "Open");
     }
 }

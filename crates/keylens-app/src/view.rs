@@ -20,7 +20,8 @@ actions!(
         SelectLeft,
         SelectRight,
         Execute,
-        Dismiss
+        Dismiss,
+        ShowSettings
     ]
 );
 
@@ -42,6 +43,15 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("right", SelectRight, Some(KEY_CONTEXT)),
         KeyBinding::new("enter", Execute, Some(KEY_CONTEXT)),
         KeyBinding::new("escape", Dismiss, Some(KEY_CONTEXT)),
+        KeyBinding::new(
+            if cfg!(target_os = "macos") {
+                "cmd-,"
+            } else {
+                "ctrl-,"
+            },
+            ShowSettings,
+            Some(KEY_CONTEXT),
+        ),
     ]);
 }
 
@@ -49,6 +59,12 @@ pub fn bind_keys(cx: &mut App) {
 pub enum PanelEvent {
     Execute(Entry),
     Dismiss,
+    /// The panel lost keyboard focus. The controller decides whether that dismisses it: not while
+    /// focus is in Keylens' own settings window.
+    Deactivated,
+    /// Open the system settings where Keylens' permission is granted.
+    OpenPermissionSettings,
+    /// Open Keylens' own settings window.
     OpenSettings,
     /// Create (if missing) and open the user data file for this app.
     EditShortcuts(AppInfo),
@@ -82,7 +98,7 @@ impl PanelView {
         });
         let on_activation = cx.observe_window_activation(window, |_, window, cx| {
             if !window.is_window_active() {
-                cx.emit(PanelEvent::Dismiss);
+                cx.emit(PanelEvent::Deactivated);
             }
         });
         let on_appearance = cx.observe_window_appearance(window, |_, window, cx| {
@@ -170,6 +186,18 @@ impl PanelView {
 
     fn execute(&mut self, _: &Execute, _: &mut Window, cx: &mut Context<Self>) {
         self.execute_selected(cx);
+    }
+
+    fn show_settings(&mut self, _: &ShowSettings, _: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(PanelEvent::OpenSettings);
+    }
+
+    /// Re-reads translated strings that were captured when the view was built.
+    pub fn refresh_locale(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.input.update(cx, |input, cx| {
+            input.set_placeholder(t!("Panel.search_placeholder").to_string(), window, cx)
+        });
+        cx.notify();
     }
 
     fn dismiss(&mut self, _: &Dismiss, window: &mut Window, cx: &mut Context<Self>) {
@@ -395,7 +423,7 @@ impl PanelView {
                     ],
                     Some((
                         t!("Panel.open_settings").to_string(),
-                        PanelEvent::OpenSettings,
+                        PanelEvent::OpenPermissionSettings,
                     )),
                     cx,
                 );
@@ -496,21 +524,36 @@ impl PanelView {
                 self.model.app().filter(|app| !app.ids.is_empty()).cloned(),
                 |d, app| {
                     d.child(
-                        div()
-                            .id("edit-shortcuts")
-                            .text_color(theme.accent)
-                            .cursor_pointer()
-                            .child(t!("Panel.edit_shortcuts").to_string())
-                            .on_click(cx.listener(move |_, _, _, cx| {
+                        footer_link("edit-shortcuts", t!("Panel.edit_shortcuts"), cx).on_click(
+                            cx.listener(move |_, _, _, cx| {
                                 cx.emit(PanelEvent::EditShortcuts(app.clone()))
-                            })),
+                            }),
+                        ),
                     )
                 },
+            )
+            .child(
+                footer_link("open-settings", t!("Panel.settings"), cx)
+                    .debug_selector(|| "open-settings".into())
+                    .on_click(cx.listener(|_, _, _, cx| cx.emit(PanelEvent::OpenSettings))),
             )
             .child(format!("↩ {}", t!("Panel.execute")))
             .child(format!("esc {}", t!("Panel.close")))
             .into_any_element()
     }
+}
+
+/// A clickable text link in the footer, in the theme's link colour (`accent` is a hover
+/// background and nearly invisible as text).
+fn footer_link(id: &'static str, label: impl ToString, cx: &Context<PanelView>) -> Stateful<Div> {
+    let theme = cx.theme();
+    div()
+        .id(id)
+        .text_color(theme.link)
+        .underline()
+        .cursor_pointer()
+        .hover(|style| style.text_color(theme.link_hover))
+        .child(label.to_string())
 }
 
 impl Render for PanelView {
@@ -536,6 +579,7 @@ impl Render for PanelView {
             .on_action(cx.listener(Self::select_right))
             .on_action(cx.listener(Self::execute))
             .on_action(cx.listener(Self::dismiss))
+            .on_action(cx.listener(Self::show_settings))
             .size_full()
             .bg(theme.popover)
             .text_color(theme.foreground)
@@ -667,6 +711,20 @@ mod tests {
     }
 
     #[gpui_kit::test]
+    fn cmd_comma_asks_for_settings(cx: &mut TestAppContext) {
+        let (window, events) = setup(cx);
+        cx.simulate_keystrokes(
+            window.into(),
+            if cfg!(target_os = "macos") {
+                "cmd-,"
+            } else {
+                "ctrl-,"
+            },
+        );
+        assert!(events.borrow().contains(&PanelEvent::OpenSettings));
+    }
+
+    #[gpui_kit::test]
     fn enter_executes_the_selected_entry_once(cx: &mut TestAppContext) {
         let (window, events) = setup(cx);
         cx.simulate_keystrokes(window.into(), "down down enter");
@@ -678,6 +736,18 @@ mod tests {
         let (window, events) = setup(cx);
         cx.simulate_keystrokes(window.into(), "down enter");
         assert!(executed(&events).is_empty());
+    }
+
+    #[gpui_kit::test]
+    fn footer_settings_link_asks_for_settings(cx: &mut TestAppContext) {
+        let (window, events) = setup(cx);
+        let cx = &mut VisualTestContext::from_window(window.into(), cx);
+        cx.run_until_parked();
+        let bounds = cx
+            .debug_bounds("open-settings")
+            .expect("the footer shows a settings link");
+        cx.simulate_click(bounds.center(), Modifiers::none());
+        assert!(events.borrow().contains(&PanelEvent::OpenSettings));
     }
 
     #[gpui_kit::test]

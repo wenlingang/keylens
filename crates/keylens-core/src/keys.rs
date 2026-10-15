@@ -51,6 +51,38 @@ impl Modifiers {
             Os::Windows | Os::Linux => Self::CTRL,
         }
     }
+
+    /// The modifiers a trigger can use, in the order the settings window lists them.
+    pub const TRIGGER_KEYS: [Modifiers; 4] = [
+        Modifiers::META,
+        Modifiers::ALT,
+        Modifiers::CTRL,
+        Modifiers::SHIFT,
+    ];
+
+    /// Parses the single modifier named in `config.toml` (`key = "cmd"`), accepting the same
+    /// aliases as shortcut notation. `mod` and `fn` are rejected: one depends on the OS, the
+    /// other cannot be detected as a trigger.
+    pub fn from_trigger_name(name: &str) -> Option<Modifiers> {
+        match name.to_ascii_lowercase().as_str() {
+            "mod" | "fn" => None,
+            other => parse_modifier(other, Os::MacOS),
+        }
+    }
+
+    /// The name written back to `config.toml`, in the platform's own words.
+    pub fn trigger_name(self, os: Os) -> &'static str {
+        match (self, os) {
+            (Modifiers::META, Os::MacOS) => "cmd",
+            (Modifiers::META, Os::Windows) => "win",
+            (Modifiers::META, Os::Linux) => "super",
+            (Modifiers::ALT, Os::MacOS) => "option",
+            (Modifiers::ALT, _) => "alt",
+            (Modifiers::CTRL, _) => "ctrl",
+            (Modifiers::SHIFT, _) => "shift",
+            _ => "cmd",
+        }
+    }
 }
 
 impl BitOr for Modifiers {
@@ -579,5 +611,36 @@ mod tests {
         for word in ["⇧⌘↑", "shift", "command", "cmd", "up"] {
             assert!(text.contains(word), "{text:?} is missing {word:?}");
         }
+    }
+
+    #[test]
+    fn trigger_names_round_trip_and_accept_aliases() {
+        for os in Os::ALL {
+            for key in Modifiers::TRIGGER_KEYS {
+                assert_eq!(
+                    Modifiers::from_trigger_name(key.trigger_name(os)),
+                    Some(key)
+                );
+            }
+        }
+        assert_eq!(Modifiers::META.trigger_name(Os::MacOS), "cmd");
+        assert_eq!(Modifiers::META.trigger_name(Os::Linux), "super");
+        assert_eq!(Modifiers::ALT.trigger_name(Os::MacOS), "option");
+        assert_eq!(Modifiers::ALT.trigger_name(Os::Linux), "alt");
+        assert_eq!(
+            Modifiers::from_trigger_name("Command"),
+            Some(Modifiers::META)
+        );
+        assert_eq!(Modifiers::from_trigger_name("win"), Some(Modifiers::META));
+        assert_eq!(
+            Modifiers::from_trigger_name("control"),
+            Some(Modifiers::CTRL)
+        );
+        assert_eq!(Modifiers::from_trigger_name("opt"), Some(Modifiers::ALT));
+        // `mod` depends on the OS and `fn` is not readable as a trigger; neither is accepted.
+        assert_eq!(Modifiers::from_trigger_name("mod"), None);
+        assert_eq!(Modifiers::from_trigger_name("fn"), None);
+        assert_eq!(Modifiers::from_trigger_name("cmd+shift"), None);
+        assert_eq!(Modifiers::from_trigger_name(""), None);
     }
 }
