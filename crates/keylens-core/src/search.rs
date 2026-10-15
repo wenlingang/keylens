@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-use crate::keys::{Chord, Modifiers, Os};
+use crate::keys::{Chord, Modifiers, Os, parse_modifier};
 use crate::model::Entry;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -68,8 +68,16 @@ fn haystack(entry: &Entry, os: Os) -> String {
     text
 }
 
-/// A word made up only of modifier symbols; returns the matching modifier set.
-fn modifier_token(token: &str) -> Option<Modifiers> {
+/// A word made up only of modifiers, as symbols like `⌘⇧` or as `+`-joined names like `cmd+shift`
+/// (a trailing `+` is allowed while the user is still typing); returns the matching modifier set.
+fn modifier_token(token: &str, os: Os) -> Option<Modifiers> {
+    if token.contains('+') {
+        let mut modifiers = Modifiers::NONE;
+        for word in token.split('+').filter(|w| !w.is_empty()) {
+            modifiers = modifiers | parse_modifier(word, os)?;
+        }
+        return (!modifiers.is_empty()).then_some(modifiers);
+    }
     let mut modifiers = Modifiers::NONE;
     for c in token.chars() {
         modifiers = modifiers
@@ -90,7 +98,7 @@ fn chord_token(token: &str, os: Os) -> Option<Chord> {
         return Chord::parse(token, os).ok();
     }
     let key_start = token.find(|c| !"⌘⇧⌥⌃".contains(c))?;
-    let modifiers = modifier_token(&token[..key_start]).filter(|m| !m.is_empty())?;
+    let modifiers = modifier_token(&token[..key_start], os).filter(|m| !m.is_empty())?;
     let key = Chord::parse(&token[key_start..], os).ok()?;
     key.modifiers.is_empty().then_some(Chord {
         modifiers,
@@ -100,7 +108,7 @@ fn chord_token(token: &str, os: Os) -> Option<Chord> {
 
 fn token_matches(entry: &Entry, haystack: &str, token: &str, os: Os) -> bool {
     let chords = entry.shortcut.chords();
-    if let Some(wanted) = modifier_token(token) {
+    if let Some(wanted) = modifier_token(token, os) {
         return chords.iter().any(|c| c.modifiers.contains(wanted));
     }
     if let Some(wanted) = chord_token(token, os) {
@@ -196,6 +204,19 @@ mod tests {
     fn modifier_symbols_match_in_any_order() {
         assert_eq!(indexes(&filter(&sample(), "⌘⇧", Os::MacOS)), [1, 2]);
         assert_eq!(indexes(&filter(&sample(), "⇧⌘", Os::MacOS)), [1, 2]);
+    }
+
+    #[test]
+    fn modifier_words_joined_with_plus_match_like_symbols() {
+        // Typing `cmd+shift` (or `cmd+shift+` on the way to a full chord) lists what ⌘⇧ lists.
+        for query in ["cmd+shift", "Shift+Cmd", "mod+shift", "cmd+shift+"] {
+            assert_eq!(
+                indexes(&filter(&sample(), query, Os::MacOS)),
+                [1, 2],
+                "{query}"
+            );
+        }
+        assert!(filter(&sample(), "ctrl+shift", Os::MacOS).is_empty());
     }
 
     #[test]

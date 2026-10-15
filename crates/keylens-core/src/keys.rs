@@ -285,7 +285,7 @@ pub enum KeyParseError {
     DuplicateModifier(String, String),
 }
 
-fn parse_modifier(token: &str, os: Os) -> Option<Modifiers> {
+pub(crate) fn parse_modifier(token: &str, os: Os) -> Option<Modifiers> {
     match token.to_ascii_lowercase().as_str() {
         "mod" => Some(Modifiers::primary(os)),
         "cmd" | "command" | "super" | "win" | "meta" => Some(Modifiers::META),
