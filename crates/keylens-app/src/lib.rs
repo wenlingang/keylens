@@ -220,6 +220,9 @@ pub fn run_with(host: Host) {
                 is_resizable: false,
                 is_movable: false,
                 window_background: WindowBackgroundAppearance::Transparent,
+                // Never focused, so gpui would cap it at 30 fps like any inactive window; the
+                // animation only asks for frames while it plays.
+                inactive_frame_interval: None,
                 window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
                     None,
                     size(px(charge::WINDOW_SIZE), px(charge::WINDOW_SIZE)),
@@ -231,7 +234,7 @@ pub fn run_with(host: Host) {
             // with controls, and this one must stay see-through around the keycap.
             let charge_window = cx
                 .open_window(charge_options, |_, cx| {
-                    cx.new(|_| charge::ChargeView::new())
+                    cx.new(|_| charge::ChargeView::new(keylens_macos::panel::set_alpha))
                 })
                 .map(|handle| {
                     let view = handle.update(cx, |_, _, cx| cx.entity());

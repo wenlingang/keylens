@@ -523,7 +523,7 @@ impl Keylens {
         };
         let length = if shown {
             view.update(cx, |view, cx| view.burst(cx));
-            charge::BURST
+            charge::BURST_DELAY + charge::BURST
         } else {
             view.update(cx, |view, cx| view.release(cx));
             charge::RELEASE
@@ -1115,7 +1115,7 @@ mod tests {
 
     /// Gives the controller a hold animation window and returns its view.
     fn attach_charge(keylens: &Entity<Keylens>, cx: &mut TestAppContext) -> Entity<ChargeView> {
-        let window = cx.add_window(|_, _| ChargeView::new());
+        let window = cx.add_window(|_, _| ChargeView::new(|_, _| {}));
         let view = window.update(cx, |_, _, cx| cx.entity()).unwrap();
         let v = view.clone();
         keylens.update(cx, |k, _| k.attach_charge(window.into(), v));
@@ -1165,7 +1165,7 @@ mod tests {
         keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Show, cx));
         cx.run_until_parked();
         assert_eq!(charge_state(&keylens, &view, cx), (true, Some("burst")));
-        after(cx, charge::BURST);
+        after(cx, charge::BURST_DELAY + charge::BURST);
         assert_eq!(charge_state(&keylens, &view, cx), (false, None));
     }
 

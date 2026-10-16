@@ -13,16 +13,23 @@ use gpui_kit::*;
 
 /// Accent when the app icon has no usable colour (same as the panel's).
 pub const DEFAULT_ACCENT: u32 = 0x3b82f6;
-/// Side of the (transparent) window the animation is drawn in.
-pub const WINDOW_SIZE: f32 = 240.0;
+/// Side of the (transparent) window the animation is drawn in: room for the burst star at its
+/// largest, so the window edge never cuts it off.
+pub const WINDOW_SIZE: f32 = 420.0;
 /// How long the keycap takes to pop in once it appears.
-const ENTER: Duration = Duration::from_millis(340);
+const ENTER: Duration = Duration::from_millis(360);
 /// Bursting as the panel shows, and springing away when the key is let go early.
-pub const BURST: Duration = Duration::from_millis(320);
+pub const BURST: Duration = Duration::from_millis(300);
 pub const RELEASE: Duration = Duration::from_millis(420);
 /// The first part of the hold shows nothing: ⌘C, ⌘V and the like are pressed and gone well
 /// within it, and must not flash anything.
 pub const MAX_GRACE: Duration = Duration::from_millis(250);
+/// The full keycap holds still this long before bursting: the panel's first frame lands in that
+/// pause (a hit-stop), not in the middle of the burst, where it would show as a stutter.
+pub const BURST_DELAY: Duration = Duration::from_millis(100);
+/// The burst star outlives the keycap a little, and the aura and sparkles fade faster.
+const BOOM: Duration = Duration::from_millis(420);
+const AURA_FADE: Duration = Duration::from_millis(220);
 
 /// Keycap size and the distances around it, in points.
 const CAP: f32 = 73.0;
@@ -65,6 +72,8 @@ pub struct Frame {
     pub scale_y: f32,
     /// Vertical offset of the keycap, negative is up.
     pub lift: f32,
+    /// Opacity of the whole picture. Applied to the window, not to each layer: gpui fades layers
+    /// one by one, which would show the keycap's side and glyph through its face.
     pub opacity: f32,
     /// Strength of the aura and sparkles, 0–1 (they fade first when the hold ends).
     pub aura: f32,
@@ -86,6 +95,16 @@ fn ease_out_back(t: f32) -> f32 {
     1.0 + c3 * (t - 1.0).powi(3) + c1 * (t - 1.0).powi(2)
 }
 
+/// Close to the mockup's `cubic-bezier(.2, .8, .3, 1)` and `cubic-bezier(.1, .7, .3, 1)`.
+fn ease_out_cubic(t: f32) -> f32 {
+    1.0 - (1.0 - t).powi(3)
+}
+
+/// CSS `ease-out`.
+fn ease_out(t: f32) -> f32 {
+    1.0 - (1.0 - t).powi(2)
+}
+
 fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
@@ -95,14 +114,14 @@ impl Phase {
         match *self {
             Phase::Charging { shown_at, full_at } => {
                 let p = progress(now, shown_at, full_at.saturating_duration_since(shown_at));
-                let enter = progress(now, shown_at, ENTER);
-                let scale = 0.2 + 0.8 * ease_out_back(enter);
+                // Pops in from a fifth of its size, overshooting a little, fading in as it goes.
+                let pop = ease_out_back(progress(now, shown_at, ENTER));
                 Frame {
                     p,
-                    scale_x: scale,
-                    scale_y: scale,
+                    scale_x: lerp(0.2, 1.0, pop),
+                    scale_y: lerp(0.2, 1.0, pop),
                     lift: 0.0,
-                    opacity: (enter * 3.0).min(1.0),
+                    opacity: pop.clamp(0.0, 1.0),
                     aura: 1.0,
                     shake: p > 0.85,
                     boom: None,
@@ -111,49 +130,40 @@ impl Phase {
                 }
             }
             Phase::Burst { at } => {
+                // Swells to 1.12 in the first quarter, then to 1.6, fading out all along.
                 let t = progress(now, at, BURST);
                 let scale = if t < 0.25 {
-                    lerp(1.0, 1.12, t / 0.25)
+                    lerp(1.0, 1.12, ease_out_cubic(t / 0.25))
                 } else {
-                    lerp(1.12, 1.6, (t - 0.25) / 0.75)
+                    lerp(1.12, 1.6, ease_out_cubic((t - 0.25) / 0.75))
                 };
                 Frame {
                     p: 1.0,
                     scale_x: scale,
                     scale_y: scale,
                     lift: 0.0,
-                    opacity: if t < 0.25 {
-                        1.0
-                    } else {
-                        1.0 - (t - 0.25) / 0.75
-                    },
-                    aura: (1.0 - t * 3.0).max(0.0),
+                    opacity: 1.0 - ease_out_cubic(t),
+                    aura: 1.0 - progress(now, at, AURA_FADE),
                     shake: false,
-                    boom: Some(t),
+                    boom: Some(progress(now, at, BOOM)),
                     done: t >= 1.0,
                 }
             }
             Phase::Release { at, p } => {
+                // Squash, stretch up, then shrink to 0.15, fading out all along.
                 let t = progress(now, at, RELEASE);
-                // Squash, stretch up, then shrink away.
-                let (scale_x, scale_y, lift, opacity) = if t < 0.25 {
-                    let k = t / 0.25;
-                    (lerp(1.0, 1.2, k), lerp(1.0, 0.78, k), 0.0, 1.0)
+                let (scale_x, scale_y, lift) = if t < 0.25 {
+                    let k = ease_out(t / 0.25);
+                    (lerp(1.0, 1.2, k), lerp(1.0, 0.78, k), 0.0)
                 } else if t < 0.55 {
-                    let k = (t - 0.25) / 0.3;
-                    (
-                        lerp(1.2, 0.86, k),
-                        lerp(0.78, 1.14, k),
-                        lerp(0.0, -10.0, k),
-                        1.0,
-                    )
+                    let k = ease_out((t - 0.25) / 0.3);
+                    (lerp(1.2, 0.86, k), lerp(0.78, 1.14, k), lerp(0.0, -10.0, k))
                 } else {
-                    let k = (t - 0.55) / 0.45;
+                    let k = ease_out((t - 0.55) / 0.45);
                     (
                         lerp(0.86, 0.15, k),
                         lerp(1.14, 0.15, k),
                         lerp(-10.0, 0.0, k),
-                        1.0 - k,
                     )
                 };
                 Frame {
@@ -161,8 +171,8 @@ impl Phase {
                     scale_x,
                     scale_y,
                     lift,
-                    opacity,
-                    aura: (1.0 - t * 4.0).max(0.0),
+                    opacity: 1.0 - ease_out(t),
+                    aura: 1.0 - progress(now, at, AURA_FADE),
                     shake: false,
                     boom: None,
                     done: t >= 1.0,
@@ -182,6 +192,9 @@ struct Art {
 
 pub struct ChargeView {
     phase: Option<Phase>,
+    /// Sets the opacity of the window (see `Frame::opacity`), and the value last set.
+    set_alpha: fn(&Window, f32),
+    alpha: f32,
     accent: Hsla,
     art: Option<Art>,
     glyph: Arc<Image>,
@@ -191,9 +204,11 @@ pub struct ChargeView {
 }
 
 impl ChargeView {
-    pub fn new() -> Self {
+    pub fn new(set_alpha: fn(&Window, f32)) -> Self {
         Self {
             phase: None,
+            set_alpha,
+            alpha: -1.0,
             accent: rgb(DEFAULT_ACCENT).into(),
             art: None,
             glyph: svg_image(glyph_svg(None, INK, 52.0)),
@@ -218,7 +233,9 @@ impl ChargeView {
     }
 
     pub fn burst(&mut self, cx: &mut Context<Self>) {
-        self.phase = Some(Phase::Burst { at: Instant::now() });
+        self.phase = Some(Phase::Burst {
+            at: Instant::now() + BURST_DELAY,
+        });
         cx.notify();
     }
 
@@ -231,6 +248,7 @@ impl ChargeView {
 
     pub fn stop(&mut self, cx: &mut Context<Self>) {
         self.phase = None;
+        self.alpha = -1.0;
         cx.notify();
     }
 
@@ -258,12 +276,6 @@ impl ChargeView {
     }
 }
 
-impl Default for ChargeView {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Render for ChargeView {
     fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         let root = div().size(px(WINDOW_SIZE)).relative();
@@ -275,6 +287,20 @@ impl Render for ChargeView {
         if !frame.done {
             window.request_animation_frame();
         }
+        let alpha = frame.opacity.clamp(0.0, 1.0);
+        if (alpha - self.alpha).abs() > 0.002 {
+            (self.set_alpha)(window, alpha);
+            self.alpha = alpha;
+        }
+        // The burst star and the aura fade on their own schedule; the window alpha fades them too,
+        // so divide it back out (they are single pictures: per-layer opacity is right for them).
+        let own = |wanted: f32| {
+            if alpha <= 0.001 {
+                0.0
+            } else {
+                (wanted / alpha).clamp(0.0, 1.0)
+            }
+        };
         let elapsed_ms = match phase {
             Phase::Charging { shown_at, .. } => now.saturating_duration_since(shown_at).as_millis(),
             Phase::Burst { at } | Phase::Release { at, .. } => {
@@ -293,7 +319,7 @@ impl Render for ChargeView {
         let (wave, boom) = (art.wave.clone(), art.boom.clone());
 
         let center = WINDOW_SIZE / 2.0;
-        let mut root = root.opacity(frame.opacity);
+        let mut root = root;
 
         // Aura behind everything, growing as the keycap fills.
         let aura_size = AURA * (0.5 + frame.p * 0.35) * frame.scale_x.min(1.0);
@@ -303,17 +329,17 @@ impl Render for ChargeView {
                 .left(px(center - aura_size / 2.0))
                 .top(px(center - aura_size / 2.0))
                 .size(px(aura_size))
-                .opacity(frame.p * 0.55 * frame.aura),
+                .opacity(own(frame.p * 0.55 * frame.aura)),
         );
         if let Some(t) = frame.boom {
-            let size = 152.0 * lerp(0.4, 2.6, t);
+            let size = 152.0 * lerp(0.4, 2.6, ease_out_cubic(t));
             root = root.child(
                 img(boom)
                     .absolute()
                     .left(px(center - size / 2.0))
                     .top(px(center - size / 2.0))
                     .size(px(size))
-                    .opacity(0.7 * (1.0 - t)),
+                    .opacity(own(0.7 * (1.0 - ease_out_cubic(t)))),
             );
         }
 
@@ -340,88 +366,92 @@ impl Render for ChargeView {
         let glyph_top = (inner_h - glyph_size) / 2.0;
         let wave_offset = (elapsed_ms % 600) as f32 / 600.0 * 20.0 * frame.scale_x;
 
-        root = root
-            .child(
-                div()
-                    .absolute()
-                    .left(px(left))
-                    .top(px(top + depth))
-                    .w(px(w))
-                    .h(px(h))
-                    .rounded(px(radius))
-                    .bg(rgb(SIDE))
-                    .border(px(BORDER))
-                    .border_color(rgb(INK)),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(left))
-                    .top(px(top))
-                    .w(px(w))
-                    .h(px(h))
-                    .rounded(px(radius))
-                    .border(px(BORDER))
-                    .border_color(rgb(INK))
-                    .bg(rgb(FACE))
-                    .overflow_hidden()
-                    // Hard cel-shading band at the bottom of the face.
-                    .child(
-                        div()
-                            .absolute()
-                            .left_0()
-                            .right_0()
-                            .bottom_0()
-                            .h(px(inner_h * 0.3))
-                            .bg(rgb(FACE_SHADE)),
-                    )
-                    .child(
-                        img(glyph)
-                            .absolute()
-                            .left(px(glyph_left))
-                            .top(px(glyph_top))
-                            .size(px(glyph_size)),
-                    )
-                    // The liquid, with the white ⌘ inside it lined up with the ink one.
-                    .when(liquid_h > 0.0, |face| {
-                        face.child(
-                            img(wave)
-                                .absolute()
-                                .left(px(-wave_offset))
-                                .top(px(inner_h - liquid_h - 5.0 * frame.scale_y))
-                                .w(px(inner_w + 40.0))
-                                .h(px(8.0 * frame.scale_y)),
-                        )
+        // Shrunk to nothing at the end of a burst or release: nothing left to draw.
+        let visible = frame.scale_x > 0.02 && frame.scale_y > 0.02 && frame.opacity > 0.0;
+        if visible {
+            root = root
+                .child(
+                    div()
+                        .absolute()
+                        .left(px(left))
+                        .top(px(top + depth))
+                        .w(px(w))
+                        .h(px(h))
+                        .rounded(px(radius))
+                        .bg(rgb(SIDE))
+                        .border(px(BORDER))
+                        .border_color(rgb(INK)),
+                )
+                .child(
+                    div()
+                        .absolute()
+                        .left(px(left))
+                        .top(px(top))
+                        .w(px(w))
+                        .h(px(h))
+                        .rounded(px(radius))
+                        .border(px(BORDER))
+                        .border_color(rgb(INK))
+                        .bg(rgb(FACE))
+                        .overflow_hidden()
+                        // Hard cel-shading band at the bottom of the face.
                         .child(
                             div()
                                 .absolute()
                                 .left_0()
                                 .right_0()
                                 .bottom_0()
-                                .h(px(liquid_h))
-                                .overflow_hidden()
-                                .bg(accent)
-                                .child(
-                                    img(glyph_lit)
-                                        .absolute()
-                                        .left(px(glyph_left))
-                                        .top(px(glyph_top - (inner_h - liquid_h)))
-                                        .size(px(glyph_size)),
-                                ),
+                                .h(px(inner_h * 0.3))
+                                .bg(rgb(FACE_SHADE)),
                         )
-                    })
-                    // Gloss.
-                    .child(
-                        div()
-                            .absolute()
-                            .left(px(8.0 * frame.scale_x))
-                            .top(px(6.0 * frame.scale_y))
-                            .w(px(15.0 * frame.scale_x))
-                            .h(px(5.0 * frame.scale_y))
-                            .rounded(px(3.))
-                            .bg(gpui_kit::white().opacity(0.9)),
-                    ),
-            );
+                        .child(
+                            img(glyph)
+                                .absolute()
+                                .left(px(glyph_left))
+                                .top(px(glyph_top))
+                                .size(px(glyph_size)),
+                        )
+                        // The liquid, with the white ⌘ inside it lined up with the ink one.
+                        .when(liquid_h > 0.0, |face| {
+                            face.child(
+                                img(wave)
+                                    .absolute()
+                                    .left(px(-wave_offset))
+                                    .top(px(inner_h - liquid_h - 5.0 * frame.scale_y))
+                                    .w(px(inner_w + 40.0))
+                                    .h(px(8.0 * frame.scale_y)),
+                            )
+                            .child(
+                                div()
+                                    .absolute()
+                                    .left_0()
+                                    .right_0()
+                                    .bottom_0()
+                                    .h(px(liquid_h))
+                                    .overflow_hidden()
+                                    .bg(accent)
+                                    .child(
+                                        img(glyph_lit)
+                                            .absolute()
+                                            .left(px(glyph_left))
+                                            .top(px(glyph_top - (inner_h - liquid_h)))
+                                            .size(px(glyph_size)),
+                                    ),
+                            )
+                        })
+                        // Gloss.
+                        .child(
+                            div()
+                                .absolute()
+                                .left(px(8.0 * frame.scale_x))
+                                .top(px(6.0 * frame.scale_y))
+                                .w(px(15.0 * frame.scale_x))
+                                .h(px(5.0 * frame.scale_y))
+                                .rounded(px(3.))
+                                .bg(gpui_kit::white().opacity(0.9)),
+                        ),
+                );
+        }
 
         // Two sparkles twinkling by the keycap.
         let spark = (frame.p * 1.6 - 0.4).clamp(0.0, 0.8) * frame.aura;
@@ -441,7 +471,7 @@ impl Render for ChargeView {
                         .left(px(center + dx - size / 2.0))
                         .top(px(center + dy - size / 2.0))
                         .size(px(size))
-                        .opacity(spark),
+                        .opacity(own(spark)),
                 );
             }
         }
@@ -451,6 +481,9 @@ impl Render for ChargeView {
 
 // ---- Pictures ----
 
+/// gpui rasterises an SVG image once, at the width and height it declares, and scales that
+/// bitmap; so each picture declares about twice the largest size it is drawn at, to stay crisp on
+/// Retina screens.
 fn svg_image(svg: String) -> Arc<Image> {
     Arc::new(Image::from_bytes(ImageFormat::Svg, svg.into_bytes()))
 }
@@ -517,7 +550,7 @@ fn spikes(seed: &mut u32, count: usize, inner: f32, outer: f32, jitter: f32) -> 
 fn aura_svg(variant: u32, accent: &str, light: &str) -> String {
     let mut seed = variant.wrapping_mul(7919).wrapping_add(17);
     format!(
-        r##"<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="-160 -160 320 320"><polygon points="{}" fill="{accent}" stroke="#1b1b2f" stroke-width="2.5" stroke-linejoin="round"/><polygon points="{}" fill="{light}"/></svg>"##,
+        r##"<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="-160 -160 320 320"><polygon points="{}" fill="{accent}" stroke="#1b1b2f" stroke-width="2.5" stroke-linejoin="round"/><polygon points="{}" fill="{light}"/></svg>"##,
         spikes(&mut seed, 14, 66.0, 100.0, 0.15),
         spikes(&mut seed, 14, 60.0, 84.0, 0.15),
     )
@@ -526,7 +559,7 @@ fn aura_svg(variant: u32, accent: &str, light: &str) -> String {
 fn boom_svg(fill: &str) -> String {
     let mut seed = 99;
     format!(
-        r##"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="-100 -100 200 200"><polygon points="{}" fill="{fill}" stroke="#1b1b2f" stroke-width="2" stroke-linejoin="round"/></svg>"##,
+        r##"<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="-100 -100 200 200"><polygon points="{}" fill="{fill}" stroke="#1b1b2f" stroke-width="2" stroke-linejoin="round"/></svg>"##,
         spikes(&mut seed, 14, 46.0, 92.0, 0.15)
     )
 }
@@ -578,7 +611,7 @@ mod tests {
             full_at: t0 + ms(550),
         };
         let start = phase.frame(t0);
-        assert!(start.scale_x < 0.3 && start.opacity == 0.0);
+        assert!(start.scale_x < 0.25 && start.opacity == 0.0);
         let entered = phase.frame(t0 + ENTER);
         assert!((entered.scale_x - 1.0).abs() < 0.01);
         assert!(!phase.frame(t0 + ms(400)).shake);
@@ -592,7 +625,7 @@ mod tests {
         let mid = phase.frame(t0 + BURST / 2);
         assert!(mid.scale_x > 1.0 && mid.boom.is_some() && !mid.done);
         let end = phase.frame(t0 + BURST);
-        assert!(end.done && end.opacity <= 0.0);
+        assert!(end.done && end.opacity <= 0.0 && end.scale_x > 1.5);
     }
 
     #[test]
@@ -603,7 +636,7 @@ mod tests {
         assert!(squash.scale_x > 1.1 && squash.scale_y < 0.85);
         assert_eq!(squash.p, 0.4);
         let end = phase.frame(t0 + RELEASE);
-        assert!(end.done && end.opacity <= 0.0 && end.scale_x < 0.2);
+        assert!(end.done && end.opacity <= 0.0 && (end.scale_x - 0.15).abs() < 0.01);
     }
 
     #[test]

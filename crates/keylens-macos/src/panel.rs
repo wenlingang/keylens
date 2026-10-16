@@ -38,6 +38,13 @@ pub fn reduce_motion() -> bool {
     NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
 }
 
+/// Sets a window's opacity, used by the hold animation to fade the whole picture at once.
+pub fn set_alpha(window: &impl HasWindowHandle, alpha: f32) {
+    if let Some(window) = ns_window(window) {
+        window.setAlphaValue(alpha as f64);
+    }
+}
+
 /// How long the panel takes to fade in.
 const FADE_IN_SECONDS: f64 = 0.16;
 
@@ -125,7 +132,8 @@ pub fn show_overlay(window: &impl HasWindowHandle, pid: Option<i32>) -> Option<B
         // One level above the panel, which sits at the pop-up menu level.
         window.setLevel(NSPopUpMenuWindowLevel + 1);
         window.setFrameOrigin(NSPoint::new(x, y));
-        window.setAlphaValue(1.0);
+        // The animation sets the opacity from its first frame on (see `set_alpha`).
+        window.setAlphaValue(0.0);
         window.orderFrontRegardless();
     }))
 }
