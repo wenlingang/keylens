@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 notes=$(scripts/release-notes.sh 1.2.3 abc123def)
-for want in "Keylens-1.2.3.dmg" "abc123def" "xattr -d com.apple.quarantine ~/Downloads/Keylens-1.2.3.dmg" "tccutil reset Accessibility" \
+for want in "Keylens-1.2.3.dmg" "abc123def" "xattr -d com.apple.quarantine ~/Downloads/Keylens-1.2.3.dmg" \
             "README.zh-CN.md" "Open Anyway" "x86_64"; do
   [[ $notes == *"$want"* ]] && echo "ok - mentions '$want'" || { echo "FAIL - missing '$want'"; exit 1; }
 done

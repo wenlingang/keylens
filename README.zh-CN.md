@@ -42,8 +42,6 @@
    - 或在打开 dmg 之前，在终端执行：`xattr -d com.apple.quarantine ~/Downloads/Keylens.dmg`（新版 macOS 不允许终端修改「应用程序」里已有的 App）
 3. 按引导在「系统设置 › 隐私与安全性 › 辅助功能」中打开 Keylens 的开关，授权后自动生效。之后升级覆盖安装，不需要重新授权。
 
-从 0.1.0 升级：0.1.0 用的是另一张签名证书，原来的辅助功能授权对新版本无效。请在「辅助功能」列表里选中 Keylens 按「−」删除（或在终端执行 `tccutil reset Accessibility io.github.wenlingang.keylens`），再重新授权。
-
 Keylens 每天会检查一次新版本，也可以在菜单栏图标的菜单里点「检查更新…」手动检查。发现新版本时会先询问，确认后自动下载、安装并重启。只有用同一张证书签名的新版本才会被安装，所以辅助功能授权会保留。
 
 支持 macOS 11 及以上，Universal 版本（Apple Silicon + Intel）；目前只在 macOS 26（Apple Silicon）上实测过，Intel 版本未经真机验证。

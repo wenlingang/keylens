@@ -14,8 +14,6 @@ cat <<EOT
      (recent macOS refuses to change apps already in Applications).
 3. Grant Accessibility permission when prompted. Later upgrades keep the permission, and Keylens
    installs them itself (menu bar › Check for Updates…).
-   Upgrading from 0.1.0 (different certificate): remove Keylens from the Accessibility list first, or run
-   \`tccutil reset Accessibility io.github.wenlingang.keylens\`, then grant it again.
 
 简体中文安装说明：[README.zh-CN.md](https://github.com/wenlingang/keylens/blob/master/README.zh-CN.md#安装)
 
