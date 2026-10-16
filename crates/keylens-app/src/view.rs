@@ -4,6 +4,7 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::time::Duration;
 
+use gpui_kit::base::FocusableExt;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{ActiveTheme, Theme, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder;
@@ -999,7 +1000,13 @@ impl Render for PanelView {
                             .font_weight(FontWeight::SEMIBOLD)
                             .child(app_name),
                     )
-                    .child(div().flex_1().child(Input::new(&self.input)))
+                    // No focus halo: the box is always focused while the panel is up, and the
+                    // glow around it only reads as a shadow.
+                    .child(
+                        div()
+                            .flex_1()
+                            .child(Input::new(&self.input).focus_ring(false)),
+                    )
                     .when(count > 0, |d| {
                         d.child(
                             div()
