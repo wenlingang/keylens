@@ -50,7 +50,12 @@ requires it, and CI fails if the app is signed by any other certificate.
 
 1. Bump `version` in `crates/keylens-app/Cargo.toml`, run `cargo check` to update `Cargo.lock`, and commit.
 2. Optional dry run: Actions › Release › Run workflow, then download the `keylens-dmg` artifact.
-3. `git tag vX.Y.Z && git push origin vX.Y.Z`. CI checks the tag matches the Cargo version,
-   runs the tests, packages, verifies and publishes the release.
+3. `git tag -a vX.Y.Z -m "<what changed>" && git push origin vX.Y.Z`. CI checks the tag matches the
+   Cargo version, runs the tests, packages, verifies and publishes the release. The tag message is shown
+   in the in-app update dialog.
+
+Every release also carries `latest.json` (`scripts/update-manifest.sh`). Installed copies fetch it from
+`releases/latest/download/latest.json`, so the newest non-prerelease release is what they update to.
+To try an install by hand: `cargo run -p keylens-macos --example install_update -- <dmg> <Keylens.app> <version>`.
 
 To package locally with your development certificate: `scripts/package.sh --identity "Keylens Development"`.

@@ -42,6 +42,8 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
    - or run in a terminal: `xattr -dr com.apple.quarantine /Applications/Keylens.app`
 3. Follow the prompt and turn on Keylens under System Settings › Privacy & Security › Accessibility. It takes effect immediately after you grant it. Upgrading by replacing the app later does not require granting it again.
 
+Keylens checks for new versions once a day (or from **Check for Updates…** in its menu bar menu). When one is out it asks, then downloads, installs and restarts itself; the update is installed only if it is signed by the same certificate, so the Accessibility permission carries over.
+
 Requires macOS 11 or later. Universal build (Apple Silicon + Intel); so far it has only been verified on macOS 26 (Apple Silicon), and the Intel build has not been verified on real hardware.
 
 ## Build from source

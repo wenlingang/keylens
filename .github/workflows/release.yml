@@ -52,9 +52,17 @@ jobs:
         run: |
           version=$(scripts/app-version.sh)
           dmg="target/release-dist/Keylens-$version.dmg"
-          scripts/release-notes.sh "$version" "$(cut -d' ' -f1 "$dmg.sha256")" > "$RUNNER_TEMP/notes.md"
-          gh release create "$GITHUB_REF_NAME" "$dmg" "$dmg.sha256" \
-            --title "Keylens $version" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+          sha=$(cut -d' ' -f1 "$dmg.sha256")
+          scripts/release-notes.sh "$version" "$sha" > "$RUNNER_TEMP/notes.md"
+          # The annotated tag's message becomes the notes shown in the in-app update dialog.
+          git fetch --force --depth=1 origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > "$RUNNER_TEMP/update-notes.txt"
+          scripts/update-manifest.sh "$version" "$sha" "$RUNNER_TEMP/update-notes.txt" > "$RUNNER_TEMP/latest.json"
+          # A pre-release (vX.Y.Z-rc1) must not become releases/latest, which every installed copy updates to.
+          prerelease=()
+          [[ $version == *-* ]] && prerelease=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" "$dmg" "$dmg.sha256" "$RUNNER_TEMP/latest.json" \
+            --title "Keylens $version" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes "${prerelease[@]}"
       - name: Remove temporary keychain
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/release.keychain-db" 2>/dev/null || true

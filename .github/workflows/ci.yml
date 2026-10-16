@@ -19,6 +19,7 @@ jobs:
       - run: cargo test --workspace --locked
       - run: scripts/tests/version-test.sh
       - run: scripts/tests/release-notes-test.sh
+      - run: scripts/tests/update-manifest-test.sh
 
   # Linux is not shipped yet; this keeps the shared code building and tested there.
   linux:

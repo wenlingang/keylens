@@ -8,15 +8,18 @@ pub enum TrayCommand {
     OpenDataFolder,
     /// Open Keylens' settings window.
     Settings,
+    /// Check for a new version now (and offer to install it).
+    CheckForUpdates,
     Quit,
 }
 
 impl TrayCommand {
-    pub const ALL: [TrayCommand; 5] = [
+    pub const ALL: [TrayCommand; 6] = [
         TrayCommand::Permission,
         TrayCommand::EditCurrentApp,
         TrayCommand::OpenDataFolder,
         TrayCommand::Settings,
+        TrayCommand::CheckForUpdates,
         TrayCommand::Quit,
     ];
 }
@@ -29,6 +32,9 @@ pub struct TrayLabels {
     pub edit_current: String,
     pub open_data: String,
     pub settings: String,
+    pub check_updates: String,
+    /// Replaces `check_updates` (disabled) while an update is being checked or installed.
+    pub updating: String,
     pub quit: String,
 }
 
@@ -40,6 +46,9 @@ pub trait TrayHandle {
     fn set_data_errors(&self, text: Option<&str>);
     /// Replaces every label (after the UI language changed), keeping the current state.
     fn set_labels(&self, labels: TrayLabels);
+    /// Shows that an update check or install is running: the check-for-updates item reads
+    /// `updating` and is disabled until `false`.
+    fn set_updating(&self, updating: bool);
 }
 
 #[cfg(test)]
@@ -48,7 +57,7 @@ mod tests {
 
     #[test]
     fn all_lists_every_command_once() {
-        assert_eq!(TrayCommand::ALL.len(), 5);
+        assert_eq!(TrayCommand::ALL.len(), 6);
         assert!(TrayCommand::ALL.contains(&TrayCommand::Settings));
     }
 }

@@ -56,9 +56,11 @@ pub struct Tray {
     edit_item: Retained<NSMenuItem>,
     open_item: Retained<NSMenuItem>,
     settings_item: Retained<NSMenuItem>,
+    update_item: Retained<NSMenuItem>,
     quit_item: Retained<NSMenuItem>,
     labels: RefCell<TrayLabels>,
     granted: Cell<bool>,
+    updating: Cell<bool>,
     mtm: MainThreadMarker,
     _menu: Retained<NSMenu>,
     _target: Retained<Target>,
@@ -128,6 +130,13 @@ impl Tray {
         menu.addItem(&open_item);
         let settings_item = menu_item(mtm, &labels.settings, &target, Some(TrayCommand::Settings));
         menu.addItem(&settings_item);
+        let update_item = menu_item(
+            mtm,
+            &labels.check_updates,
+            &target,
+            Some(TrayCommand::CheckForUpdates),
+        );
+        menu.addItem(&update_item);
         menu.addItem(&NSMenuItem::separatorItem(mtm));
         let quit_item = menu_item(mtm, &labels.quit, &target, Some(TrayCommand::Quit));
         menu.addItem(&quit_item);
@@ -140,9 +149,11 @@ impl Tray {
             edit_item,
             open_item,
             settings_item,
+            update_item,
             quit_item,
             labels: RefCell::new(labels),
             granted: Cell::new(true),
+            updating: Cell::new(false),
             mtm,
             _menu: menu,
             _target: target,
@@ -186,6 +197,26 @@ impl TrayHandle for Tray {
         title(&self.quit_item, &labels.quit);
         *self.labels.borrow_mut() = labels;
         self.set_permission(self.granted.get());
+        self.set_updating(self.updating.get());
+    }
+
+    fn set_updating(&self, updating: bool) {
+        self.updating.set(updating);
+        let labels = self.labels.borrow();
+        let title = if updating {
+            &labels.updating
+        } else {
+            &labels.check_updates
+        };
+        self.update_item.setTitle(&NSString::from_str(title));
+        // Without an action the item is disabled (the menu auto-enables items by their action).
+        let action = if updating {
+            None
+        } else {
+            Some(sel!(menuItemClicked:))
+        };
+        // SAFETY: The item's target (held by Tray) implements this selector.
+        unsafe { self.update_item.setAction(action) };
     }
 }
 

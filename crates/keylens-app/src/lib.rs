@@ -18,6 +18,8 @@ pub mod shortcut_editor;
 pub mod strings;
 pub mod template;
 pub mod ui;
+pub mod update;
+pub mod updater;
 pub mod user_data_edit;
 pub mod view;
 pub mod watch;
@@ -27,6 +29,7 @@ use std::sync::Arc;
 
 use keylens_platform::Platform;
 use keylens_platform::tray::{TrayCommand, TrayHandle, TrayLabels};
+use keylens_platform::update::UpdateNative;
 
 /// Version line shown in the menu bar menu, e.g. "Keylens 0.1.0". Not translated.
 pub fn version_label() -> String {
@@ -43,6 +46,8 @@ fn tray_labels() -> TrayLabels {
         edit_current: t!("Tray.edit_current").to_string(),
         open_data: t!("Tray.open_data").to_string(),
         settings: t!("Tray.settings").to_string(),
+        check_updates: t!("Tray.check_updates").to_string(),
+        updating: t!("Tray.updating").to_string(),
         quit: t!("Tray.quit").to_string(),
     }
 }
@@ -56,6 +61,7 @@ pub struct Host {
     pub platform: Arc<dyn Platform>,
     pub native: controller::Native,
     pub install_tray: InstallTray,
+    pub update: UpdateNative,
 }
 
 /// Starts Keylens (macOS only).
@@ -79,6 +85,11 @@ pub fn run() {
             open: keylens_macos::panel::open_path,
         },
         install_tray,
+        update: UpdateNative {
+            install: keylens_macos::update::install,
+            relaunch: keylens_macos::update::relaunch,
+            dialog: keylens_macos::update::dialog,
+        },
     });
 }
 
@@ -93,10 +104,12 @@ pub fn run_with(host: Host) {
 
     use crate::controller::Keylens;
     use crate::loader::Loader;
+    use crate::updater::Updater;
     use crate::view::{PanelView, bind_keys};
 
     struct KeylensApp {
         _keylens: Entity<Keylens>,
+        _updater: Entity<Updater>,
         _tray: Rc<dyn TrayHandle>,
         _log_guard: Option<tracing_appender::non_blocking::WorkerGuard>,
     }
@@ -106,6 +119,7 @@ pub fn run_with(host: Host) {
         platform,
         native,
         install_tray,
+        update,
     } = host;
 
     let log_guard = logging::init(&logging::log_dir());
@@ -201,7 +215,22 @@ pub fn run_with(host: Host) {
                 }),
             );
 
+            let tray_for_updates = tray.clone();
+            let updater = cx.new(|cx| {
+                let mut updater = Updater::new(
+                    Arc::new(update::Curl),
+                    update,
+                    Box::new(move |busy| tray_for_updates.set_updating(busy)),
+                );
+                // Dev builds are signed with the development certificate: an update would not verify.
+                if !cfg!(debug_assertions) {
+                    updater.start(cx);
+                }
+                updater
+            });
+
             let keylens_for_tray = keylens.clone();
+            let updater_for_tray = updater.clone();
             cx.spawn(async move |cx| {
                 while let Ok(command) = tray_rx.recv().await {
                     cx.update(|cx| match command {
@@ -218,6 +247,9 @@ pub fn run_with(host: Host) {
                         }
                         TrayCommand::Settings => {
                             keylens_for_tray.update(cx, |k, cx| k.open_settings(cx))
+                        }
+                        TrayCommand::CheckForUpdates => {
+                            updater_for_tray.update(cx, |u, cx| u.check(true, cx))
                         }
                         TrayCommand::Quit => cx.quit(),
                     });
@@ -250,6 +282,7 @@ pub fn run_with(host: Host) {
             keylens.update(cx, |k, cx| k.start(cx));
             cx.set_global(KeylensApp {
                 _keylens: keylens,
+                _updater: updater,
                 _tray: tray,
                 _log_guard: log_guard,
             });
