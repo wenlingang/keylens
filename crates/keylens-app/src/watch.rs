@@ -27,6 +27,21 @@ pub fn fingerprint(dir: &Path) -> Fingerprint {
     files
 }
 
+/// Runs `load` on `dir` only if its fingerprint differs from `last`, which it then updates, so an
+/// unchanged folder costs a directory listing rather than a full parse.
+pub fn reload_if_changed<T>(
+    dir: &Path,
+    last: &mut Fingerprint,
+    load: impl FnOnce(&Path) -> T,
+) -> Option<T> {
+    let now = fingerprint(dir);
+    if now == *last {
+        return None;
+    }
+    *last = now;
+    Some(load(dir))
+}
+
 /// Modification time and size of one file (following symlinks), or `None` if it is missing.
 pub type Stamp = (Option<SystemTime>, u64);
 
@@ -81,6 +96,24 @@ mod tests {
         std::fs::write(&target, "one plus more").unwrap();
         assert_ne!(fingerprint(&dir), before);
         std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn reloads_only_when_the_folder_changed() {
+        let dir = std::env::temp_dir().join(format!("keylens-reload-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.toml"), "one").unwrap();
+        let mut last = fingerprint(&dir);
+        let mut loads = 0;
+        let mut load = |_: &Path| loads += 1;
+
+        assert_eq!(reload_if_changed(&dir, &mut last, &mut load), None);
+        std::fs::write(dir.join("a.toml"), "one plus more").unwrap();
+        assert_eq!(reload_if_changed(&dir, &mut last, &mut load), Some(()));
+        assert_eq!(reload_if_changed(&dir, &mut last, &mut load), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(loads, 1);
     }
 
     #[test]

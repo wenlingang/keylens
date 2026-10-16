@@ -1,5 +1,6 @@
 //! Platform implementation for tests: all state lives in memory and can be controlled directly from test code.
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
@@ -23,6 +24,7 @@ pub struct FakePlatform {
     app: Mutex<Option<AppInfo>>,
     menu: Arc<Mutex<Menu>>,
     menu_error: Arc<Mutex<Option<SourceError>>>,
+    menu_reads: Arc<AtomicUsize>,
     executed: Mutex<Vec<EntryId>>,
     key_sender: SharedSender<KeyEvent>,
     app_sender: SharedSender<AppInfo>,
@@ -36,6 +38,7 @@ impl Default for FakePlatform {
             app: Mutex::new(None),
             menu: Arc::default(),
             menu_error: Arc::default(),
+            menu_reads: Arc::default(),
             executed: Mutex::default(),
             key_sender: Arc::default(),
             app_sender: Arc::default(),
@@ -72,6 +75,11 @@ impl FakePlatform {
         *self.menu_error.lock().unwrap() = error;
     }
 
+    /// How many times a menu was read.
+    pub fn menu_reads(&self) -> usize {
+        self.menu_reads.load(Ordering::SeqCst)
+    }
+
     pub fn executed(&self) -> Vec<EntryId> {
         self.executed.lock().unwrap().clone()
     }
@@ -87,10 +95,12 @@ impl FakePlatform {
 struct FakeMenu {
     menu: Arc<Mutex<Menu>>,
     error: Arc<Mutex<Option<SourceError>>>,
+    reads: Arc<AtomicUsize>,
 }
 
 impl ShortcutSource for FakeMenu {
     fn load(&self, _: &AppInfo) -> Result<Vec<Entry>, SourceError> {
+        self.reads.fetch_add(1, Ordering::SeqCst);
         if let Some(error) = self.error.lock().unwrap().clone() {
             return Err(error);
         }
@@ -131,6 +141,7 @@ impl Platform for FakePlatform {
         Box::new(FakeMenu {
             menu: self.menu.clone(),
             error: self.menu_error.clone(),
+            reads: self.menu_reads.clone(),
         })
     }
 

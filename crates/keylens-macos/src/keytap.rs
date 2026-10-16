@@ -47,8 +47,10 @@ impl Drop for RunLoopHandle {
     }
 }
 
-/// Each round the listener thread runs at most this long, then checks the stop flag.
-const STOP_CHECK_INTERVAL_SECS: f64 = 0.5;
+/// Each round the listener thread runs at most this long, then checks the stop flag. Dropping the
+/// handle stops the run loop at once, so this only bounds the rare stop that lands before the
+/// thread enters it; a long round keeps the idle thread from waking up.
+const STOP_CHECK_INTERVAL_SECS: f64 = 5.0;
 
 unsafe extern "C-unwind" fn on_event(
     _proxy: CGEventTapProxy,

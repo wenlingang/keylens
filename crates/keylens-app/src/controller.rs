@@ -29,6 +29,9 @@ const USER_DATA_POLL: Duration = Duration::from_secs(2);
 /// How long to wait after a Keylens window loses focus before checking where focus went: AppKit
 /// reports the old window resigning before the new one becoming key.
 const FOCUS_SETTLE: Duration = Duration::from_millis(100);
+/// How long an app must stay frontmost before its menu is read in advance, so switching through
+/// apps (e.g. with Cmd-Tab) reads only the one the user stops at.
+const FRONTMOST_SETTLE: Duration = Duration::from_millis(400);
 
 /// A deferred panel move returned by [`Native::place`].
 pub type PanelMove = Box<dyn FnOnce()>;
@@ -73,6 +76,7 @@ pub struct Keylens {
     child_subscriptions: Vec<(AnyWindowHandle, Vec<Subscription>)>,
     focus_check: Option<Task<()>>,
     tick: Option<Task<()>>,
+    frontmost_prefetch: Option<Task<()>>,
     permission_task: Option<Task<()>>,
     user_data_task: Option<Task<()>>,
     on_permission: Option<Box<dyn Fn(bool)>>,
@@ -124,6 +128,7 @@ impl Keylens {
             child_subscriptions: Vec::new(),
             focus_check: None,
             tick: None,
+            frontmost_prefetch: None,
             permission_task: None,
             user_data_task: None,
             on_permission: None,
@@ -226,19 +231,17 @@ impl Keylens {
             loop {
                 cx.background_executor().timer(USER_DATA_POLL).await;
                 let scan = dir.clone();
-                let (now, loaded) = cx
+                let (next, loaded) = cx
                     .background_executor()
                     .spawn(async move {
-                        let now = watch::fingerprint(&scan);
-                        let loaded = load_dir(&scan);
-                        (now, loaded)
+                        let loaded = watch::reload_if_changed(&scan, &mut last, load_dir);
+                        (last, loaded)
                     })
                     .await;
-                if now == last {
+                last = next;
+                let Some((catalog, errors)) = loaded else {
                     continue;
-                }
-                last = now;
-                let (catalog, errors) = loaded;
+                };
                 if this
                     .update(cx, |this, cx| {
                         this.on_user_data_changed(catalog, errors, cx)
@@ -430,8 +433,25 @@ impl Keylens {
     }
 
     fn on_frontmost(&mut self, app: AppInfo, cx: &mut Context<Self>) {
-        let effects = self.session.on_frontmost(app);
-        self.apply(effects, cx);
+        for effect in self.session.on_frontmost(app) {
+            match effect {
+                Effect::Prefetch(app) => self.prefetch_when_settled(app, cx),
+                effect => self.apply(vec![effect], cx),
+            }
+        }
+    }
+
+    /// Reads a newly frontmost app once it stays frontmost, unless it is already cached: showing
+    /// the panel refreshes cached data anyway. Replacing the task cancels the previous app's wait.
+    fn prefetch_when_settled(&mut self, app: AppInfo, cx: &mut Context<Self>) {
+        self.frontmost_prefetch = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(FRONTMOST_SETTLE).await;
+            let _ = this.update(cx, |this, cx| {
+                if this.cache.get(app.pid).is_none() {
+                    this.prefetch(app, cx);
+                }
+            });
+        }));
     }
 
     fn apply(&mut self, effects: Vec<Effect>, cx: &mut Context<Self>) {
@@ -946,6 +966,21 @@ mod tests {
         cx.run_until_parked();
     }
 
+    fn switch_to(keylens: &Entity<Keylens>, pid: i32, cx: &mut TestAppContext) {
+        let app = AppInfo {
+            pid,
+            name: format!("App {pid}"),
+            ids: vec![],
+        };
+        keylens.update(cx, |k, cx| k.on_frontmost(app, cx));
+        cx.run_until_parked();
+    }
+
+    fn settle(cx: &mut TestAppContext) {
+        cx.executor().advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
+    }
+
     #[gpui_kit::test]
     fn releasing_the_trigger_key_keeps_the_panel_by_default(cx: &mut TestAppContext) {
         let fake = Arc::new(FakePlatform::default());
@@ -962,6 +997,35 @@ mod tests {
         cx.run_until_parked();
         hold_and_release(&keylens, &fake, cx);
         assert!(!panel_visible(&keylens, cx));
+    }
+
+    #[gpui_kit::test]
+    fn switching_apps_quickly_reads_only_the_one_that_stays(cx: &mut TestAppContext) {
+        let fake = Arc::new(FakePlatform::default());
+        let (keylens, _) = setup_with(cx, || {}, fake.clone());
+        for pid in [1, 2, 3] {
+            switch_to(&keylens, pid, cx);
+            cx.executor().advance_clock(Duration::from_millis(100));
+            cx.run_until_parked();
+        }
+        assert_eq!(fake.menu_reads(), 0);
+        settle(cx);
+        assert_eq!(fake.menu_reads(), 1);
+        assert!(keylens.read_with(cx, |k, _| k.cache.get(3).is_some()));
+    }
+
+    #[gpui_kit::test]
+    fn switching_back_to_a_cached_app_does_not_read_it_again(cx: &mut TestAppContext) {
+        let fake = Arc::new(FakePlatform::default());
+        let (keylens, _) = setup_with(cx, || {}, fake.clone());
+        switch_to(&keylens, 1, cx);
+        settle(cx);
+        switch_to(&keylens, 2, cx);
+        settle(cx);
+        assert_eq!(fake.menu_reads(), 2);
+        switch_to(&keylens, 1, cx);
+        settle(cx);
+        assert_eq!(fake.menu_reads(), 2);
     }
 
     #[gpui_kit::test]
