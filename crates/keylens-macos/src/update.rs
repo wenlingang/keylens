@@ -10,8 +10,11 @@ use keylens_platform::update::{Dialog, InstallError};
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
-use objc2_app_kit::{NSAlert, NSApplication, NSButton};
-use objc2_foundation::NSString;
+use objc2_app_kit::{
+    NSAlert, NSApplication, NSAutoresizingMaskOptions, NSBorderType, NSButton, NSFont,
+    NSScrollView, NSTextView,
+};
+use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 
 const APP_NAME: &str = "Keylens.app";
 /// Bundles the installer puts next to the app while it works (`<prefix>update-<pid>.app`, …).
@@ -227,7 +230,9 @@ pub fn dialog(dialog: Dialog, done: Box<dyn FnOnce(usize)>) {
     });
     // SAFETY: Calls NSObject's init.
     let target: Retained<DialogTarget> = unsafe { msg_send![super(target), init] };
-    let last = dialog.buttons.len().saturating_sub(1);
+    if let Some(details) = &dialog.details {
+        alert.setAccessoryView(Some(&details_view(mtm, details)));
+    }
     for (index, title) in dialog.buttons.iter().enumerate() {
         let button = alert.addButtonWithTitle(&NSString::from_str(title));
         button.setTag(index as isize);
@@ -236,7 +241,7 @@ pub fn dialog(dialog: Dialog, done: Box<dyn FnOnce(usize)>) {
             button.setTarget(Some(&*target as &AnyObject));
             button.setAction(Some(sel!(buttonClicked:)));
         }
-        if index == last && index > 0 {
+        if dialog.cancel == Some(index) {
             button.setKeyEquivalent(&NSString::from_str("\u{1b}"));
         }
     }
@@ -249,6 +254,48 @@ pub fn dialog(dialog: Dialog, done: Box<dyn FnOnce(usize)>) {
     #[allow(deprecated)]
     NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
     window.makeKeyAndOrderFront(None);
+}
+
+/// Width and height of the release notes area: fixed, so long notes scroll instead of growing the
+/// dialog.
+const DETAILS_SIZE: (f64, f64) = (420., 140.);
+
+/// A read-only, scrolling text area with clickable links.
+fn details_view(mtm: MainThreadMarker, text: &str) -> Retained<NSScrollView> {
+    let (width, height) = DETAILS_SIZE;
+    let frame = NSRect::new(NSPoint::new(0., 0.), NSSize::new(width, height));
+    let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), frame);
+    scroll.setHasVerticalScroller(true);
+    scroll.setAutohidesScrollers(true);
+    scroll.setBorderType(NSBorderType::BezelBorder);
+    let content = scroll.contentSize();
+    let view = NSTextView::initWithFrame(
+        NSTextView::alloc(mtm),
+        NSRect::new(NSPoint::new(0., 0.), content),
+    );
+    view.setVerticallyResizable(true);
+    view.setHorizontallyResizable(false);
+    view.setMinSize(NSSize::new(0., content.height));
+    view.setMaxSize(NSSize::new(f64::MAX, f64::MAX));
+    view.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
+    // SAFETY: A text view made with initWithFrame owns its text container.
+    if let Some(container) = unsafe { view.textContainer() } {
+        container.setWidthTracksTextView(true);
+    }
+    view.setTextContainerInset(NSSize::new(6., 6.));
+    view.setFont(Some(&NSFont::systemFontOfSize(
+        NSFont::smallSystemFontSize(),
+    )));
+    view.setString(&NSString::from_str(text));
+    // Link detection only runs on editable text: turn editing on just long enough to run it.
+    view.setEditable(true);
+    view.setAutomaticLinkDetectionEnabled(true);
+    // SAFETY: A nil sender is allowed; the view is fully set up.
+    unsafe { view.checkTextInDocument(None) };
+    view.setEditable(false);
+    view.setSelectable(true);
+    scroll.setDocumentView(Some(&view));
+    scroll
 }
 
 #[cfg(test)]

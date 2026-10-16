@@ -26,13 +26,17 @@ pub enum InstallError {
     Replace { path: PathBuf, detail: String },
 }
 
-/// A dialog with a title, a message and buttons; the first button is the default (Return), the
-/// last one, when there are several, is the cancel button (Escape).
+/// A dialog with a title, a short message, optional details and buttons. The first button is the
+/// default (Return).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Dialog {
     pub title: String,
     pub message: String,
+    /// Longer text (release notes) shown in a fixed-size scrolling area below the message.
+    pub details: Option<String>,
     pub buttons: Vec<String>,
+    /// The button Escape presses.
+    pub cancel: Option<usize>,
 }
 
 /// Platform functions for the updater.

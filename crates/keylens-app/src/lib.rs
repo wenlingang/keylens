@@ -54,7 +54,6 @@ fn tray_labels(dev: bool) -> TrayLabels {
         open_data: t!("Tray.open_data").to_string(),
         settings: t!("Tray.settings").to_string(),
         check_updates: t!("Tray.check_updates").to_string(),
-        updating: t!("Tray.updating").to_string(),
         quit: t!("Tray.quit").to_string(),
     }
 }
@@ -231,11 +230,15 @@ pub fn run_with(host: Host) {
                 let mut updater = Updater::new(
                     Arc::new(update::Curl),
                     update,
-                    Box::new(move |busy| tray_for_updates.set_updating(busy)),
+                    prefs.clone(),
+                    Box::new(move |status| tray_for_updates.set_update_status(status)),
                 );
                 // Dev builds are signed with the development certificate: an update would not verify.
                 if !dev {
                     updater.start(cx);
+                } else if let Ok(version) = std::env::var("KEYLENS_PRETEND_VERSION") {
+                    // Lets a dev build show the update dialog and progress (see CONTRIBUTING.md).
+                    updater.pretend_version(version);
                 }
                 updater
             });

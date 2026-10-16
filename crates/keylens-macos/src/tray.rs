@@ -60,7 +60,7 @@ pub struct Tray {
     quit_item: Retained<NSMenuItem>,
     labels: RefCell<TrayLabels>,
     granted: Cell<bool>,
-    updating: Cell<bool>,
+    update_status: RefCell<Option<String>>,
     mtm: MainThreadMarker,
     _menu: Retained<NSMenu>,
     _target: Retained<Target>,
@@ -153,7 +153,7 @@ impl Tray {
             quit_item,
             labels: RefCell::new(labels),
             granted: Cell::new(true),
-            updating: Cell::new(false),
+            update_status: RefCell::new(None),
             mtm,
             _menu: menu,
             _target: target,
@@ -198,23 +198,21 @@ impl TrayHandle for Tray {
         title(&self.quit_item, &labels.quit);
         *self.labels.borrow_mut() = labels;
         self.set_permission(self.granted.get());
-        self.set_updating(self.updating.get());
+        let status = self.update_status.borrow().clone();
+        self.set_update_status(status.as_deref());
     }
 
-    fn set_updating(&self, updating: bool) {
-        self.updating.set(updating);
-        let labels = self.labels.borrow();
-        let title = if updating {
-            &labels.updating
-        } else {
-            &labels.check_updates
+    fn set_update_status(&self, status: Option<&str>) {
+        *self.update_status.borrow_mut() = status.map(str::to_string);
+        let title = match status {
+            Some(status) => status.to_string(),
+            None => self.labels.borrow().check_updates.clone(),
         };
-        self.update_item.setTitle(&NSString::from_str(title));
+        self.update_item.setTitle(&NSString::from_str(&title));
         // Without an action the item is disabled (the menu auto-enables items by their action).
-        let action = if updating {
-            None
-        } else {
-            Some(sel!(menuItemClicked:))
+        let action = match status {
+            Some(_) => None,
+            None => Some(sel!(menuItemClicked:)),
         };
         // SAFETY: The item's target (held by Tray) implements this selector.
         unsafe { self.update_item.setAction(action) };

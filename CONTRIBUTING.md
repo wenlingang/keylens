@@ -56,6 +56,9 @@ requires it, and CI fails if the app is signed by any other certificate.
 
 Every release also carries `latest.json` (`scripts/update-manifest.sh`). Installed copies fetch it from
 `releases/latest/download/latest.json`, so the newest non-prerelease release is what they update to.
+To see the update dialog and download progress from a dev build, start it with
+`KEYLENS_PRETEND_VERSION=0.0.1 scripts/run-dev.sh` and use "Check for Updates…" (the install then
+fails on purpose: the release is not signed with the development certificate).
 To try an install by hand: `cargo run -p keylens-macos --example install_update -- <dmg> <Keylens.app> <version>`.
 
 To package locally with your development certificate: `scripts/package.sh --identity "Keylens Development"`.

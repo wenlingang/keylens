@@ -1,5 +1,5 @@
-//! User config (`config.toml` in [`config_dir`]): the trigger, the UI language, and the data
-//! directory.
+//! User config (`config.toml` in [`config_dir`]): the trigger, the UI language, update checks,
+//! and the data directory.
 
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
@@ -19,6 +19,33 @@ pub struct Config {
     /// Overrides the system language, e.g. `"ja"`, `"zh-TW"`.
     pub language: Option<String>,
     pub trigger: TriggerConfig,
+    pub update: UpdateConfig,
+}
+
+/// `[update]`, raw like `[trigger]`.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct UpdateConfig {
+    pub auto_check: Option<toml::Value>,
+    pub skip_version: Option<toml::Value>,
+}
+
+/// What `[update]` asks for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UpdateSettings {
+    /// Check for new versions on a timer (the menu bar's "Check for Updates…" always works).
+    pub auto_check: bool,
+    /// A version the user chose to skip: automatic checks do not offer it.
+    pub skip_version: Option<String>,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self {
+            auto_check: true,
+            skip_version: None,
+        }
+    }
 }
 
 /// `[trigger]`. Values stay raw so that one bad field only resets itself (see
@@ -170,6 +197,40 @@ impl Config {
             hold_ms,
             double_tap_ms,
             hide_on_release,
+        };
+        (settings, warnings)
+    }
+}
+
+impl Config {
+    /// The update settings, plus a warning for every field that was ignored.
+    pub fn update_settings(&self) -> (UpdateSettings, Vec<String>) {
+        let defaults = UpdateSettings::default();
+        let mut warnings = Vec::new();
+        let auto_check = match &self.update.auto_check {
+            None => defaults.auto_check,
+            Some(value) => value.as_bool().unwrap_or_else(|| {
+                warnings.push(format!(
+                    "update.auto-check: expected true or false, got {value}; using the default"
+                ));
+                defaults.auto_check
+            }),
+        };
+        let skip_version = match &self.update.skip_version {
+            None => None,
+            Some(value) => match value.as_str() {
+                Some(version) => Some(version.to_string()),
+                None => {
+                    warnings.push(format!(
+                        "update.skip-version: expected a version string, got {value}; ignoring it"
+                    ));
+                    None
+                }
+            },
+        };
+        let settings = UpdateSettings {
+            auto_check,
+            skip_version,
         };
         (settings, warnings)
     }
@@ -422,5 +483,21 @@ mod tests {
     fn data_dir_is_under_config_dir() {
         assert!(user_data_dir().starts_with(config_dir()));
         assert!(config_path().ends_with("keylens/config.toml"));
+    }
+
+    #[test]
+    fn update_settings_default_to_automatic_checks() {
+        let (update, warnings) = parse_config("").unwrap().update_settings();
+        assert_eq!(update, UpdateSettings::default());
+        assert!(update.auto_check);
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn bad_update_values_fall_back_with_a_warning() {
+        let config = parse_config("[update]\nauto-check = \"no\"\nskip-version = 2\n").unwrap();
+        let (update, warnings) = config.update_settings();
+        assert_eq!(update, UpdateSettings::default());
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
     }
 }

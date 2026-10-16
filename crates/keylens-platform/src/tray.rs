@@ -35,8 +35,6 @@ pub struct TrayLabels {
     pub open_data: String,
     pub settings: String,
     pub check_updates: String,
-    /// Replaces `check_updates` (disabled) while an update is being checked or installed.
-    pub updating: String,
     pub quit: String,
 }
 
@@ -48,9 +46,9 @@ pub trait TrayHandle {
     fn set_data_errors(&self, text: Option<&str>);
     /// Replaces every label (after the UI language changed), keeping the current state.
     fn set_labels(&self, labels: TrayLabels);
-    /// Shows that an update check or install is running: the check-for-updates item reads
-    /// `updating` and is disabled until `false`.
-    fn set_updating(&self, updating: bool);
+    /// Shows what the updater is doing (e.g. "Downloading 45%") in place of the
+    /// check-for-updates item, disabled; `None` restores the item.
+    fn set_update_status(&self, status: Option<&str>);
 }
 
 #[cfg(test)]

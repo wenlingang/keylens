@@ -1,4 +1,5 @@
-//! Settings window: edits `Prefs` (the trigger and the UI language). Every change applies at once.
+//! Settings window: edits `Prefs` (the trigger, the UI language and update checks). Every change
+//! applies at once.
 
 use std::ops::RangeInclusive;
 use std::path::Path;
@@ -13,7 +14,9 @@ use gpui_kit::*;
 use keylens_core::{Modifiers, Os};
 use rust_i18n::t;
 
-use crate::config::{DOUBLE_TAP_MS, DOUBLE_TAP_STEP, HOLD_MS, HOLD_STEP, TriggerMode};
+use crate::config::{
+    DOUBLE_TAP_MS, DOUBLE_TAP_STEP, HOLD_MS, HOLD_STEP, TriggerMode, UpdateSettings,
+};
 use crate::config_write::Change;
 use crate::prefs::{Prefs, Problem};
 use crate::ui::{CONTROL_WIDTH, ChildDeactivated, section};
@@ -79,7 +82,7 @@ pub fn open(
         is_resizable: false,
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
             None,
-            size(px(480.), px(336.)),
+            size(px(480.), px(456.)),
             cx,
         ))),
         ..Default::default()
@@ -363,7 +366,11 @@ impl Render for SettingsView {
         let current = prefs.trigger_settings();
         let defaults = prefs.default_trigger_settings();
         let language = prefs.config().language.clone();
-        let everything_default = current == defaults && language.is_none();
+        let update = prefs.update_settings();
+        let update_default = UpdateSettings::default();
+        let everything_default = current == defaults
+            && language.is_none()
+            && update.auto_check == update_default.auto_check;
         let os = self.os;
 
         let modes = vec![
@@ -493,6 +500,26 @@ impl Render for SettingsView {
             read_only,
         )];
 
+        let update_rows = {
+            let prefs = self.prefs.clone();
+            vec![row(
+                "auto-check",
+                t!("Settings.auto_check").to_string(),
+                h_flex().justify_end().child(
+                    Switch::new("auto-check-switch")
+                        .checked(update.auto_check)
+                        .disabled(read_only)
+                        .on_click(move |checked, _, cx| {
+                            let change = Change::AutoCheck(Some(*checked));
+                            prefs.update(cx, |p, cx| p.set(change, cx));
+                        }),
+                ),
+                (update.auto_check != update_default.auto_check).then_some(Change::AutoCheck(None)),
+                &self.prefs,
+                read_only,
+            )]
+        };
+
         v_flex()
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus)
@@ -518,6 +545,12 @@ impl Render for SettingsView {
                 t!("Settings.ui_group").to_string(),
                 language_rows,
                 None,
+                cx,
+            ))
+            .child(section(
+                t!("Settings.update_group").to_string(),
+                update_rows,
+                Some(t!("Settings.auto_check_note").to_string().into()),
                 cx,
             ))
             .child(

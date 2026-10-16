@@ -6,6 +6,7 @@
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 
 use semver::Version;
 use serde::Deserialize;
@@ -32,6 +33,9 @@ struct Manifest {
     version: String,
     dmg: String,
     sha256: String,
+    /// Size of the .dmg in bytes, for the download progress; missing in older manifests.
+    #[serde(default)]
+    size: Option<u64>,
     #[serde(default)]
     notes: String,
 }
@@ -45,6 +49,8 @@ pub struct Release {
     pub dmg_url: String,
     /// Lowercase hex SHA-256 of the .dmg.
     pub sha256: String,
+    /// Size of the .dmg in bytes, when the manifest says.
+    pub size: Option<u64>,
     /// Release notes, plain text; may be empty.
     pub notes: String,
 }
@@ -66,6 +72,7 @@ pub fn parse_manifest(bytes: &[u8]) -> Result<Release, UpdateError> {
         version,
         dmg: m.dmg,
         sha256,
+        size: m.size.filter(|&size| size > 0),
         notes: m.notes.trim().to_string(),
     })
 }
@@ -79,8 +86,12 @@ pub fn newer(current: &str, release: Release) -> Option<Release> {
 /// Fetches URLs. Blocking; call it off the main thread.
 pub trait Http: Send + Sync {
     fn get(&self, url: &str) -> Result<Vec<u8>, String>;
-    fn download(&self, url: &str, to: &Path) -> Result<(), String>;
+    /// Downloads `url` to `to`, calling `progress` with the bytes received so far now and then.
+    fn download(&self, url: &str, to: &Path, progress: &dyn Fn(u64)) -> Result<(), String>;
 }
+
+/// How often a download reports its progress.
+const PROGRESS_INTERVAL: Duration = Duration::from_millis(250);
 
 /// `curl`, present on every macOS and practically every Linux, so no HTTP/TLS stack is linked in.
 pub struct Curl;
@@ -122,10 +133,32 @@ impl Http for Curl {
         Self::run(command)
     }
 
-    fn download(&self, url: &str, to: &Path) -> Result<(), String> {
+    fn download(&self, url: &str, to: &Path, progress: &dyn Fn(u64)) -> Result<(), String> {
         let mut command = Self::command(url);
-        command.args(["--max-time", "900", "--output"]).arg(to);
-        Self::run(command).map(|_| ())
+        command
+            .args(["--max-time", "900", "--output"])
+            .arg(to)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped());
+        let mut child = command.spawn().map_err(|e| format!("curl: {e}"))?;
+        // The file grows as curl writes it: its size is the progress.
+        let status = loop {
+            if let Some(status) = child.try_wait().map_err(|e| format!("curl: {e}"))? {
+                break status;
+            }
+            if let Ok(meta) = std::fs::metadata(to) {
+                progress(meta.len());
+            }
+            std::thread::sleep(PROGRESS_INTERVAL);
+        };
+        if status.success() {
+            return Ok(());
+        }
+        let mut stderr = String::new();
+        if let Some(mut pipe) = child.stderr.take() {
+            let _ = pipe.read_to_string(&mut stderr);
+        }
+        Err(stderr.trim().to_string())
     }
 }
 
@@ -135,13 +168,19 @@ pub fn check(http: &dyn Http, current: &str) -> Result<Option<Release>, UpdateEr
     Ok(newer(current, parse_manifest(&bytes)?))
 }
 
-/// Downloads the release's .dmg into `dir` and checks its SHA-256; returns its path.
-pub fn download(http: &dyn Http, release: &Release, dir: &Path) -> Result<PathBuf, UpdateError> {
+/// Downloads the release's .dmg into `dir` and checks its SHA-256; returns its path. `progress`
+/// gets the bytes received so far.
+pub fn download(
+    http: &dyn Http,
+    release: &Release,
+    dir: &Path,
+    progress: &dyn Fn(u64),
+) -> Result<PathBuf, UpdateError> {
     std::fs::create_dir_all(dir)?;
     let path = dir.join(&release.dmg);
     let partial = dir.join(format!("{}.part", release.dmg));
     let _ = std::fs::remove_file(&partial);
-    http.download(&release.dmg_url, &partial)
+    http.download(&release.dmg_url, &partial, progress)
         .map_err(UpdateError::Network)?;
     let actual = sha256_file(&partial)?;
     if actual != release.sha256 {
@@ -195,6 +234,15 @@ mod tests {
             "https://github.com/wenlingang/keylens/releases/download/v0.2.0/Keylens-0.2.0.dmg"
         );
         assert_eq!(r.notes, "Fixes");
+        assert_eq!(r.size, None);
+    }
+
+    #[test]
+    fn parse_manifest_reads_the_size_when_present() {
+        let json = format!(
+            r#"{{"version":"0.2.0","dmg":"Keylens-0.2.0.dmg","sha256":"{EMPTY_SHA}","size":2048}}"#
+        );
+        assert_eq!(parse_manifest(json.as_bytes()).unwrap().size, Some(2048));
     }
 
     #[test]
@@ -234,8 +282,9 @@ mod tests {
             self.urls.lock().unwrap().push(url.to_string());
             self.manifest.clone()
         }
-        fn download(&self, url: &str, to: &Path) -> Result<(), String> {
+        fn download(&self, url: &str, to: &Path, progress: &dyn Fn(u64)) -> Result<(), String> {
             self.urls.lock().unwrap().push(url.to_string());
+            progress(self.file.len() as u64);
             std::fs::write(to, &self.file).map_err(|e| e.to_string())
         }
     }
@@ -278,7 +327,7 @@ mod tests {
         let http = fake(Ok(Vec::new()), b"");
         let release = parse_manifest(&manifest("0.2.0", "Keylens-0.2.0.dmg", EMPTY_SHA)).unwrap();
         let dir = temp_dir("ok");
-        let path = download(&http, &release, &dir).unwrap();
+        let path = download(&http, &release, &dir, &|_| {}).unwrap();
         assert_eq!(path, dir.join("Keylens-0.2.0.dmg"));
         assert!(path.exists());
         assert_eq!(http.urls.lock().unwrap()[0], release.dmg_url);
@@ -290,7 +339,7 @@ mod tests {
         let http = fake(Ok(Vec::new()), b"tampered");
         let release = parse_manifest(&manifest("0.2.0", "Keylens-0.2.0.dmg", EMPTY_SHA)).unwrap();
         let dir = temp_dir("bad");
-        let err = download(&http, &release, &dir).unwrap_err();
+        let err = download(&http, &release, &dir, &|_| {}).unwrap_err();
         assert!(matches!(err, UpdateError::Checksum { .. }), "{err}");
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
         let _ = std::fs::remove_dir_all(dir);

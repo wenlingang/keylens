@@ -175,12 +175,30 @@ Tray:
     zh-TW: "檢查更新…"
     zh-HK: "檢查更新…"
     ja: "アップデートを確認…"
-  updating:
-    en: "Updating…"
-    zh-CN: "正在更新…"
-    zh-TW: "正在更新…"
-    zh-HK: "正在更新…"
-    ja: "アップデート中…"
+  checking:
+    en: "Checking for Updates…"
+    zh-CN: "正在检查更新…"
+    zh-TW: "正在檢查更新…"
+    zh-HK: "正在檢查更新…"
+    ja: "アップデートを確認中…"
+  downloading_percent:
+    en: "Downloading Update %{percent}%"
+    zh-CN: "正在下载更新 %{percent}%"
+    zh-TW: "正在下載更新 %{percent}%"
+    zh-HK: "正在下載更新 %{percent}%"
+    ja: "アップデートをダウンロード中 %{percent}%"
+  downloading_mb:
+    en: "Downloading Update %{mb} MB"
+    zh-CN: "正在下载更新 %{mb} MB"
+    zh-TW: "正在下載更新 %{mb} MB"
+    zh-HK: "正在下載更新 %{mb} MB"
+    ja: "アップデートをダウンロード中 %{mb} MB"
+  installing:
+    en: "Installing Update…"
+    zh-CN: "正在安装更新…"
+    zh-TW: "正在安裝更新…"
+    zh-HK: "正在安裝更新…"
+    ja: "アップデートをインストール中…"
   quit:
     en: "Quit Keylens"
     zh-CN: "退出 Keylens"
@@ -302,6 +320,24 @@ Settings:
     zh-TW: "在這個間隔內連按兩下所選按鍵，彈出面板。"
     zh-HK: "在這個間隔內連按兩下所選按鍵，彈出面板。"
     ja: "この間隔内に選択したキーを 2 回押すとパネルが開きます。"
+  update_group:
+    en: "Updates"
+    zh-CN: "更新"
+    zh-TW: "更新"
+    zh-HK: "更新"
+    ja: "アップデート"
+  auto_check:
+    en: "Check for updates automatically"
+    zh-CN: "自动检查更新"
+    zh-TW: "自動檢查更新"
+    zh-HK: "自動檢查更新"
+    ja: "アップデートを自動的に確認"
+  auto_check_note:
+    en: "Checks once a day. You can always check from the menu bar icon."
+    zh-CN: "每天检查一次。随时可以在菜单栏图标的菜单里手动检查。"
+    zh-TW: "每天檢查一次。隨時可以在選單列圖示的選單裡手動檢查。"
+    zh-HK: "每天檢查一次。隨時可以在選單列圖示的選單裡手動檢查。"
+    ja: "1 日 1 回確認します。メニューバーのアイコンからいつでも確認できます。"
 Editor:
   title:
     en: "Edit Shortcuts · %{app}"
@@ -473,11 +509,11 @@ Update:
     zh-HK: "Keylens %{version} 已發佈"
     ja: "Keylens %{version} が利用可能です"
   available_body:
-    en: "You have %{current}. Install it now? Keylens restarts when done."
-    zh-CN: "当前版本 %{current}。现在安装吗？安装完成后 Keylens 会自动重启。"
-    zh-TW: "目前版本 %{current}。現在安裝嗎？安裝完成後 Keylens 會自動重新啟動。"
-    zh-HK: "目前版本 %{current}。現在安裝嗎？安裝完成後 Keylens 會自動重新啟動。"
-    ja: "現在のバージョンは %{current} です。今すぐインストールしますか？完了後に Keylens が再起動します。"
+    en: "You have %{current}. Keylens restarts after updating."
+    zh-CN: "当前版本 %{current}，更新后自动重启。"
+    zh-TW: "目前版本 %{current}，更新後自動重新啟動。"
+    zh-HK: "目前版本 %{current}，更新後自動重新啟動。"
+    ja: "現在のバージョンは %{current} です。アップデート後に再起動します。"
   install:
     en: "Install and Restart"
     zh-CN: "安装并重启"
@@ -490,6 +526,12 @@ Update:
     zh-TW: "稍後"
     zh-HK: "稍後"
     ja: "後で"
+  skip:
+    en: "Skip This Version"
+    zh-CN: "跳过此版本"
+    zh-TW: "略過此版本"
+    zh-HK: "略過此版本"
+    ja: "このバージョンをスキップ"
   ok:
     en: "OK"
     zh-CN: "好"

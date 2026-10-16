@@ -76,6 +76,10 @@ key = "cmd"            # cmd、option、ctrl、shift（也认 super、alt、win�
 hold-ms = 800          # 300–2000
 double-tap-ms = 350    # 200–600
 hide-on-release = false  # 仅长按：松开按键时关闭面板
+
+[update]
+auto-check = true      # 每天自动检查一次新版本
+# skip-version = "0.2.0"  # 更新弹窗里点「跳过此版本」时写入
 ```
 
 自己补充的快捷键数据放在 `~/.config/keylens/apps/*.toml`，格式与内置数据相同，会覆盖内置数据中同一应用的同一快捷键。菜单栏「⌘」图标的菜单里可以直接打开这个目录。也可以在窗口里编辑：点面板底栏的「编辑快捷键」。

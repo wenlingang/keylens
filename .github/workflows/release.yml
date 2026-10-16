@@ -57,7 +57,7 @@ jobs:
           # The annotated tag's message becomes the notes shown in the in-app update dialog.
           git fetch --force --depth=1 origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
           git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > "$RUNNER_TEMP/update-notes.txt"
-          scripts/update-manifest.sh "$version" "$sha" "$RUNNER_TEMP/update-notes.txt" > "$RUNNER_TEMP/latest.json"
+          scripts/update-manifest.sh "$version" "$sha" "$(stat -f %z "$dmg")" "$RUNNER_TEMP/update-notes.txt" > "$RUNNER_TEMP/latest.json"
           # A pre-release (vX.Y.Z-rc1) must not become releases/latest, which every installed copy updates to.
           prerelease=()
           [[ $version == *-* ]] && prerelease=(--prerelease)

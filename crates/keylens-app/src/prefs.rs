@@ -7,7 +7,7 @@ use std::time::Duration;
 use gpui_kit::{Context, Task};
 use keylens_core::{Locale, Os, Trigger};
 
-use crate::config::{Config, TriggerSettings, choose_locale, parse_config};
+use crate::config::{Config, TriggerSettings, UpdateSettings, choose_locale, parse_config};
 use crate::config_write::{self, Change};
 use crate::watch::{self, Stamp};
 
@@ -87,6 +87,10 @@ impl Prefs {
 
     pub fn trigger_settings(&self) -> TriggerSettings {
         self.config.trigger_settings(&self.default_trigger).0
+    }
+
+    pub fn update_settings(&self) -> UpdateSettings {
+        self.config.update_settings().0
     }
 
     pub fn default_trigger_settings(&self) -> TriggerSettings {
@@ -184,7 +188,8 @@ impl Prefs {
     fn adopt_text(&mut self, text: String) {
         self.config = parse_config(&text).unwrap_or_default();
         self.text = text;
-        let (_, warnings) = self.config.trigger_settings(&self.default_trigger);
+        let (_, mut warnings) = self.config.trigger_settings(&self.default_trigger);
+        warnings.extend(self.config.update_settings().1);
         for warning in warnings {
             tracing::warn!("config.toml: {warning}");
         }
@@ -197,6 +202,9 @@ impl Prefs {
             Change::Key(Some(k)) if k == d.key => Change::Key(None),
             Change::HoldMs(Some(ms)) if ms == d.hold_ms => Change::HoldMs(None),
             Change::DoubleTapMs(Some(ms)) if ms == d.double_tap_ms => Change::DoubleTapMs(None),
+            Change::AutoCheck(Some(on)) if on == UpdateSettings::default().auto_check => {
+                Change::AutoCheck(None)
+            }
             other => other,
         }
     }

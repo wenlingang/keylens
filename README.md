@@ -76,6 +76,10 @@ key = "cmd"            # cmd, option, ctrl or shift (also super, alt, win, contr
 hold-ms = 800          # 300–2000
 double-tap-ms = 350    # 200–600
 hide-on-release = false  # hold only: close the panel when the key is released
+
+[update]
+auto-check = true      # check for new versions once a day
+# skip-version = "0.2.0"  # written by "Skip This Version" in the update dialog
 ```
 
 Your own shortcut data goes in `~/.config/keylens/apps/*.toml`, using the same format as the built-in data; it overrides built-in entries with the same shortcut for the same app. The "⌘" menu bar icon has an item that opens this folder. You can also edit them in a window: choose "Edit Shortcuts" in the panel footer.

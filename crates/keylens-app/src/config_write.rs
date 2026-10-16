@@ -16,29 +16,53 @@ pub enum Change {
     DoubleTapMs(Option<u64>),
     HideOnRelease(Option<bool>),
     Language(Option<String>),
-    /// Removes `language` and the whole `[trigger]` table.
+    AutoCheck(Option<bool>),
+    /// The version the update dialog's "Skip This Version" chose.
+    SkipVersion(Option<String>),
+    /// Removes `language` and the whole `[trigger]` and `[update]` tables.
     ResetAll,
 }
+
+const TRIGGER: &str = "trigger";
+const UPDATE: &str = "update";
 
 pub fn apply(text: &str, change: &Change, os: Os) -> Result<String, String> {
     let mut doc: DocumentMut = text
         .parse()
         .map_err(|e: toml_edit::TomlError| e.to_string())?;
     match change {
-        Change::Mode(mode) => set_trigger(&mut doc, "mode", mode.map(|m| value(m.name()))),
-        Change::Key(key) => set_trigger(&mut doc, "key", key.map(|k| value(k.trigger_name(os)))),
-        Change::HoldMs(ms) => set_trigger(&mut doc, "hold-ms", ms.map(|ms| value(ms as i64))),
-        Change::DoubleTapMs(ms) => {
-            set_trigger(&mut doc, "double-tap-ms", ms.map(|ms| value(ms as i64)))
+        Change::Mode(mode) => set_in(&mut doc, TRIGGER, "mode", mode.map(|m| value(m.name()))),
+        Change::Key(key) => set_in(
+            &mut doc,
+            TRIGGER,
+            "key",
+            key.map(|k| value(k.trigger_name(os))),
+        ),
+        Change::HoldMs(ms) => set_in(&mut doc, TRIGGER, "hold-ms", ms.map(|ms| value(ms as i64))),
+        Change::DoubleTapMs(ms) => set_in(
+            &mut doc,
+            TRIGGER,
+            "double-tap-ms",
+            ms.map(|ms| value(ms as i64)),
+        ),
+        Change::HideOnRelease(hide) => {
+            set_in(&mut doc, TRIGGER, "hide-on-release", hide.map(value))
         }
-        Change::HideOnRelease(hide) => set_trigger(&mut doc, "hide-on-release", hide.map(value)),
+        Change::AutoCheck(on) => set_in(&mut doc, UPDATE, "auto-check", on.map(value)),
+        Change::SkipVersion(version) => set_in(
+            &mut doc,
+            UPDATE,
+            "skip-version",
+            version.as_deref().map(value),
+        ),
         Change::Language(Some(tag)) => put(doc.as_table_mut(), "language", value(tag.as_str())),
         Change::Language(None) => {
             doc.remove("language");
         }
         Change::ResetAll => {
             doc.remove("language");
-            doc.remove("trigger");
+            doc.remove(TRIGGER);
+            doc.remove(UPDATE);
         }
     }
     Ok(doc.to_string())
@@ -57,19 +81,20 @@ fn put(table: &mut dyn TableLike, key: &str, mut item: Item) {
     }
 }
 
-/// Sets or removes `key` in `[trigger]` (a normal or inline table), dropping the table once empty.
-fn set_trigger(doc: &mut DocumentMut, key: &str, new: Option<Item>) {
+/// Sets or removes `key` in the table `[name]` (a normal or inline table), dropping the table once
+/// empty.
+fn set_in(doc: &mut DocumentMut, name: &str, key: &str, new: Option<Item>) {
     match new {
         Some(item) => {
-            let table = doc.entry("trigger").or_insert(toml_edit::table());
-            // A non-table `trigger` fails to parse as a Config, which makes Prefs read-only, so
+            let table = doc.entry(name).or_insert(toml_edit::table());
+            // A non-table `trigger` or `update` fails to parse as a Config, which makes Prefs read-only, so
             // edits never reach here with one.
             if let Some(table) = table.as_table_like_mut() {
                 put(table, key, item);
             }
         }
         None => {
-            let empty = match doc.get_mut("trigger").and_then(Item::as_table_like_mut) {
+            let empty = match doc.get_mut(name).and_then(Item::as_table_like_mut) {
                 Some(table) => {
                     table.remove(key);
                     table.is_empty()
@@ -77,7 +102,7 @@ fn set_trigger(doc: &mut DocumentMut, key: &str, new: Option<Item>) {
                 None => false,
             };
             if empty {
-                doc.remove("trigger");
+                doc.remove(name);
             }
         }
     }
@@ -146,6 +171,31 @@ hold-ms = 1200
         assert!(text.contains("future-option = 1"));
         assert!(text.contains("key = \"option\""));
         assert!(text.find("hold-ms").unwrap() < text.find("key = ").unwrap());
+    }
+
+    #[test]
+    fn update_settings_go_to_their_own_table() {
+        let text = apply("", &Change::AutoCheck(Some(false)), Os::MacOS).unwrap();
+        let text = apply(&text, &Change::SkipVersion(Some("0.2.0".into())), Os::MacOS).unwrap();
+        let (update, warnings) = parse_config(&text).unwrap().update_settings();
+        assert!(warnings.is_empty());
+        assert!(!update.auto_check);
+        assert_eq!(update.skip_version.as_deref(), Some("0.2.0"));
+        assert!(text.contains("[update]"), "{text}");
+
+        let text = apply(&text, &Change::AutoCheck(None), Os::MacOS).unwrap();
+        let text = apply(&text, &Change::SkipVersion(None), Os::MacOS).unwrap();
+        assert!(
+            !text.contains("update"),
+            "an empty [update] table is dropped: {text}"
+        );
+    }
+
+    #[test]
+    fn reset_all_clears_update_settings_too() {
+        let text = "[update]\nauto-check = false\n";
+        let text = apply(text, &Change::ResetAll, Os::MacOS).unwrap();
+        assert!(text.trim().is_empty(), "{text}");
     }
 
     #[test]
