@@ -17,8 +17,8 @@ use crate::session::{Effect, Session};
 use crate::settings_view;
 use crate::shortcut_editor;
 use crate::ui::ChildDeactivated;
-use crate::view::{PanelEvent, PanelView};
-use crate::{config, template, watch};
+use crate::view::{AppIcon, PanelEvent, PanelView};
+use crate::{accent, config, template, watch};
 use keylens_core::community::{Catalog, DataError, load_dir};
 
 /// Number of cached apps (spec §5).
@@ -51,6 +51,10 @@ pub struct Native {
     pub open: fn(&std::path::Path),
 }
 
+/// An app icon read in the background: the PNG and the accent colour taken from it (`None` when
+/// the app has no icon).
+type LoadedIcon = Option<(Vec<u8>, Option<[u8; 3]>)>;
+
 pub struct Keylens {
     platform: Arc<dyn Platform>,
     loader: Arc<Loader>,
@@ -65,7 +69,7 @@ pub struct Keylens {
     on_locale: Option<Box<dyn Fn()>>,
     cache: Cache,
     freshness: Freshness,
-    icons: HashMap<i32, Option<Arc<Image>>>,
+    icons: HashMap<i32, Option<AppIcon>>,
     detector: TriggerDetector,
     window: AnyWindowHandle,
     view: Entity<PanelView>,
@@ -474,8 +478,12 @@ impl Keylens {
             let (data, icon) = cx
                 .background_executor()
                 .spawn(async move {
+                    // The accent is worked out here too: decoding the icon is not for the UI thread.
                     let icon = if need_icon {
-                        Some(platform.app_icon(&app))
+                        Some(platform.app_icon(&app).map(|png| {
+                            let accent = accent::from_png(&png);
+                            (png, accent)
+                        }))
                     } else {
                         None
                     };
@@ -487,12 +495,7 @@ impl Keylens {
         .detach();
     }
 
-    fn on_loaded(
-        &mut self,
-        data: AppShortcuts,
-        icon: Option<Option<Vec<u8>>>,
-        cx: &mut Context<Self>,
-    ) {
+    fn on_loaded(&mut self, data: AppShortcuts, icon: Option<LoadedIcon>, cx: &mut Context<Self>) {
         let pid = data.app.pid;
         if !data.warnings.is_empty() {
             tracing::warn!(app = %data.app.name, warnings = ?data.warnings, "menu read failed");
@@ -500,7 +503,18 @@ impl Keylens {
         if let Some(icon) = icon {
             self.icons.insert(
                 pid,
-                icon.map(|png| Arc::new(Image::from_bytes(ImageFormat::Png, png))),
+                icon.map(|(png, accent)| AppIcon {
+                    image: Arc::new(Image::from_bytes(ImageFormat::Png, png)),
+                    accent: accent.map(|[r, g, b]| {
+                        Rgba {
+                            r: r as f32 / 255.,
+                            g: g as f32 / 255.,
+                            b: b as f32 / 255.,
+                            a: 1.,
+                        }
+                        .into()
+                    }),
+                }),
             );
         }
         // Out-of-order or failed reads must not replace newer/good data (see `Freshness`).
@@ -563,7 +577,10 @@ impl Keylens {
                 let view = this.view.clone();
                 let _ = this.window.update(cx, |_, window, cx| {
                     window.activate_window();
-                    view.update(cx, |view, cx| view.focus_input(window, cx));
+                    view.update(cx, |view, cx| {
+                        view.appear(cx);
+                        view.focus_input(window, cx);
+                    });
                 });
             });
         })
@@ -578,7 +595,10 @@ impl Keylens {
         let view = self.view.clone();
         let hide = self.native.hide;
         let _ = self.window.update(cx, |_, window, cx| {
-            view.update(cx, |view, cx| view.reset(window, cx));
+            view.update(cx, |view, cx| {
+                view.reset(window, cx);
+                view.disappear(cx);
+            });
             hide(window);
         });
     }

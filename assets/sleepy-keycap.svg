@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="192" viewBox="0 0 120 96">
+  <!-- 空状态插画：打瞌睡的键帽（与应用图标同一画风） -->
+  <rect x="18" y="22" width="84" height="66" rx="16" fill="#1B1B2F"/>
+  <rect x="21" y="27" width="78" height="58" rx="13" fill="#C3BADB"/>
+  <clipPath id="face"><rect x="21" y="24" width="78" height="52" rx="13"/></clipPath>
+  <g clip-path="url(#face)">
+    <rect x="21" y="24" width="78" height="52" fill="#FFFDF7"/>
+    <rect x="21" y="60" width="78" height="16" fill="#E6E0F5"/>
+  </g>
+  <rect x="21" y="24" width="78" height="52" rx="13" fill="none" stroke="#1B1B2F" stroke-width="3"/>
+  <path d="M42 46q4 4 8 0M70 46q4 4 8 0" stroke="#1B1B2F" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <path d="M55 57q5 3 10 0" stroke="#1B1B2F" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="38" cy="54" rx="5" ry="2.6" fill="#FFB3C1"/>
+  <ellipse cx="82" cy="54" rx="5" ry="2.6" fill="#FFB3C1"/>
+  <path d="M30 31l6-2" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M95 9h8l-8 9h8" stroke="#8A84A8" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M107 2h5l-5 6h5" stroke="#8A84A8" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

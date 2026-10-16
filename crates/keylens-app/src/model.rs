@@ -206,6 +206,15 @@ impl PanelModel {
     }
 
     /// Selects an entry (mouse click).
+    /// Index (into the entries) of the selected entry.
+    pub fn selected_index(&self) -> Option<usize> {
+        let (c, r) = self.selected()?;
+        match &self.layout[c][r] {
+            Row::Item { entry, .. } => Some(*entry),
+            Row::Header { .. } => None,
+        }
+    }
+
     pub fn select_entry(&mut self, entry: usize) {
         if let Some(pos) = self.position_of(|e| e == entry) {
             self.selected = Some(pos);
