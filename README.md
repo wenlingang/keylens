@@ -12,9 +12,9 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 
 ## A look around
 
-**Forgot a shortcut? Just hold ⌘.** The panel reads the menus of whatever app is in front, so there's nothing to set up per app — the picture above is Zed, and VS Code, Notion or Slack open just the same.
+**Forgot a shortcut? Just hold ⌘.** A small keycap fills up while you hold, then pops into the panel. The panel reads the menus of whatever app is in front, so there's nothing to set up per app — the picture above is Zed, and VS Code, Notion or Slack open just the same. Each app lends the panel its own colour, taken from its icon.
 
-**Type keys, not just words.** Searching `⌘⇧` lists everything bound to Command + Shift, in any order, alongside regular title matches. Press Return on a result and Keylens runs it for you.
+**Type keys, not just words.** Searching `⌘⇧` lists everything bound to Command + Shift, in any order, alongside regular title matches, and lights up the matching keycaps. Press Return on a result: its keycaps go down, and Keylens runs it for you.
 
 **Dark mode comes for free.** The panel follows the system appearance, so it fits in at night as well as it does during the day.
 
@@ -26,6 +26,8 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 ## Features
 
 - **Long-press ⌘** to open a panel listing all menu shortcuts of the frontmost app, grouped by menu in columns. The panel stays open after you release ⌘.
+- **Hold animation**: an anime-style ⌘ keycap fills with the app's colour while you hold. Quick shortcuts such as ⌘C never show it, and it is skipped when Reduce Motion is on.
+- **The app's colour**: the panel picks up the accent of the frontmost app's icon, and shortcuts are drawn as keycaps.
 - **Search** by title, menu path or keys. `⌘⇧`, `shift` and `cmd+shift+p` all work, regardless of modifier order.
 - **Run directly**: click to select, double-click or press Return to run. Menu items are pressed via Accessibility; community shortcuts are sent as synthesized key strokes.
 - **Community shortcut data** fills in shortcuts that menus don't expose (e.g. VS Code, Chrome, Slack), marked with ◇.
