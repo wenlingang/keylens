@@ -60,7 +60,7 @@ scripts/dev-cert.sh
 scripts/run-dev.sh
 ```
 
-第一次启动后，在「系统设置 › 隐私与安全性 › 辅助功能」里添加 `target/dev-apps/Keylens.app` 并打开开关。授权后自动生效，不需要重启；之后重新编译也不需要再次授权。
+第一次启动后，在「系统设置 › 隐私与安全性 › 辅助功能」里添加 `target/dev-apps/KeylensDev.app`（菜单栏图标显示 `⌘dev`）并打开开关。授权后自动生效，不需要重启；之后重新编译也不需要再次授权。
 
 ## 配置
 

@@ -4,7 +4,9 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 cargo build -p keylens-app
-pkill -f "dev-apps/Keylens.app/Contents/MacOS/Keylens" 2>/dev/null || true
-app=$(scripts/dev-bundle.sh target/debug/keylens Keylens dev.keylens.dev.app | tail -1)
+# Named KeylensDev (menu bar icon "⌘dev", logs in ~/Library/Logs/Keylens-dev) so it never gets
+# mixed up with an installed release running at the same time.
+pkill -f "dev-apps/KeylensDev.app/Contents/MacOS/KeylensDev" 2>/dev/null || true
+app=$(scripts/dev-bundle.sh target/debug/keylens KeylensDev dev.keylens.dev.app | tail -1)
 open -n "$app" --stdout "$root/target/dev-apps/keylens.log" --stderr "$root/target/dev-apps/keylens.log"
 echo "Started: ${app} (log: target/dev-apps/keylens.log)"

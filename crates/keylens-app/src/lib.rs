@@ -31,16 +31,23 @@ use keylens_platform::Platform;
 use keylens_platform::tray::{TrayCommand, TrayHandle, TrayLabels};
 use keylens_platform::update::UpdateNative;
 
-/// Version line shown in the menu bar menu, e.g. "Keylens 0.1.0". Not translated.
-pub fn version_label() -> String {
-    format!("Keylens {}", env!("CARGO_PKG_VERSION"))
+/// Bundle identifier of released builds; any other bundle (or none) is a development build.
+pub const RELEASE_BUNDLE_ID: &str = "io.github.wenlingang.keylens";
+
+/// Version line shown in the menu bar menu, e.g. "Keylens 0.1.0" or "Keylens 0.1.0 (dev)".
+/// Not translated.
+pub fn version_label(dev: bool) -> String {
+    let suffix = if dev { " (dev)" } else { "" };
+    format!("Keylens {}{suffix}", env!("CARGO_PKG_VERSION"))
 }
 
-/// Tray labels in the current UI language.
-fn tray_labels() -> TrayLabels {
+/// Tray labels in the current UI language. Development builds get a distinct menu bar icon, so
+/// they are easy to tell apart from an installed release running at the same time.
+fn tray_labels(dev: bool) -> TrayLabels {
     use rust_i18n::t;
     TrayLabels {
-        version: version_label(),
+        icon: if dev { "⌘dev" } else { "⌘" }.to_string(),
+        version: version_label(dev),
         permission_ok: t!("Tray.permission_ok").to_string(),
         permission_missing: t!("Tray.permission_missing").to_string(),
         edit_current: t!("Tray.edit_current").to_string(),
@@ -62,6 +69,8 @@ pub struct Host {
     pub native: controller::Native,
     pub install_tray: InstallTray,
     pub update: UpdateNative,
+    /// A development build (not the released bundle): separate logs, no automatic updates.
+    pub dev: bool,
 }
 
 /// Starts Keylens (macOS only).
@@ -90,6 +99,7 @@ pub fn run() {
             relaunch: keylens_macos::update::relaunch,
             dialog: keylens_macos::update::dialog,
         },
+        dev: keylens_macos::panel::bundle_identifier().as_deref() != Some(RELEASE_BUNDLE_ID),
     });
 }
 
@@ -120,10 +130,11 @@ pub fn run_with(host: Host) {
         native,
         install_tray,
         update,
+        dev,
     } = host;
 
-    let log_guard = logging::init(&logging::log_dir());
-    tracing::info!(version = env!("CARGO_PKG_VERSION"), "Keylens starting");
+    let log_guard = logging::init(&logging::log_dir(dev));
+    tracing::info!(version = env!("CARGO_PKG_VERSION"), dev, "Keylens starting");
 
     let prefs_state = prefs::Prefs::load(
         config::config_path(),
@@ -207,7 +218,7 @@ pub fn run_with(host: Host) {
             });
 
             let (tray_tx, tray_rx) = async_channel::unbounded::<TrayCommand>();
-            let labels = tray_labels();
+            let labels = tray_labels(dev);
             let tray = install_tray(
                 labels,
                 Box::new(move |command| {
@@ -223,7 +234,7 @@ pub fn run_with(host: Host) {
                     Box::new(move |busy| tray_for_updates.set_updating(busy)),
                 );
                 // Dev builds are signed with the development certificate: an update would not verify.
-                if !cfg!(debug_assertions) {
+                if !dev {
                     updater.start(cx);
                 }
                 updater
@@ -277,7 +288,9 @@ pub fn run_with(host: Host) {
             });
             let tray_for_locale = tray.clone();
             keylens.update(cx, |k, _| {
-                k.set_locale_listener(Box::new(move || tray_for_locale.set_labels(tray_labels())))
+                k.set_locale_listener(Box::new(move || {
+                    tray_for_locale.set_labels(tray_labels(dev))
+                }))
             });
             keylens.update(cx, |k, cx| k.start(cx));
             cx.set_global(KeylensApp {
@@ -294,8 +307,12 @@ mod tests {
     #[test]
     fn version_label_names_the_app_and_package_version() {
         assert_eq!(
-            super::version_label(),
+            super::version_label(false),
             format!("Keylens {}", env!("CARGO_PKG_VERSION"))
+        );
+        assert_eq!(
+            super::version_label(true),
+            format!("Keylens {} (dev)", env!("CARGO_PKG_VERSION"))
         );
     }
 }

@@ -60,7 +60,7 @@ scripts/dev-cert.sh
 scripts/run-dev.sh
 ```
 
-On first launch, add `target/dev-apps/Keylens.app` under System Settings › Privacy & Security › Accessibility and turn it on. It takes effect immediately without a restart, and later rebuilds keep the permission.
+On first launch, add `target/dev-apps/KeylensDev.app` (menu bar icon `⌘dev`) under System Settings › Privacy & Security › Accessibility and turn it on. It takes effect immediately without a restart, and later rebuilds keep the permission.
 
 ## Configuration
 

@@ -25,6 +25,8 @@ impl TrayCommand {
 }
 
 pub struct TrayLabels {
+    /// Menu bar title; "!" is appended while the permission is missing.
+    pub icon: String,
     /// Disabled first menu item, e.g. "Keylens 0.1.0".
     pub version: String,
     pub permission_ok: String,

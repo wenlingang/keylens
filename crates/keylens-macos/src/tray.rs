@@ -176,10 +176,11 @@ impl TrayHandle for Tray {
 
     fn set_permission(&self, granted: bool) {
         self.granted.set(granted);
-        if let Some(button) = self.item.button(self.mtm) {
-            button.setTitle(&NSString::from_str(if granted { "⌘" } else { "⌘!" }));
-        }
         let labels = self.labels.borrow();
+        if let Some(button) = self.item.button(self.mtm) {
+            let mark = if granted { "" } else { "!" };
+            button.setTitle(&NSString::from_str(&format!("{}{mark}", labels.icon)));
+        }
         let title = if granted {
             &labels.permission_ok
         } else {

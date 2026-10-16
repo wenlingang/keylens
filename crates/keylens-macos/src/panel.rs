@@ -85,6 +85,13 @@ pub fn beep() {
     NSBeep();
 }
 
+/// The running app's bundle identifier; `None` outside an app bundle.
+pub fn bundle_identifier() -> Option<String> {
+    objc2_foundation::NSBundle::mainBundle()
+        .bundleIdentifier()
+        .map(|id| id.to_string())
+}
+
 pub fn open_path(path: &Path) {
     let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
     NSWorkspace::sharedWorkspace().openURL(&url);

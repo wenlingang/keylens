@@ -6,11 +6,20 @@ use std::path::{Path, PathBuf};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 
-pub fn log_dir() -> PathBuf {
-    log_dir_in(
+/// The log folder; development builds log next to it, in `<folder>-dev`, so their logs never mix
+/// with an installed release's.
+pub fn log_dir(dev: bool) -> PathBuf {
+    let dir = log_dir_in(
         &crate::config::home_dir(),
         std::env::var_os("XDG_STATE_HOME").map(PathBuf::from),
-    )
+    );
+    if dev { dev_variant(&dir) } else { dir }
+}
+
+fn dev_variant(dir: &Path) -> PathBuf {
+    let mut name = dir.file_name().unwrap_or_default().to_os_string();
+    name.push("-dev");
+    dir.with_file_name(name)
 }
 
 fn log_dir_in(home: &Path, xdg_state_home: Option<PathBuf>) -> PathBuf {
@@ -93,5 +102,13 @@ mod tests {
                 Path::new("/xdg/keylens/logs")
             );
         }
+    }
+
+    #[test]
+    fn dev_builds_log_next_to_the_release_folder() {
+        assert_eq!(
+            dev_variant(Path::new("/home/u/Library/Logs/Keylens")),
+            Path::new("/home/u/Library/Logs/Keylens-dev")
+        );
     }
 }
