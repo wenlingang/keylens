@@ -51,6 +51,8 @@ pub struct Native {
     pub show_overlay: fn(&Window, Option<i32>) -> Option<PanelMove>,
     /// Whether the user asked the system to reduce motion.
     pub reduce_motion: fn() -> bool,
+    /// Sets a window's opacity (the hold animation fades its whole window).
+    pub set_alpha: fn(&Window, f32),
     /// Works out how to move the panel onto the screen showing the app with this pid (or under the
     /// mouse). The returned move must run outside any window update.
     pub place: fn(&Window, Option<i32>) -> Option<PanelMove>,
@@ -930,6 +932,7 @@ mod tests {
             fade_in: |_| {},
             show_overlay: |_, _| None,
             reduce_motion: || false,
+            set_alpha: |_, _| {},
             place: |_, _| None,
             beep,
             open: |_| {},

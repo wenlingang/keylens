@@ -93,6 +93,7 @@ pub fn run() {
             fade_in: |w| keylens_macos::panel::fade_in(w),
             show_overlay: |w, pid| keylens_macos::panel::show_overlay(w, pid),
             reduce_motion: keylens_macos::panel::reduce_motion,
+            set_alpha: keylens_macos::panel::set_alpha,
             place: |w, pid| keylens_macos::panel::place(w, pid),
             beep: keylens_macos::panel::beep,
             open: keylens_macos::panel::open_path,
@@ -234,7 +235,7 @@ pub fn run_with(host: Host) {
             // with controls, and this one must stay see-through around the keycap.
             let charge_window = cx
                 .open_window(charge_options, |_, cx| {
-                    cx.new(|_| charge::ChargeView::new(keylens_macos::panel::set_alpha))
+                    cx.new(|_| charge::ChargeView::new(native.set_alpha))
                 })
                 .map(|handle| {
                     let view = handle.update(cx, |_, _, cx| cx.entity());
