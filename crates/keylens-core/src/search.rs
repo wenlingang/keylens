@@ -57,6 +57,46 @@ pub fn filter(entries: &[Entry], query: &str, os: Os) -> Vec<Match> {
     matches
 }
 
+/// The keys a query asks for (`⌘⇧`, `shift`, `cmd+shift+p`…), so the panel can light up the
+/// keycaps that made an entry match. Words that are not keys are ignored.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeyQuery {
+    modifiers: Modifiers,
+    chords: Vec<Chord>,
+}
+
+impl KeyQuery {
+    pub fn parse(query: &str, os: Os) -> Self {
+        let mut parsed = KeyQuery {
+            modifiers: Modifiers::NONE,
+            chords: Vec::new(),
+        };
+        for token in query.trim().to_lowercase().split_whitespace() {
+            if let Some(m) = modifier_token(token, os).or_else(|| parse_modifier(token, os)) {
+                parsed.modifiers = parsed.modifiers | m;
+            } else if let Some(chord) = chord_token(token, os) {
+                parsed.chords.push(chord);
+            }
+        }
+        parsed
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.modifiers.is_empty() && self.chords.is_empty()
+    }
+
+    /// For each cap of `chord.labeled_caps(os)`, whether the query asked for it: every cap of a
+    /// chord written out in full, and the caps of modifiers named on their own.
+    pub fn lit_caps(&self, chord: &Chord, os: Os) -> Vec<bool> {
+        let whole = self.chords.contains(chord);
+        chord
+            .labeled_caps(os)
+            .iter()
+            .map(|(m, _)| whole || m.is_some_and(|m| self.modifiers.contains(m)))
+            .collect()
+    }
+}
+
 fn haystack(entry: &Entry, os: Os) -> String {
     let mut parts: Vec<&str> = vec![&entry.group];
     parts.extend(entry.path.iter().map(String::as_str));
@@ -268,5 +308,40 @@ mod tests {
                 }
             }
         }
+    }
+
+    fn chord(text: &str) -> Chord {
+        Chord::parse(text, Os::MacOS).unwrap()
+    }
+
+    #[test]
+    fn key_query_lights_named_modifiers_only() {
+        // ⇧⌘P shows as ⇧ ⌘ P.
+        let q = KeyQuery::parse("⌘⇧", Os::MacOS);
+        assert_eq!(
+            q.lit_caps(&chord("Cmd+Shift+P"), Os::MacOS),
+            [true, true, false]
+        );
+        let q = KeyQuery::parse("save shift", Os::MacOS);
+        assert_eq!(
+            q.lit_caps(&chord("Cmd+Shift+P"), Os::MacOS),
+            [true, false, false]
+        );
+    }
+
+    #[test]
+    fn key_query_lights_every_cap_of_a_full_chord() {
+        let q = KeyQuery::parse("cmd+shift+p", Os::MacOS);
+        assert_eq!(
+            q.lit_caps(&chord("Cmd+Shift+P"), Os::MacOS),
+            [true, true, true]
+        );
+        assert_eq!(q.lit_caps(&chord("Cmd+P"), Os::MacOS), [false, false]);
+    }
+
+    #[test]
+    fn key_query_ignores_plain_words() {
+        assert!(KeyQuery::parse("save as", Os::MacOS).is_empty());
+        assert!(!KeyQuery::parse("⌘", Os::MacOS).is_empty());
     }
 }

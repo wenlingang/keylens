@@ -3742,6 +3742,7 @@ version = "0.1.3"
 dependencies = [
  "async-channel",
  "gpui-kit",
+ "image",
  "keylens-core",
  "keylens-macos",
  "keylens-platform",

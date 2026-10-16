@@ -369,6 +369,14 @@ impl Chord {
 
     /// Splits into keycaps in display order, e.g. ["⇧", "⌘", "P"] on macOS, ["Ctrl", "Shift", "P"] on Windows.
     pub fn caps(&self, os: Os) -> Vec<String> {
+        self.labeled_caps(os)
+            .into_iter()
+            .map(|(_, label)| label)
+            .collect()
+    }
+
+    /// Like [`Chord::caps`], with the modifier each cap stands for (`None` for the main key).
+    pub fn labeled_caps(&self, os: Os) -> Vec<(Option<Modifiers>, String)> {
         let names: [(Modifiers, &str); 5] = match os {
             Os::MacOS => [
                 (Modifiers::FN, "fn"),
@@ -392,12 +400,12 @@ impl Chord {
                 (Modifiers::FN, "Fn"),
             ],
         };
-        let mut caps: Vec<String> = names
+        let mut caps: Vec<(Option<Modifiers>, String)> = names
             .iter()
             .filter(|(m, _)| self.modifiers.contains(*m))
-            .map(|(_, name)| name.to_string())
+            .map(|(m, name)| (Some(*m), name.to_string()))
             .collect();
-        caps.push(self.key.label(os));
+        caps.push((None, self.key.label(os)));
         caps
     }
 
