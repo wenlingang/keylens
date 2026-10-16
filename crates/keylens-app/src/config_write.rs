@@ -14,6 +14,7 @@ pub enum Change {
     Key(Option<Modifiers>),
     HoldMs(Option<u64>),
     DoubleTapMs(Option<u64>),
+    HideOnRelease(Option<bool>),
     Language(Option<String>),
     /// Removes `language` and the whole `[trigger]` table.
     ResetAll,
@@ -30,6 +31,7 @@ pub fn apply(text: &str, change: &Change, os: Os) -> Result<String, String> {
         Change::DoubleTapMs(ms) => {
             set_trigger(&mut doc, "double-tap-ms", ms.map(|ms| value(ms as i64)))
         }
+        Change::HideOnRelease(hide) => set_trigger(&mut doc, "hide-on-release", hide.map(value)),
         Change::Language(Some(tag)) => put(doc.as_table_mut(), "language", value(tag.as_str())),
         Change::Language(None) => {
             doc.remove("language");
@@ -161,6 +163,7 @@ hold-ms = 1200
             Change::Key(Some(Modifiers::SHIFT)),
             Change::HoldMs(Some(1500)),
             Change::DoubleTapMs(Some(275)),
+            Change::HideOnRelease(Some(true)),
             Change::Language(Some("zh-TW".into())),
         ];
         let text = changes
@@ -173,6 +176,7 @@ hold-ms = 1200
         assert_eq!(t.key.as_ref().unwrap().as_str(), Some("shift"));
         assert_eq!(t.hold_ms.as_ref().unwrap().as_integer(), Some(1500));
         assert_eq!(t.double_tap_ms.as_ref().unwrap().as_integer(), Some(275));
+        assert_eq!(t.hide_on_release.as_ref().unwrap().as_bool(), Some(true));
     }
 
     #[test]

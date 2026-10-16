@@ -60,7 +60,7 @@ On first launch, add `target/dev-apps/Keylens.app` under System Settings › Pri
 
 ## Configuration
 
-Open **Settings…** from the "⌘" menu bar icon, or press ⌘, while the panel is open. You can choose how to open the panel (hold or double-tap), which modifier key to use, how long to hold or how fast to double-tap, and the interface language. Changes apply immediately.
+Open **Settings…** from the "⌘" menu bar icon, or press ⌘, while the panel is open. You can choose how to open the panel (hold or double-tap), which modifier key to use, how long to hold or how fast to double-tap, whether releasing a held key closes the panel, and the interface language. Changes apply immediately.
 
 Settings are saved to `~/.config/keylens/config.toml` (`$XDG_CONFIG_HOME/keylens` on Linux), which you can also edit by hand. Your comments are kept when the settings window saves, and hand edits take effect within two seconds:
 
@@ -73,6 +73,7 @@ mode = "hold"          # hold | double-tap
 key = "cmd"            # cmd, option, ctrl or shift (also super, alt, win, control)
 hold-ms = 800          # 300–2000
 double-tap-ms = 350    # 200–600
+hide-on-release = false  # hold only: close the panel when the key is released
 ```
 
 Your own shortcut data goes in `~/.config/keylens/apps/*.toml`, using the same format as the built-in data; it overrides built-in entries with the same shortcut for the same app. The "⌘" menu bar icon has an item that opens this folder. You can also edit them in a window: choose "Edit Shortcuts" in the panel footer.

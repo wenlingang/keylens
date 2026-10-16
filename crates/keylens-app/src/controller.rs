@@ -416,6 +416,15 @@ impl Keylens {
                 self.session.on_cancel();
                 Vec::new()
             }
+            // Only an app panel goes: the permission guide has no target and must stay up.
+            TriggerAction::Released => {
+                let hide = self.prefs.read(cx).trigger_settings().hide_on_release;
+                if hide && self.session.visible() && self.session.target().is_some() {
+                    vec![Effect::Hide]
+                } else {
+                    Vec::new()
+                }
+            }
         };
         self.apply(effects, cx);
     }
@@ -918,6 +927,40 @@ mod tests {
         let (keylens, _) = setup(cx);
         show_panel(&keylens, cx);
         keylens.update(cx, |k, cx| k.on_panel_event(PanelEvent::Deactivated, cx));
+        assert!(!panel_visible(&keylens, cx));
+    }
+
+    /// Shows the panel the way holding the trigger key does, then releases the key.
+    fn hold_and_release(keylens: &Entity<Keylens>, fake: &FakePlatform, cx: &mut TestAppContext) {
+        fake.set_frontmost(Some(AppInfo {
+            pid: 42,
+            name: "Demo".into(),
+            ids: vec![],
+        }));
+        for action in [TriggerAction::Prefetch, TriggerAction::Show] {
+            keylens.update(cx, |k, cx| k.on_trigger(action, cx));
+        }
+        cx.run_until_parked();
+        assert!(panel_visible(keylens, cx));
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Released, cx));
+        cx.run_until_parked();
+    }
+
+    #[gpui_kit::test]
+    fn releasing_the_trigger_key_keeps_the_panel_by_default(cx: &mut TestAppContext) {
+        let fake = Arc::new(FakePlatform::default());
+        let (keylens, _) = setup_with(cx, || {}, fake.clone());
+        hold_and_release(&keylens, &fake, cx);
+        assert!(panel_visible(&keylens, cx));
+    }
+
+    #[gpui_kit::test]
+    fn releasing_the_trigger_key_hides_the_panel_when_configured(cx: &mut TestAppContext) {
+        let fake = Arc::new(FakePlatform::default());
+        let (keylens, prefs) = setup_with(cx, || {}, fake.clone());
+        prefs.update(cx, |p, cx| p.set(Change::HideOnRelease(Some(true)), cx));
+        cx.run_until_parked();
+        hold_and_release(&keylens, &fake, cx);
         assert!(!panel_visible(&keylens, cx));
     }
 

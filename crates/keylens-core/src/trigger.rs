@@ -37,6 +37,8 @@ pub enum TriggerAction {
     Show,
     /// Abandon this trigger.
     Cancel,
+    /// The held key that showed the panel was released (hold mode only).
+    Released,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -143,7 +145,11 @@ impl TriggerDetector {
                 self.state = State::Suppressed;
                 Some(TriggerAction::Cancel)
             }
-            (State::Fired | State::Suppressed, ModifiersChanged(m)) if !m.contains(key) => {
+            (State::Fired, ModifiersChanged(m)) if !m.contains(key) => {
+                self.state = State::Idle;
+                Some(TriggerAction::Released)
+            }
+            (State::Suppressed, ModifiersChanged(m)) if !m.contains(key) => {
                 self.state = State::Idle;
                 None
             }
@@ -312,11 +318,24 @@ mod tests {
         d.on_event(ModifiersChanged(CMD), t0);
         d.on_tick(t0 + ms(800));
         assert_eq!(d.on_event(KeyDown, t0 + ms(900)), None);
-        assert_eq!(d.on_event(ModifiersChanged(NONE), t0 + ms(1000)), None);
+        assert_eq!(
+            d.on_event(ModifiersChanged(NONE), t0 + ms(1000)),
+            Some(Released)
+        );
         assert_eq!(
             d.on_event(ModifiersChanged(CMD), t0 + ms(1100)),
             Some(Prefetch)
         );
+    }
+
+    #[test]
+    fn double_tap_does_not_report_the_release() {
+        let t0 = Instant::now();
+        let mut d = tap();
+        d.on_event(ModifiersChanged(CMD), t0);
+        d.on_event(ModifiersChanged(NONE), t0 + ms(80));
+        assert_eq!(d.on_event(ModifiersChanged(CMD), t0 + ms(200)), Some(Show));
+        assert_eq!(d.on_event(ModifiersChanged(NONE), t0 + ms(280)), None);
     }
 
     #[test]

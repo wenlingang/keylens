@@ -6,6 +6,7 @@ use std::path::Path;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{InputEvent, InputState, NumberInput};
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
+use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{ActiveTheme, Disableable as _, Sizable as _, Theme, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::*;
@@ -404,7 +405,7 @@ impl Render for SettingsView {
             ),
         };
 
-        let trigger_rows = vec![
+        let mut trigger_rows = vec![
             row(
                 "mode",
                 t!("Settings.mode").to_string(),
@@ -454,6 +455,27 @@ impl Render for SettingsView {
                 read_only,
             ),
         ];
+        // Releasing the key ends a double-tap at once, so the option only means something for hold.
+        if current.mode == TriggerMode::Hold {
+            let prefs = self.prefs.clone();
+            trigger_rows.push(row(
+                "hide-on-release",
+                t!("Settings.hide_on_release").to_string(),
+                h_flex().justify_end().child(
+                    Switch::new("hide-on-release-switch")
+                        .checked(current.hide_on_release)
+                        .disabled(read_only)
+                        .on_click(move |checked, _, cx| {
+                            let change = Change::HideOnRelease(Some(*checked));
+                            prefs.update(cx, |p, cx| p.set(change, cx));
+                        }),
+                ),
+                (current.hide_on_release != defaults.hide_on_release)
+                    .then_some(Change::HideOnRelease(None)),
+                &self.prefs,
+                read_only,
+            ));
+        }
         let language_rows = vec![row(
             "language",
             t!("Settings.language").to_string(),

@@ -224,6 +224,12 @@ Settings:
     zh-TW: "連按間隔"
     zh-HK: "連按間隔"
     ja: "2 回押しの間隔"
+  hide_on_release:
+    en: "Close panel on release"
+    zh-CN: "松开按键时关闭面板"
+    zh-TW: "放開按鍵時關閉面板"
+    zh-HK: "放開按鍵時關閉面板"
+    ja: "キーを離したらパネルを閉じる"
   ui_group:
     en: "Interface"
     zh-CN: "界面"

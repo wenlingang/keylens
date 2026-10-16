@@ -30,6 +30,7 @@ pub struct TriggerConfig {
     pub key: Option<toml::Value>,
     pub hold_ms: Option<toml::Value>,
     pub double_tap_ms: Option<toml::Value>,
+    pub hide_on_release: Option<toml::Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,6 +64,8 @@ pub struct TriggerSettings {
     pub key: Modifiers,
     pub hold_ms: u64,
     pub double_tap_ms: u64,
+    /// Hide the panel when the held trigger key is released (hold mode only).
+    pub hide_on_release: bool,
 }
 
 impl TriggerSettings {
@@ -76,12 +79,14 @@ impl TriggerSettings {
                 key: *key,
                 hold_ms: delay.as_millis() as u64,
                 double_tap_ms: tap,
+                hide_on_release: false,
             },
             Trigger::DoubleTap { key, interval } => Self {
                 mode: TriggerMode::DoubleTap,
                 key: *key,
                 hold_ms: hold,
                 double_tap_ms: interval.as_millis() as u64,
+                hide_on_release: false,
             },
             // Not configurable from the settings window; fall back to the macOS default.
             Trigger::Hotkey(_) | Trigger::External => Self {
@@ -89,6 +94,7 @@ impl TriggerSettings {
                 key: Modifiers::META,
                 hold_ms: hold,
                 double_tap_ms: tap,
+                hide_on_release: false,
             },
         }
     }
@@ -149,11 +155,21 @@ impl Config {
             defaults.double_tap_ms,
             &mut warnings,
         );
+        let hide_on_release = match &raw.hide_on_release {
+            None => defaults.hide_on_release,
+            Some(value) => value.as_bool().unwrap_or_else(|| {
+                warnings.push(format!(
+                    "trigger.hide-on-release: expected true or false, got {value}; using the default"
+                ));
+                defaults.hide_on_release
+            }),
+        };
         let settings = TriggerSettings {
             mode,
             key,
             hold_ms,
             double_tap_ms,
+            hide_on_release,
         };
         (settings, warnings)
     }
@@ -256,6 +272,7 @@ mod tests {
                 key: Modifiers::META,
                 hold_ms: 800,
                 double_tap_ms: 350,
+                hide_on_release: false,
             }
         );
         assert!(warnings.is_empty());
@@ -278,6 +295,21 @@ mod tests {
                 interval: std::time::Duration::from_millis(400),
             }
         );
+    }
+
+    #[test]
+    fn hide_on_release_is_read() {
+        let (s, warnings) = settings("[trigger]\nhide-on-release = true\n");
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert!(s.hide_on_release);
+    }
+
+    #[test]
+    fn a_non_boolean_hide_on_release_falls_back_with_a_warning() {
+        let (s, warnings) = settings("[trigger]\nhide-on-release = \"yes\"\n");
+        assert!(!s.hide_on_release);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].contains("hide-on-release"));
     }
 
     #[test]
