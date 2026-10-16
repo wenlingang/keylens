@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keylens</title>
+<meta name="description" content="Hold ⌘ to see every keyboard shortcut of the app you're using on macOS. Search them, or run them right away. Free and open source.">
+<meta property="og:title" content="Keylens">
+<meta property="og:description" content="Hold ⌘ to see every keyboard shortcut of the app you're using.">
+<meta property="og:image" content="https://wenlingang.github.io/keylens/screenshots/en-hero.png">
+<link rel="icon" href="AppIcon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #E9EBEE;
+  --surface: #F7F8F9;
+  --ink: #1D1F23;
+  --muted: #5F6570;
+  --line: #CDD1D7;
+  --cap-top: #4A4E57;
+  --cap-bottom: #2C2F35;
+  --cap-body: #1D1F23;
+  --accent: #2E6BE6;
+  --accent-ink: #FFFFFF;
+  --code-bg: #1D1F23;
+  --code-ink: #D9DCE1;
+  --code-key: #8FB3FF;
+  --code-comment: #7D838E;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171A;
+    --surface: #1D2024;
+    --ink: #E9EBEE;
+    --muted: #9AA0AA;
+    --line: #30343A;
+    --accent: #5B8CF0;
+    --code-bg: #0F1113;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171A;
+  --surface: #1D2024;
+  --ink: #E9EBEE;
+  --muted: #9AA0AA;
+  --line: #30343A;
+  --accent: #5B8CF0;
+  --code-bg: #0F1113;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  font-optical-sizing: auto;
+  font-size: 18px;
+  line-height: 1.55;
+}
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; }
+a:focus-visible, button:focus-visible, .cap:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+.sym { font-family: -apple-system, "Apple Symbols", "Segoe UI Symbol", ui-sans-serif, sans-serif; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+/* Header */
+.top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 22px; padding-bottom: 22px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; text-decoration: none; }
+.brand img { width: 32px; height: 32px; }
+.top nav { display: flex; gap: 24px; font-size: 16px; }
+.top nav a { text-decoration: none; color: var(--muted); }
+.top nav a:hover { color: var(--ink); }
+
+/* Hero */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 48px;
+  align-items: center;
+  padding-top: 56px;
+  padding-bottom: 48px;
+}
+h1 {
+  font-size: clamp(44px, 7vw, 84px);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  margin: 0 0 24px;
+  max-width: 12ch;
+}
+.lede { font-size: 21px; color: var(--muted); max-width: 34em; margin: 0 0 32px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--ink); color: var(--bg);
+  text-decoration: none; font-weight: 700; font-size: 18px;
+  padding: 14px 22px; border-radius: 12px;
+}
+.btn:hover { background: var(--accent); color: var(--accent-ink); }
+.req { font-size: 15px; color: var(--muted); }
+
+/* The key */
+.try { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.cap {
+  --p: 0;
+  position: relative;
+  width: 196px; height: 196px;
+  border: 0; padding: 0; cursor: pointer;
+  background: var(--cap-body);
+  border-radius: 44px;
+  box-shadow: 0 2px 0 rgba(0,0,0,.25), 0 22px 40px -18px rgba(20,24,32,.55);
+  transition: transform .08s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none; -webkit-user-select: none;
+}
+.cap::before {
+  content: "";
+  position: absolute; inset: 12px 16px 24px;
+  border-radius: 32px;
+  background: linear-gradient(var(--cap-top), var(--cap-bottom));
+}
+.cap .glyph {
+  position: relative;
+  font-size: 96px; line-height: 1; color: #fff;
+  display: grid; place-items: center; height: 100%;
+  padding-bottom: 12px;
+}
+.cap.down { transform: translateY(5px); box-shadow: 0 1px 0 rgba(0,0,0,.25), 0 10px 22px -14px rgba(20,24,32,.55); }
+.ring {
+  position: absolute; inset: -14px; pointer-events: none;
+  width: calc(100% + 28px); height: calc(100% + 28px);
+}
+.ring rect { fill: none; stroke-width: 4; }
+.ring .track { stroke: var(--line); }
+.ring .fill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: calc(100 - var(--p) * 100); }
+.hint { font-size: 16px; color: var(--muted); text-align: center; min-height: 1.5em; margin: 0; }
+
+/* Stage: the app panel */
+.stage { padding-bottom: 96px; }
+.screen {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  aspect-ratio: 1600 / 1049;
+}
+.screen picture { display: block; }
+.js .screen picture { opacity: .28; filter: blur(7px) grayscale(1); transform: scale(.985); transition: opacity .22s ease, filter .22s ease, transform .22s ease; }
+.js .screen.open picture { opacity: 1; filter: none; transform: none; }
+.empty {
+  position: absolute; inset: 0; z-index: 1;
+  display: grid; place-items: center;
+  color: var(--ink); font-size: 20px; font-weight: 500; text-align: center; padding: 24px;
+  transition: opacity .15s ease;
+}
+html:not(.js) .empty, .screen.open .empty { opacity: 0; pointer-events: none; }
+.caption { font-size: 15px; color: var(--muted); margin: 14px 0 0; }
+
+/* Sections */
+section.block { border-top: 1px solid var(--line); padding: 88px 0; }
+h2 {
+  font-size: clamp(32px, 4.4vw, 48px);
+  line-height: 1.05; letter-spacing: -0.025em; font-weight: 800;
+  margin: 0 0 18px; max-width: 18ch;
+}
+h3 { font-size: 22px; line-height: 1.25; margin: 0 0 8px; font-weight: 700; }
+p { margin: 0 0 16px; max-width: 36em; }
+.muted { color: var(--muted); }
+kbd {
+  font-family: inherit; font-size: .88em; font-weight: 500;
+  display: inline-block; min-width: 1.7em; text-align: center;
+  padding: 1px 7px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-bottom-width: 2px;
+}
+
+.scene {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 56px; align-items: center;
+}
+.scene + .scene { margin-top: 88px; }
+.scene.flip > :first-child { order: 2; }
+.scene img { border-radius: 12px; border: 1px solid var(--line); }
+
+.facts {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px 48px; margin-top: 48px;
+}
+.facts p { font-size: 17px; color: var(--muted); margin: 0; }
+
+.steps { list-style: none; padding: 0; margin: 40px 0 0; counter-reset: step; display: grid; gap: 32px; max-width: 760px; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 48px 1fr; gap: 16px; }
+.steps li::before {
+  content: counter(step);
+  width: 40px; height: 40px; border-radius: 10px;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: 18px;
+  background: var(--ink); color: var(--bg);
+}
+.steps p { margin: 0 0 8px; }
+.steps ul { margin: 6px 0 0; padding-left: 20px; color: var(--muted); }
+.steps ul li { display: list-item; counter-increment: none; }
+.steps ul li::before { content: none; }
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em;
+  background: var(--surface); border: 1px solid var(--line);
+  padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere;
+}
+
+.config { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: start; }
+pre {
+  margin: 0; overflow-x: auto;
+  background: var(--code-bg); color: var(--code-ink);
+  border-radius: 12px; padding: 24px 26px;
+  font: 14.5px/1.7 ui-monospace, "SF Mono", Menlo, monospace;
+}
+pre .k { color: var(--code-key); }
+pre .c { color: var(--code-comment); }
+
+footer { border-top: 1px solid var(--line); padding: 40px 0 56px; font-size: 15px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+footer a { color: var(--ink); }
+
+@media (max-width: 880px) {
+  .hero { grid-template-columns: 1fr; padding-top: 32px; gap: 40px; }
+  .try { padding: 14px 0; }
+  .scene, .config { grid-template-columns: 1fr; gap: 28px; }
+  .scene.flip > :first-child { order: 0; }
+  .facts { grid-template-columns: 1fr; gap: 28px; }
+  section.block { padding: 64px 0; }
+}
+@media (max-width: 520px) {
+  body { font-size: 17px; }
+  .wrap { padding: 0 16px; }
+  .top nav { gap: 16px; }
+  .top nav .opt { display: none; }
+  .lede { font-size: 19px; }
+  .cap { width: 156px; height: 156px; border-radius: 36px; }
+  .cap .glyph { font-size: 76px; }
+  .stage { padding-bottom: 64px; }
+  pre { font-size: 13px; padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cap, .js .screen picture, .empty { transition: none; }
+}
+</style>
+</head>
+<body>
+<script>document.documentElement.classList.add("js")</script>
+
+<header class="wrap top">
+  <a class="brand" href="./"><img src="AppIcon.png" alt="" width="32" height="32">Keylens</a>
+  <nav aria-label="Main">
+    <a class="opt" href="#install">Install</a>
+    <a class="opt" href="#configure">Configure</a>
+    <a href="https://github.com/wenlingang/keylens">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1>Hold <span class="sym">⌘</span> to see every shortcut.</h1>
+      <p class="lede">Keylens reads the menus of whatever app is in front and lists all of its keyboard shortcuts in one panel. Search them by name or by keys, and press Return to run one.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/wenlingang/keylens/releases/latest/download/Keylens.dmg">Download for Mac</a>
+        <span class="req"><span id="ver">Free and open source</span> · macOS 11 or later</span>
+      </div>
+    </div>
+    <div class="try">
+      <button class="cap" id="cap" type="button" aria-controls="screen" aria-label="Hold to open the shortcut panel">
+        <svg class="ring" viewBox="0 0 224 224" aria-hidden="true">
+          <rect class="track" x="2" y="2" width="220" height="220" rx="56" pathLength="100"/>
+          <rect class="fill" x="2" y="2" width="220" height="220" rx="56" pathLength="100"/>
+        </svg>
+        <span class="glyph sym" aria-hidden="true">⌘</span>
+      </button>
+      <p class="hint" id="hint" aria-live="polite">Try it: hold <kbd class="sym">⌘</kbd> on your keyboard.</p>
+    </div>
+  </div>
+
+  <div class="wrap stage">
+    <div class="screen" id="screen">
+      <div class="empty" id="empty">Hold ⌘ for a moment and the panel opens here.</div>
+      <picture>
+        <source srcset="screenshots/en-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="screenshots/en-hero.png" width="1600" height="1049" alt="The Keylens panel over Zed, listing 93 menu shortcuts in three columns grouped by menu">
+      </picture>
+    </div>
+    <p class="caption">The panel over Zed. VS Code, Notion, Slack and any other app open the same way, with nothing to set up per app.</p>
+  </div>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="scene">
+        <div>
+          <h2>Search with the keys you remember.</h2>
+          <p>Type <kbd class="sym">⌘⇧</kbd>, <code>shift</code> or <code>cmd+shift+p</code> and Keylens lists everything bound to those keys, in any order, next to regular title matches.</p>
+          <p class="muted">Use the arrow keys to move. Return runs the selected item. Esc clears the search first, then closes the panel.</p>
+        </div>
+        <img src="screenshots/en-search.png" width="1600" height="1049" loading="lazy" alt="Searching ⌘⇧ in Zed shows the 17 shortcuts that use Command and Shift">
+      </div>
+
+      <div class="scene flip">
+        <div>
+          <h2>Fits in at night, too.</h2>
+          <p>The panel follows the system appearance, so it looks right next to your apps in dark mode as well as in light.</p>
+          <p class="muted">Menu items run through Accessibility, exactly as if you had picked them from the menu bar.</p>
+        </div>
+        <img src="screenshots/en-dark.png" width="1600" height="1049" loading="lazy" alt="The same panel in dark appearance">
+      </div>
+
+      <div class="facts">
+        <div>
+          <h3>Fills in what menus leave out</h3>
+          <p>Community data adds shortcuts that VS Code, Chrome or Slack keep out of their menus, marked with ◇. Record your own by pressing the keys.</p>
+        </div>
+        <div>
+          <h3>Your trigger, your timing</h3>
+          <p>Hold or double-tap ⌘, ⌥, ⌃ or ⇧. Choose how long to hold and whether letting go closes the panel.</p>
+        </div>
+        <div>
+          <h3>Speaks your language</h3>
+          <p>English, Simplified and Traditional Chinese, and Japanese, following the system language unless you pick one.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p class="muted">Universal build for Apple Silicon and Intel. Windows and Linux are on the roadmap.</p>
+      <ol class="steps">
+        <li>
+          <div>
+            <p><a href="https://github.com/wenlingang/keylens/releases/latest/download/Keylens.dmg">Download Keylens.dmg</a>, open it and drag Keylens into Applications. Don't run it from inside the dmg.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <p>Keylens isn't notarized by Apple, so macOS blocks the first launch. Allow it either way:</p>
+            <ul>
+              <li>System Settings › Privacy &amp; Security, then <strong>Open Anyway</strong> at the bottom</li>
+              <li>or before opening the dmg, run <code>xattr -d com.apple.quarantine ~/Downloads/Keylens.dmg</code></li>
+            </ul>
+          </div>
+        </li>
+        <li>
+          <div>
+            <p>Turn on Keylens under System Settings › Privacy &amp; Security › Accessibility. It works right away, no restart needed.</p>
+          </div>
+        </li>
+      </ol>
+      <p class="muted" style="margin-top:40px">Keylens checks for updates once a day, then downloads, installs and restarts when you say yes. Updates keep the Accessibility permission.</p>
+    </div>
+  </section>
+
+  <section class="block" id="configure">
+    <div class="wrap config">
+      <div>
+        <h2>Change it in Settings, or in a file.</h2>
+        <p>Open Settings from the ⌘ icon in the menu bar, or press <kbd class="sym">⌘,</kbd> while the panel is open. Changes apply immediately.</p>
+        <p class="muted">Everything is saved to <code>~/.config/keylens/config.toml</code>. Edits by hand take effect within two seconds, and your comments are kept.</p>
+      </div>
+<pre><code><span class="c"># zh-CN, zh-TW, zh-HK, en, ja</span>
+<span class="k">language</span> = "en"
+
+[<span class="k">trigger</span>]
+<span class="k">mode</span> = "hold"            <span class="c"># hold | double-tap</span>
+<span class="k">key</span> = "cmd"             <span class="c"># cmd, option, ctrl, shift</span>
+<span class="k">hold-ms</span> = 800           <span class="c"># 300–2000</span>
+<span class="k">double-tap-ms</span> = 350     <span class="c"># 200–600</span>
+<span class="k">hide-on-release</span> = false
+
+[<span class="k">update</span>]
+<span class="k">auto-check</span> = true</code></pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Code under Apache-2.0. Shortcut data under CC0. Built with <a href="https://github.com/longbridge/gpui-kit">gpui-kit</a>.</span>
+    <span><a href="https://github.com/wenlingang/keylens">Source</a> &nbsp; <a href="https://github.com/wenlingang/keylens/releases">Releases</a> &nbsp; <a href="https://github.com/wenlingang/keylens/blob/master/CONTRIBUTING.md">Contribute shortcuts</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var HOLD_MS = 800;
+  var cap = document.getElementById("cap");
+  var screen = document.getElementById("screen");
+  var hint = document.getElementById("hint");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var start = 0, raf = 0, holding = false;
+
+  function setP(p) { cap.style.setProperty("--p", p); }
+
+  function tick(t) {
+    var p = Math.min((t - start) / HOLD_MS, 1);
+    setP(p);
+    if (p < 1) { raf = requestAnimationFrame(tick); } else { open(); }
+  }
+  function begin() {
+    if (holding) return;
+    holding = true;
+    cap.classList.add("down");
+    if (screen.classList.contains("open")) return;
+    start = performance.now();
+    raf = requestAnimationFrame(tick);
+  }
+  function cancel() {
+    holding = false;
+    cap.classList.remove("down");
+    cancelAnimationFrame(raf);
+    if (!screen.classList.contains("open")) setP(0);
+  }
+  function open() {
+    screen.classList.add("open");
+    hint.innerHTML = "That's it. The panel stays open until you press <kbd>esc</kbd>.";
+    if (!reduce && screen.getBoundingClientRect().top > window.innerHeight * 0.6) {
+      screen.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+  function close() {
+    screen.classList.remove("open");
+    setP(0);
+    hint.innerHTML = "Try it: hold <kbd class=\"sym\">⌘</kbd> on your keyboard.";
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Meta" && !e.repeat) { begin(); return; }
+    if (e.key === "Escape" && screen.classList.contains("open")) { close(); return; }
+    if (holding) cancel(); // ⌘ plus another key is a shortcut, not a hold
+  });
+  document.addEventListener("keyup", function (e) { if (e.key === "Meta") cancel(); });
+  window.addEventListener("blur", cancel);
+
+  cap.addEventListener("pointerdown", function (e) { e.preventDefault(); cap.setPointerCapture(e.pointerId); begin(); });
+  cap.addEventListener("pointerup", cancel);
+  cap.addEventListener("pointercancel", cancel);
+  cap.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  cap.addEventListener("keydown", function (e) {
+    if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); begin(); }
+  });
+  cap.addEventListener("keyup", function (e) { if (e.key === " " || e.key === "Enter") cancel(); });
+
+  if (!/Mac/.test(navigator.platform || navigator.userAgent)) {
+    hint.textContent = "Try it: press and hold the key.";
+    document.getElementById("empty").textContent = "Press and hold the key above, and the panel opens here.";
+  }
+
+  fetch("https://api.github.com/repos/wenlingang/keylens/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && d.tag_name) document.getElementById("ver").textContent = "Version " + d.tag_name.replace(/^v/, ""); })
+    .catch(function () {});
+})();
+</script>
+</body>
+</html>

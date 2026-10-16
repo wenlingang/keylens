@@ -1,6 +1,6 @@
 # Keylens
 
-[English](README.md) · **简体中文**
+[English](README.md) · **简体中文** · [主页](https://wenlingang.github.io/keylens/)
 
 长按 ⌘，看清当前应用的所有快捷键：可以搜索，也可以直接执行。开源、跨平台，快捷键数据由社区维护。基于 [gpui-kit](https://github.com/longbridge/gpui-kit) 构建。
 
