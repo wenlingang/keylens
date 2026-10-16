@@ -4,11 +4,28 @@ use std::cell::{Cell, RefCell};
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject};
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
-use objc2_app_kit::{NSMenu, NSMenuItem, NSStatusBar, NSStatusItem, NSVariableStatusItemLength};
-use objc2_foundation::NSString;
+use objc2::{
+    AnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel,
+};
+use objc2_app_kit::{
+    NSCellImagePosition, NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
+    NSVariableStatusItemLength,
+};
+use objc2_foundation::{NSData, NSSize, NSString};
 
 pub use keylens_platform::tray::{TrayCommand, TrayHandle, TrayLabels};
+
+/// Menu bar icon, 36×36 px drawn for 18×18 pt (see `assets/tray-icon.svg`). Black plus alpha only:
+/// as a template image macOS tints it to match light and dark menu bars.
+const ICON_PNG: &[u8] = include_bytes!("../../../assets/tray-icon.png");
+
+fn icon_image() -> Option<Retained<NSImage>> {
+    let data = NSData::with_bytes(ICON_PNG);
+    let image = NSImage::initWithData(NSImage::alloc(), &data)?;
+    image.setSize(NSSize::new(18.0, 18.0));
+    image.setTemplate(true);
+    Some(image)
+}
 
 fn tag(command: TrayCommand) -> isize {
     command as isize + 1
@@ -59,6 +76,8 @@ pub struct Tray {
     update_item: Retained<NSMenuItem>,
     quit_item: Retained<NSMenuItem>,
     labels: RefCell<TrayLabels>,
+    /// Whether the button shows `ICON_PNG`; if it failed to load, the button falls back to text.
+    has_image: bool,
     granted: Cell<bool>,
     update_status: RefCell<Option<String>>,
     mtm: MainThreadMarker,
@@ -141,6 +160,11 @@ impl Tray {
         let quit_item = menu_item(mtm, &labels.quit, &target, Some(TrayCommand::Quit));
         menu.addItem(&quit_item);
         item.setMenu(Some(&menu));
+        let image = icon_image();
+        if let (Some(button), Some(image)) = (item.button(mtm), &image) {
+            button.setImage(Some(image));
+            button.setImagePosition(NSCellImagePosition::ImageLeft);
+        }
         let tray = Tray {
             item,
             permission_item,
@@ -152,6 +176,7 @@ impl Tray {
             update_item,
             quit_item,
             labels: RefCell::new(labels),
+            has_image: image.is_some(),
             granted: Cell::new(true),
             update_status: RefCell::new(None),
             mtm,
@@ -179,7 +204,13 @@ impl TrayHandle for Tray {
         let labels = self.labels.borrow();
         if let Some(button) = self.item.button(self.mtm) {
             let mark = if granted { "" } else { "!" };
-            button.setTitle(&NSString::from_str(&format!("{}{mark}", labels.icon)));
+            // The image already draws the ⌘, so only the rest of the text label ("dev") is shown next to it.
+            let text = if self.has_image {
+                labels.icon.trim_start_matches('⌘')
+            } else {
+                &labels.icon
+            };
+            button.setTitle(&NSString::from_str(&format!("{text}{mark}")));
         }
         let title = if granted {
             &labels.permission_ok

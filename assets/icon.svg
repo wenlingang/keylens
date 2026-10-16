@@ -1,16 +1,41 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- 动漫风键帽：粗描边 + 赛璐璐硬阴影 + 主色液体灌到一半，与长按蓄力动效同一套造型 -->
   <defs>
-    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3A3D44"/>
-      <stop offset="1" stop-color="#1D1F23"/>
-    </linearGradient>
-    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4A4E57"/>
-      <stop offset="1" stop-color="#2C2F35"/>
-    </linearGradient>
+    <clipPath id="face">
+      <rect x="132" y="128" width="760" height="690" rx="150"/>
+    </clipPath>
+    <path id="cmd" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          d="M -84 -146 V 146 M 84 -146 V 146 M -146 -84 H 146 M -146 84 H 146
+             M 84 146 A 62 62 0 1 0 146 84
+             M -84 146 A 62 62 0 1 1 -146 84
+             M 84 -146 A 62 62 0 1 1 146 -84
+             M -84 -146 A 62 62 0 1 0 -146 -84"/>
   </defs>
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#body)"/>
-  <rect x="170" y="150" width="684" height="660" rx="130" fill="url(#face)"/>
-  <text x="512" y="595" text-anchor="middle" dominant-baseline="central"
-        font-family="Apple Symbols, Menlo, sans-serif" font-size="420" fill="#FFFFFF">⌘</text>
+
+  <!-- 键帽主体：深色外轮廓 + 底部厚度 -->
+  <rect x="100" y="100" width="824" height="824" rx="190" fill="#1B1B2F"/>
+  <rect x="132" y="160" width="760" height="732" rx="150" fill="#C3BADB"/>
+
+  <!-- 键面 -->
+  <g clip-path="url(#face)">
+    <rect x="132" y="128" width="760" height="690" fill="#FFFDF7"/>
+    <rect x="132" y="610" width="760" height="208" fill="#E6E0F5"/>
+    <!-- 液体：顶部亮色波浪 -->
+    <path fill="#8AB6FA" d="M132 452 Q 195 412 258 452 T 384 452 T 510 452 T 636 452 T 762 452 T 888 452 V 818 H 132 Z"/>
+    <path fill="#3B82F6" d="M132 486 Q 195 446 258 486 T 384 486 T 510 486 T 636 486 T 762 486 T 888 486 V 818 H 132 Z"/>
+    <!-- 高光 -->
+    <rect x="196" y="186" width="128" height="34" rx="17" fill="#FFFFFF" transform="rotate(-20 260 203)"/>
+    <rect x="344" y="168" width="36" height="34" rx="17" fill="#FFFFFF"/>
+  </g>
+  <rect x="132" y="128" width="760" height="690" rx="150" fill="none" stroke="#1B1B2F" stroke-width="30"/>
+
+  <!-- ⌘：白字黑描边 -->
+  <g transform="translate(512 470)">
+    <use href="#cmd" stroke="#1B1B2F" stroke-width="88"/>
+    <use href="#cmd" stroke="#FFFFFF" stroke-width="46"/>
+  </g>
+
+  <!-- 闪光星 -->
+  <path d="M842 92 L866 168 L942 192 L866 216 L842 292 L818 216 L742 192 L818 168 Z"
+        fill="#FFD84D" stroke="#1B1B2F" stroke-width="18" stroke-linejoin="round"/>
 </svg>
