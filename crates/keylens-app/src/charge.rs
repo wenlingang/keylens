@@ -130,12 +130,12 @@ impl Phase {
                 }
             }
             Phase::Burst { at } => {
-                // Swells to 1.12 in the first quarter, then to 1.6, fading out all along.
+                // Swells to 1.06 in the first quarter, then to 1.3, fading out all along.
                 let t = progress(now, at, BURST);
                 let scale = if t < 0.25 {
-                    lerp(1.0, 1.12, ease_out_cubic(t / 0.25))
+                    lerp(1.0, 1.06, ease_out_cubic(t / 0.25))
                 } else {
-                    lerp(1.12, 1.6, ease_out_cubic((t - 0.25) / 0.75))
+                    lerp(1.06, 1.3, ease_out_cubic((t - 0.25) / 0.75))
                 };
                 Frame {
                     p: 1.0,
@@ -332,14 +332,14 @@ impl Render for ChargeView {
                 .opacity(own(frame.p * 0.55 * frame.aura)),
         );
         if let Some(t) = frame.boom {
-            let size = 152.0 * lerp(0.4, 2.6, ease_out_cubic(t));
+            let size = 152.0 * lerp(0.4, 1.7, ease_out_cubic(t));
             root = root.child(
                 img(boom)
                     .absolute()
                     .left(px(center - size / 2.0))
                     .top(px(center - size / 2.0))
                     .size(px(size))
-                    .opacity(own(0.7 * (1.0 - ease_out_cubic(t)))),
+                    .opacity(own(0.5 * (1.0 - ease_out_cubic(t)))),
             );
         }
 
@@ -625,7 +625,7 @@ mod tests {
         let mid = phase.frame(t0 + BURST / 2);
         assert!(mid.scale_x > 1.0 && mid.boom.is_some() && !mid.done);
         let end = phase.frame(t0 + BURST);
-        assert!(end.done && end.opacity <= 0.0 && end.scale_x > 1.5);
+        assert!(end.done && end.opacity <= 0.0 && end.scale_x > 1.2);
     }
 
     #[test]
