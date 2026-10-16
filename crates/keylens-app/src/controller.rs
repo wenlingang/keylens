@@ -799,7 +799,11 @@ mod tests {
             Os::MacOS,
             keylens_core::Lang::En,
         ));
-        let dir = std::env::temp_dir().join(format!("keylens-ctl-{}", std::process::id()));
+        // One directory per test: tests run in parallel in one process, and one that writes a
+        // setting (e.g. hide-on-release) must not change what another one loads.
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("keylens-ctl-{}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let prefs = Prefs::load(
             dir.join("config.toml"),
