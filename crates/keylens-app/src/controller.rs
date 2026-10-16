@@ -439,6 +439,11 @@ impl Keylens {
     }
 
     fn on_trigger(&mut self, action: TriggerAction, cx: &mut Context<Self>) {
+        // Holding the key again over the open panel does nothing: no reading, no refresh.
+        if self.session.visible() && matches!(action, TriggerAction::Prefetch | TriggerAction::Show)
+        {
+            return;
+        }
         match action {
             TriggerAction::Prefetch => self.start_charge(cx),
             TriggerAction::Show => self.end_charge(true, cx),
@@ -1180,6 +1185,21 @@ mod tests {
         assert_eq!(charge_state(&keylens, &view, cx), (true, Some("release")));
         after(cx, charge::RELEASE);
         assert_eq!(charge_state(&keylens, &view, cx), (false, None));
+    }
+
+    #[gpui_kit::test]
+    fn holding_the_key_again_over_the_open_panel_does_nothing(cx: &mut TestAppContext) {
+        let fake = Arc::new(FakePlatform::default());
+        let (keylens, _) = setup_with(cx, || {}, fake.clone());
+        hold_and_release(&keylens, &fake, cx);
+        settle(cx);
+        let reads = fake.menu_reads();
+        for action in [TriggerAction::Prefetch, TriggerAction::Show] {
+            keylens.update(cx, |k, cx| k.on_trigger(action, cx));
+        }
+        settle(cx);
+        assert_eq!(fake.menu_reads(), reads, "the panel was read again");
+        assert!(panel_visible(&keylens, cx));
     }
 
     #[gpui_kit::test]

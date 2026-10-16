@@ -753,7 +753,9 @@ impl PanelView {
         }
         div()
             .id("body")
+            .debug_selector(|| "panel-body".into())
             .flex_1()
+            .on_mouse_down(MouseButton::Left, keep_search_focus)
             .overflow_y_scroll()
             .track_scroll(&self.scroll)
             .child(columns)
@@ -775,6 +777,7 @@ impl PanelView {
         };
         h_flex()
             .h(px(36.))
+            .on_mouse_down(MouseButton::Left, keep_search_focus)
             .px_4()
             .gap_3()
             .border_t_1()
@@ -911,6 +914,12 @@ fn appear(column: Div, appearance: usize, index: usize) -> AnyElement {
             |column, v| column.opacity(v).relative().top(px((1.0 - v) * 8.0)),
         )
         .into_any_element()
+}
+
+/// Keeps a mouse-down in the list or footer from moving focus to the panel itself: the search box
+/// would lose and regain focus on every click, and its focus ring would flicker.
+fn keep_search_focus(_: &MouseDownEvent, window: &mut Window, _: &mut App) {
+    window.prevent_default();
 }
 
 /// A clickable text link in the footer, in the theme's link colour (`accent` is a hover
@@ -1185,6 +1194,25 @@ mod tests {
             })
             .unwrap();
         assert!(focused);
+    }
+
+    #[gpui_kit::test]
+    fn pressing_on_a_row_never_takes_focus_from_the_search_box(cx: &mut TestAppContext) {
+        let (window, _) = setup(cx);
+        let input = window
+            .update(cx, |view, _, cx| view.input.read(cx).focus_handle(cx))
+            .unwrap();
+        let cx = &mut VisualTestContext::from_window(window.into(), cx);
+        cx.run_until_parked();
+        let body = cx.debug_bounds("panel-body").expect("the list is shown");
+        // Inside the first row, below the group header.
+        let row = point(
+            body.origin.x + px(40.),
+            body.origin.y + px(LIST_PADDING + HEADER_HEIGHT + ROW_HEIGHT / 2.),
+        );
+        cx.simulate_mouse_down(row, MouseButton::Left, Modifiers::none());
+        let focused = cx.update(|window, _| input.is_focused(window));
+        assert!(focused, "focus left the search box on mouse-down");
     }
 
     #[gpui_kit::test]
