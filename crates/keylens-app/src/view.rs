@@ -36,8 +36,6 @@ const HEADER_HEIGHT: f32 = 24.0;
 /// Total height of the top and bottom bars, used to estimate the visible list height.
 const CHROME_HEIGHT: f32 = 100.0;
 
-/// Accent when the app icon has no usable colour.
-const DEFAULT_ACCENT: u32 = 0x3b82f6;
 /// How long each keycap of a shortcut takes to go down before it runs, and the pause after the
 /// last one, so the user sees what was pressed.
 const PRESS_STEP: Duration = Duration::from_millis(55);
@@ -404,7 +402,7 @@ impl PanelView {
                 .icon
                 .as_ref()
                 .and_then(|icon| icon.accent)
-                .unwrap_or_else(|| rgb(DEFAULT_ACCENT).into()),
+                .unwrap_or_else(|| rgb(crate::charge::DEFAULT_ACCENT).into()),
             dark: cx.theme().is_dark(),
             keys: KeyQuery::parse(self.model.query(), self.model.os()),
         }

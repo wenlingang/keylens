@@ -52,6 +52,17 @@ pub fn centered_origin(visible: Rect, (width, height): (f64, f64)) -> (f64, f64)
     (x.round(), y.round())
 }
 
+/// Bottom-left origin (AppKit) of a window of `size` centred on where the panel goes in `visible`,
+/// so the hold animation sits right where the panel then appears.
+pub fn panel_centered_origin(visible: Rect, (width, height): (f64, f64)) -> (f64, f64) {
+    let panel = panel_size(visible);
+    let (x, y) = centered_origin(visible, panel);
+    (
+        (x + (panel.0 - width) / 2.0).round(),
+        (y + (panel.1 - height) / 2.0).round(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,5 +109,15 @@ mod tests {
         assert_eq!(x, 1440.0 + 440.0);
         assert!(y > 25.0 + (1055.0 - 640.0) / 2.0);
         assert!(y + 640.0 <= 25.0 + 1055.0);
+    }
+
+    #[test]
+    fn overlay_is_centred_on_the_panel() {
+        let visible = rect(0.0, 0.0, 1440.0, 900.0);
+        let panel = panel_size(visible);
+        let (px, py) = centered_origin(visible, panel);
+        let (x, y) = panel_centered_origin(visible, (240.0, 240.0));
+        assert_eq!(x + 120.0, (px + panel.0 / 2.0).round());
+        assert_eq!(y + 120.0, (py + panel.1 / 2.0).round());
     }
 }

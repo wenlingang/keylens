@@ -10,6 +10,7 @@ use keylens_core::{
 };
 use keylens_platform::{ListenGuard, PermissionState, Platform};
 
+use crate::charge::{self, ChargeView};
 use crate::loader::{Cache, Freshness, Loader};
 use crate::permission::{PermissionAction, PermissionWatch};
 use crate::prefs::Prefs;
@@ -45,6 +46,11 @@ pub struct Native {
     pub raise: fn(&Window, bool),
     /// Fades the panel in as it comes on screen.
     pub fade_in: fn(&Window),
+    /// Works out how to show the hold animation's window over where the panel will appear (the
+    /// screen of the app with this pid), without taking focus. Run the result outside any update.
+    pub show_overlay: fn(&Window, Option<i32>) -> Option<PanelMove>,
+    /// Whether the user asked the system to reduce motion.
+    pub reduce_motion: fn() -> bool,
     /// Works out how to move the panel onto the screen showing the app with this pid (or under the
     /// mouse). The returned move must run outside any window update.
     pub place: fn(&Window, Option<i32>) -> Option<PanelMove>,
@@ -82,6 +88,13 @@ pub struct Keylens {
     child_subscriptions: Vec<(AnyWindowHandle, Vec<Subscription>)>,
     focus_check: Option<Task<()>>,
     tick: Option<Task<()>>,
+    /// The hold animation's window, once attached (see `attach_charge`).
+    charge: Option<(AnyWindowHandle, Entity<ChargeView>)>,
+    /// Shows the hold animation after the grace period, or hides it after it bursts or springs
+    /// away. Replacing it cancels what it was waiting for.
+    charge_task: Option<Task<()>>,
+    /// Whether the hold animation is on screen.
+    charge_shown: bool,
     frontmost_prefetch: Option<Task<()>>,
     permission_task: Option<Task<()>>,
     user_data_task: Option<Task<()>>,
@@ -134,6 +147,9 @@ impl Keylens {
             child_subscriptions: Vec::new(),
             focus_check: None,
             tick: None,
+            charge: None,
+            charge_task: None,
+            charge_shown: false,
             frontmost_prefetch: None,
             permission_task: None,
             user_data_task: None,
@@ -159,6 +175,11 @@ impl Keylens {
         listener(builtin_errors + user_errors);
         self.builtin_errors = builtin_errors;
         self.on_data_errors = Some(listener);
+    }
+
+    /// Gives the controller the window the hold animation is drawn in.
+    pub fn attach_charge(&mut self, window: AnyWindowHandle, view: Entity<ChargeView>) {
+        self.charge = Some((window, view));
     }
 
     pub fn set_permission_listener(&mut self, listener: Box<dyn Fn(bool)>) {
@@ -418,6 +439,12 @@ impl Keylens {
     }
 
     fn on_trigger(&mut self, action: TriggerAction, cx: &mut Context<Self>) {
+        match action {
+            TriggerAction::Prefetch => self.start_charge(cx),
+            TriggerAction::Show => self.end_charge(true, cx),
+            TriggerAction::Cancel => self.end_charge(false, cx),
+            TriggerAction::Released => {}
+        }
         let effects = match action {
             TriggerAction::Prefetch => self.session.on_prefetch(self.platform.frontmost_app()),
             TriggerAction::Show => self.session.on_show(self.platform.frontmost_app()),
@@ -436,6 +463,80 @@ impl Keylens {
             }
         };
         self.apply(effects, cx);
+    }
+
+    // ---- Hold animation ----
+
+    /// The trigger key went down: after the grace period, if it is still held, show the keycap
+    /// filling up in the frontmost app's colour. Only for holding a key, not for double-tapping.
+    fn start_charge(&mut self, cx: &mut Context<Self>) {
+        let Trigger::HoldModifier { delay, .. } = self.trigger else {
+            return;
+        };
+        // Holding the key again over an open panel only refreshes it.
+        if self.session.visible() {
+            return;
+        }
+        let Some((window, view)) = self.charge.clone() else {
+            return;
+        };
+        let reduce_motion = (self.native.reduce_motion)();
+        // Keep the panel's own animations in step with the system setting too.
+        cx.set_reduce_motion(reduce_motion);
+        if reduce_motion {
+            return;
+        }
+        let full_at = Instant::now() + delay;
+        let grace = charge::grace(delay);
+        let show_overlay = self.native.show_overlay;
+        self.charge_task = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(grace).await;
+            let Ok(pid) = this.update(cx, |this, cx| {
+                let app = this.platform.frontmost_app();
+                let pid = app.as_ref().map(|a| a.pid);
+                let accent = pid
+                    .and_then(|pid| this.icons.get(&pid).cloned().flatten())
+                    .and_then(|icon| icon.accent)
+                    .unwrap_or_else(|| rgb(charge::DEFAULT_ACCENT).into());
+                view.update(cx, |view, cx| view.charge(accent, full_at, cx));
+                this.charge_shown = true;
+                pid
+            }) else {
+                return;
+            };
+            // Moving and showing the window must happen outside an update (see `Native::place`).
+            if let Ok(Some(show)) = window.update(cx, |_, window, _| show_overlay(window, pid)) {
+                show();
+            }
+        }));
+    }
+
+    /// The hold ended: burst into the panel (`shown`) or spring away, then hide the window.
+    fn end_charge(&mut self, shown: bool, cx: &mut Context<Self>) {
+        if !self.charge_shown {
+            // Still in the grace period: nothing was shown, so just stop waiting.
+            self.charge_task = None;
+            return;
+        }
+        let Some((window, view)) = self.charge.clone() else {
+            return;
+        };
+        let length = if shown {
+            view.update(cx, |view, cx| view.burst(cx));
+            charge::BURST
+        } else {
+            view.update(cx, |view, cx| view.release(cx));
+            charge::RELEASE
+        };
+        let hide = self.native.hide;
+        self.charge_task = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(length).await;
+            let _ = this.update(cx, |this, cx| {
+                this.charge_shown = false;
+                view.update(cx, |view, cx| view.stop(cx));
+                let _ = window.update(cx, |_, window, _| hide(window));
+            });
+        }));
     }
 
     fn on_frontmost(&mut self, app: AppInfo, cx: &mut Context<Self>) {
@@ -822,6 +923,8 @@ mod tests {
             hide: |_| {},
             raise: |_, _| {},
             fade_in: |_| {},
+            show_overlay: |_, _| None,
+            reduce_motion: || false,
             place: |_, _| None,
             beep,
             open: |_| {},
@@ -1008,6 +1111,101 @@ mod tests {
     fn settle(cx: &mut TestAppContext) {
         cx.executor().advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
+    }
+
+    /// Gives the controller a hold animation window and returns its view.
+    fn attach_charge(keylens: &Entity<Keylens>, cx: &mut TestAppContext) -> Entity<ChargeView> {
+        let window = cx.add_window(|_, _| ChargeView::new());
+        let view = window.update(cx, |_, _, cx| cx.entity()).unwrap();
+        let v = view.clone();
+        keylens.update(cx, |k, _| k.attach_charge(window.into(), v));
+        view
+    }
+
+    fn charge_state(
+        keylens: &Entity<Keylens>,
+        view: &Entity<ChargeView>,
+        cx: &mut TestAppContext,
+    ) -> (bool, Option<&'static str>) {
+        let shown = keylens.read_with(cx, |k, _| k.charge_shown);
+        let phase = view.read_with(cx, |v, _| {
+            v.phase().map(|p| match p {
+                charge::Phase::Charging { .. } => "charging",
+                charge::Phase::Burst { .. } => "burst",
+                charge::Phase::Release { .. } => "release",
+            })
+        });
+        (shown, phase)
+    }
+
+    fn after(cx: &mut TestAppContext, length: Duration) {
+        cx.executor().advance_clock(length);
+        cx.run_until_parked();
+    }
+
+    #[gpui_kit::test]
+    fn a_quick_press_shows_no_hold_animation(cx: &mut TestAppContext) {
+        let (keylens, _) = setup(cx);
+        let view = attach_charge(&keylens, cx);
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Prefetch, cx));
+        after(cx, Duration::from_millis(100));
+        // ⌘C: another key went down within the grace period.
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Cancel, cx));
+        after(cx, Duration::from_secs(1));
+        assert_eq!(charge_state(&keylens, &view, cx), (false, None));
+    }
+
+    #[gpui_kit::test]
+    fn holding_fills_the_keycap_then_bursts_into_the_panel(cx: &mut TestAppContext) {
+        let (keylens, _) = setup(cx);
+        let view = attach_charge(&keylens, cx);
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Prefetch, cx));
+        after(cx, charge::MAX_GRACE);
+        assert_eq!(charge_state(&keylens, &view, cx), (true, Some("charging")));
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Show, cx));
+        cx.run_until_parked();
+        assert_eq!(charge_state(&keylens, &view, cx), (true, Some("burst")));
+        after(cx, charge::BURST);
+        assert_eq!(charge_state(&keylens, &view, cx), (false, None));
+    }
+
+    #[gpui_kit::test]
+    fn letting_go_early_springs_the_keycap_away(cx: &mut TestAppContext) {
+        let (keylens, _) = setup(cx);
+        let view = attach_charge(&keylens, cx);
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Prefetch, cx));
+        after(cx, charge::MAX_GRACE + Duration::from_millis(100));
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Cancel, cx));
+        cx.run_until_parked();
+        assert_eq!(charge_state(&keylens, &view, cx), (true, Some("release")));
+        after(cx, charge::RELEASE);
+        assert_eq!(charge_state(&keylens, &view, cx), (false, None));
+    }
+
+    #[gpui_kit::test]
+    fn no_hold_animation_over_an_open_panel(cx: &mut TestAppContext) {
+        let (keylens, _) = setup(cx);
+        let view = attach_charge(&keylens, cx);
+        show_panel(&keylens, cx);
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Prefetch, cx));
+        after(cx, Duration::from_secs(1));
+        assert_eq!(charge_state(&keylens, &view, cx), (false, None));
+    }
+
+    #[gpui_kit::test]
+    fn double_tap_mode_has_no_hold_animation(cx: &mut TestAppContext) {
+        let (keylens, prefs) = setup(cx);
+        let view = attach_charge(&keylens, cx);
+        prefs.update(cx, |p, cx| {
+            p.set(
+                Change::Mode(Some(crate::config::TriggerMode::DoubleTap)),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Prefetch, cx));
+        after(cx, Duration::from_secs(1));
+        assert_eq!(charge_state(&keylens, &view, cx), (false, None));
     }
 
     #[gpui_kit::test]

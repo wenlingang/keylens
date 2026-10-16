@@ -4,6 +4,7 @@
 rust_i18n::i18n!("locales", fallback = "en");
 
 pub mod accent;
+pub mod charge;
 pub mod config;
 pub mod config_write;
 pub mod controller;
@@ -90,6 +91,8 @@ pub fn run() {
             hide: |w| keylens_macos::panel::hide(w),
             raise: |w, raised| keylens_macos::panel::set_raised(w, raised),
             fade_in: |w| keylens_macos::panel::fade_in(w),
+            show_overlay: |w, pid| keylens_macos::panel::show_overlay(w, pid),
+            reduce_motion: keylens_macos::panel::reduce_motion,
             place: |w, pid| keylens_macos::panel::place(w, pid),
             beep: keylens_macos::panel::beep,
             open: keylens_macos::panel::open_path,
@@ -113,6 +116,7 @@ pub fn run_with(host: Host) {
     use keylens_core::community::{builtin, load_dir};
     use rust_i18n::t;
 
+    use crate::charge;
     use crate::controller::Keylens;
     use crate::loader::Loader;
     use crate::updater::Updater;
@@ -206,6 +210,27 @@ pub fn run_with(host: Host) {
                 Theme::sync_system_appearance(Some(window), cx)
             });
 
+            // The hold animation's window: transparent, never focused, shown only while the
+            // trigger key is held (see `Keylens::start_charge`).
+            let charge_options = WindowOptions {
+                kind: WindowKind::PopUp,
+                titlebar: None,
+                focus: false,
+                show: false,
+                is_resizable: false,
+                is_movable: false,
+                window_background: WindowBackgroundAppearance::Transparent,
+                window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
+                    None,
+                    size(px(charge::WINDOW_SIZE), px(charge::WINDOW_SIZE)),
+                    cx,
+                ))),
+                ..Default::default()
+            };
+            let charge_window = gpui_kit::open_window(charge_options, cx, |_, cx| {
+                cx.new(|_| charge::ChargeView::new())
+            });
+
             let keylens = cx.new(|cx| {
                 Keylens::new(
                     platform.clone(),
@@ -217,6 +242,11 @@ pub fn run_with(host: Host) {
                     cx,
                 )
             });
+            match charge_window {
+                Ok((window, view)) => keylens.update(cx, |k, _| k.attach_charge(window, view)),
+                // Not worth failing over: holding the key just shows no animation.
+                Err(error) => tracing::warn!("could not create the hold animation window: {error}"),
+            }
 
             let (tray_tx, tray_rx) = async_channel::unbounded::<TrayCommand>();
             let labels = tray_labels(dev);
