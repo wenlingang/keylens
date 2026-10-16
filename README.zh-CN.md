@@ -7,7 +7,7 @@
 > **状态：** v0.1，目前仅支持 macOS（Universal 版本，Apple Silicon + Intel；Intel 版本未经真机验证）。Windows 和 Linux 在路线图上。
 
 <p align="center">
-  <img src="docs/screenshots/zh-hero.png" alt="在 VS Code 上长按 ⌘ 弹出的 Keylens 浮层，按菜单分三列列出快捷键" width="800">
+  <img src="assets/screenshots/zh-hero.png" alt="在 VS Code 上长按 ⌘ 弹出的 Keylens 浮层，按菜单分三列列出快捷键" width="800">
 </p>
 
 ## 看一眼
@@ -19,8 +19,8 @@
 **深色模式不用管。** 浮层跟随系统外观，白天晚上看着都顺眼。
 
 <p align="center">
-  <img src="docs/screenshots/zh-search.png" alt="在 VS Code 里搜索「行」，列出 21 个相关快捷键" width="49%">
-  <img src="docs/screenshots/zh-dark.png" alt="深色外观下的同一个浮层" width="49%">
+  <img src="assets/screenshots/zh-search.png" alt="在 VS Code 里搜索「行」，列出 21 个相关快捷键" width="49%">
+  <img src="assets/screenshots/zh-dark.png" alt="深色外观下的同一个浮层" width="49%">
 </p>
 
 ## 功能
@@ -91,7 +91,6 @@ auto-check = true      # 每天自动检查一次新版本
 - `crates/keylens-macos/`：macOS 实现（辅助功能 API、按键监听、浮层窗口、菜单栏图标）
 - `crates/keylens-app/`：gpui-kit 界面与控制逻辑
 - `data/apps/`：社区快捷键数据（CC0）
-- `docs/`：设计文档、实施计划、实验结论、验证记录
 - `spikes/`：一次性技术验证代码，不属于产品
 
 ## 参与贡献

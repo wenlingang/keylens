@@ -6,3 +6,6 @@ target/
 *.p12.base64
 password.txt
 keylens-release-cert/
+
+# Design notes, plans and verification records stay local.
+docs/

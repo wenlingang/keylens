@@ -7,7 +7,7 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 > **Status:** v0.1, macOS only for now (universal build for Apple Silicon and Intel; the Intel build has not been verified on real hardware). Windows and Linux are on the roadmap.
 
 <p align="center">
-  <img src="docs/screenshots/en-hero.png" alt="Keylens panel over Zed, listing its menu shortcuts in three columns" width="800">
+  <img src="assets/screenshots/en-hero.png" alt="Keylens panel over Zed, listing its menu shortcuts in three columns" width="800">
 </p>
 
 ## A look around
@@ -19,8 +19,8 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 **Dark mode comes for free.** The panel follows the system appearance, so it fits in at night as well as it does during the day.
 
 <p align="center">
-  <img src="docs/screenshots/en-search.png" alt="Searching ⌘⇧ in Zed shows the 17 shortcuts that use Command + Shift" width="49%">
-  <img src="docs/screenshots/en-dark.png" alt="The same panel in dark appearance" width="49%">
+  <img src="assets/screenshots/en-search.png" alt="Searching ⌘⇧ in Zed shows the 17 shortcuts that use Command + Shift" width="49%">
+  <img src="assets/screenshots/en-dark.png" alt="The same panel in dark appearance" width="49%">
 </p>
 
 ## Features
@@ -91,7 +91,6 @@ Your own shortcut data goes in `~/.config/keylens/apps/*.toml`, using the same f
 - `crates/keylens-macos/`: macOS implementation (Accessibility API, key listener, panel window, menu bar icon)
 - `crates/keylens-app/`: gpui-kit UI and controller
 - `data/apps/`: community shortcut data (CC0)
-- `docs/`: design spec, implementation plans, spike findings, verification records
 - `spikes/`: throwaway technical experiments, not part of the product
 
 ## Contributing
