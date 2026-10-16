@@ -61,7 +61,9 @@ jobs:
           # A pre-release (vX.Y.Z-rc1) must not become releases/latest, which every installed copy updates to.
           prerelease=()
           [[ $version == *-* ]] && prerelease=(--prerelease)
-          gh release create "$GITHUB_REF_NAME" "$dmg" "$dmg.sha256" "$RUNNER_TEMP/latest.json" \
+          # Versionless copy: releases/latest/download/Keylens.dmg is a download link that never goes stale.
+          cp "$dmg" "$RUNNER_TEMP/Keylens.dmg"
+          gh release create "$GITHUB_REF_NAME" "$dmg" "$dmg.sha256" "$RUNNER_TEMP/latest.json" "$RUNNER_TEMP/Keylens.dmg" \
             --title "Keylens $version" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes "${prerelease[@]}"
       - name: Remove temporary keychain
         if: always()

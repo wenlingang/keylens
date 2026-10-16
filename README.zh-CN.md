@@ -36,11 +36,13 @@
 
 ## 安装
 
-1. 从 [Releases](https://github.com/wenlingang/keylens/releases) 下载最新的 `Keylens-X.Y.Z.dmg`，把 **Keylens** 拖进「应用程序」。请不要直接在 dmg 里运行。
+1. [下载最新的 Keylens.dmg](https://github.com/wenlingang/keylens/releases/latest/download/Keylens.dmg)（或在 [Releases](https://github.com/wenlingang/keylens/releases) 选择版本），打开后把 **Keylens** 拖进「应用程序」。请不要直接在 dmg 里运行。
 2. Keylens 未经 Apple 公证，第一次打开会被拦下。任选一种方式放行：
    - 打开「系统设置 › 隐私与安全性」，在底部点「仍要打开」；
-   - 或在终端执行：`xattr -dr com.apple.quarantine /Applications/Keylens.app`
+   - 或在打开 dmg 之前，在终端执行：`xattr -d com.apple.quarantine ~/Downloads/Keylens.dmg`（新版 macOS 不允许终端修改「应用程序」里已有的 App）
 3. 按引导在「系统设置 › 隐私与安全性 › 辅助功能」中打开 Keylens 的开关，授权后自动生效。之后升级覆盖安装，不需要重新授权。
+
+从 0.1.0 升级：0.1.0 用的是另一张签名证书，原来的辅助功能授权对新版本无效。请在「辅助功能」列表里选中 Keylens 按「−」删除（或在终端执行 `tccutil reset Accessibility io.github.wenlingang.keylens`），再重新授权。
 
 Keylens 每天会检查一次新版本，也可以在菜单栏图标的菜单里点「检查更新…」手动检查。发现新版本时会先询问，确认后自动下载、安装并重启。只有用同一张证书签名的新版本才会被安装，所以辅助功能授权会保留。
 

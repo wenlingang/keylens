@@ -36,11 +36,13 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 
 ## Install
 
-1. Download the latest `Keylens-X.Y.Z.dmg` from [Releases](https://github.com/wenlingang/keylens/releases) and drag **Keylens** into Applications. Do not run it directly from inside the dmg.
+1. [Download the latest Keylens.dmg](https://github.com/wenlingang/keylens/releases/latest/download/Keylens.dmg) (or pick a version on [Releases](https://github.com/wenlingang/keylens/releases)), open it and drag **Keylens** into Applications. Do not run it directly from inside the dmg.
 2. Keylens is not notarized by Apple, so macOS blocks it the first time you open it. Allow it in either way:
    - Open System Settings › Privacy & Security and click **Open Anyway** at the bottom;
-   - or run in a terminal: `xattr -dr com.apple.quarantine /Applications/Keylens.app`
+   - or, before opening the dmg, run in a terminal: `xattr -d com.apple.quarantine ~/Downloads/Keylens.dmg` (recent macOS refuses to change apps already in Applications)
 3. Follow the prompt and turn on Keylens under System Settings › Privacy & Security › Accessibility. It takes effect immediately after you grant it. Upgrading by replacing the app later does not require granting it again.
+
+Upgrading from 0.1.0: it was signed with a different certificate, so the old Accessibility entry no longer applies. Remove Keylens from the Accessibility list with **−** (or run `tccutil reset Accessibility io.github.wenlingang.keylens`), then grant it again.
 
 Keylens checks for new versions once a day (or from **Check for Updates…** in its menu bar menu). When one is out it asks, then downloads, installs and restarts itself; the update is installed only if it is signed by the same certificate, so the Accessibility permission carries over.
 
