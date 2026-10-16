@@ -6,8 +6,8 @@ use std::path::Path;
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{
-    NSBeep, NSEvent, NSNormalWindowLevel, NSPopUpMenuWindowLevel, NSScreen, NSView, NSWindow,
-    NSWorkspace,
+    NSAnimatablePropertyContainer, NSAnimationContext, NSBeep, NSEvent, NSNormalWindowLevel,
+    NSPopUpMenuWindowLevel, NSScreen, NSView, NSWindow, NSWorkspace,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString, NSURL};
 
@@ -29,6 +29,26 @@ pub fn hide(window: &impl HasWindowHandle) {
     if let Some(window) = ns_window(window) {
         window.orderOut(None);
     }
+}
+
+/// How long the panel takes to fade in.
+const FADE_IN_SECONDS: f64 = 0.16;
+
+/// Fades the window in from transparent. Call right after ordering it on screen; skipped when the
+/// user asked macOS to reduce motion.
+pub fn fade_in(window: &impl HasWindowHandle) {
+    let Some(window) = ns_window(window) else {
+        return;
+    };
+    if NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion() {
+        window.setAlphaValue(1.0);
+        return;
+    }
+    window.setAlphaValue(0.0);
+    NSAnimationContext::beginGrouping();
+    NSAnimationContext::currentContext().setDuration(FADE_IN_SECONDS);
+    window.animator().setAlphaValue(1.0);
+    NSAnimationContext::endGrouping();
 }
 
 /// Puts the panel at its pop-up level, above ordinary windows (`raised`), or at the normal level

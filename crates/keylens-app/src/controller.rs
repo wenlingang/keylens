@@ -43,6 +43,8 @@ pub struct Native {
     /// Puts the panel above ordinary windows (`true`, its usual pop-up level) or among them
     /// (`false`), so the settings window can come in front of it.
     pub raise: fn(&Window, bool),
+    /// Fades the panel in as it comes on screen.
+    pub fade_in: fn(&Window),
     /// Works out how to move the panel onto the screen showing the app with this pid (or under the
     /// mouse). The returned move must run outside any window update.
     pub place: fn(&Window, Option<i32>) -> Option<PanelMove>,
@@ -557,6 +559,7 @@ impl Keylens {
         let window = self.window;
         let place = self.native.place;
         let raise = self.native.raise;
+        let fade_in = self.native.fade_in;
         // Below Keylens' other windows while any is open, so clicking one brings it in front.
         let raised = self.children.is_empty();
         let pid = self.session.target().map(|t| t.pid);
@@ -577,6 +580,7 @@ impl Keylens {
                 let view = this.view.clone();
                 let _ = this.window.update(cx, |_, window, cx| {
                     window.activate_window();
+                    fade_in(window);
                     view.update(cx, |view, cx| {
                         view.appear(cx);
                         view.focus_input(window, cx);
@@ -817,6 +821,7 @@ mod tests {
         let native = Native {
             hide: |_| {},
             raise: |_, _| {},
+            fade_in: |_| {},
             place: |_, _| None,
             beep,
             open: |_| {},

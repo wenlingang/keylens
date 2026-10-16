@@ -89,6 +89,7 @@ pub fn run() {
         native: controller::Native {
             hide: |w| keylens_macos::panel::hide(w),
             raise: |w, raised| keylens_macos::panel::set_raised(w, raised),
+            fade_in: |w| keylens_macos::panel::fade_in(w),
             place: |w, pid| keylens_macos::panel::place(w, pid),
             beep: keylens_macos::panel::beep,
             open: keylens_macos::panel::open_path,
