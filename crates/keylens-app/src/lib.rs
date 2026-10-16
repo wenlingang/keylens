@@ -227,9 +227,16 @@ pub fn run_with(host: Host) {
                 ))),
                 ..Default::default()
             };
-            let charge_window = gpui_kit::open_window(charge_options, cx, |_, cx| {
-                cx.new(|_| charge::ChargeView::new())
-            });
+            // Opened directly, not through gpui_kit::open_window: its root layer is for windows
+            // with controls, and this one must stay see-through around the keycap.
+            let charge_window = cx
+                .open_window(charge_options, |_, cx| {
+                    cx.new(|_| charge::ChargeView::new())
+                })
+                .map(|handle| {
+                    let view = handle.update(cx, |_, _, cx| cx.entity());
+                    (AnyWindowHandle::from(handle), view)
+                });
 
             let keylens = cx.new(|cx| {
                 Keylens::new(
@@ -243,9 +250,10 @@ pub fn run_with(host: Host) {
                 )
             });
             match charge_window {
-                Ok((window, view)) => keylens.update(cx, |k, _| k.attach_charge(window, view)),
-                // Not worth failing over: holding the key just shows no animation.
-                Err(error) => tracing::warn!("could not create the hold animation window: {error}"),
+                Ok((window, Ok(view))) => keylens.update(cx, |k, _| k.attach_charge(window, view)),
+                Ok((_, Err(error))) | Err(error) => {
+                    tracing::warn!("could not create the hold animation window: {error}")
+                }
             }
 
             let (tray_tx, tray_rx) = async_channel::unbounded::<TrayCommand>();

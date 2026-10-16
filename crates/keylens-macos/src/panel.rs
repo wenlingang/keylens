@@ -6,8 +6,8 @@ use std::path::Path;
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{
-    NSAnimatablePropertyContainer, NSAnimationContext, NSBeep, NSEvent, NSNormalWindowLevel,
-    NSPopUpMenuWindowLevel, NSScreen, NSView, NSWindow, NSWorkspace,
+    NSAnimatablePropertyContainer, NSAnimationContext, NSBeep, NSColor, NSEvent,
+    NSNormalWindowLevel, NSPopUpMenuWindowLevel, NSScreen, NSView, NSWindow, NSWorkspace,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString, NSURL};
 
@@ -117,6 +117,10 @@ pub fn show_overlay(window: &impl HasWindowHandle, pid: Option<i32>) -> Option<B
     let size = window.frame().size;
     let (x, y) = panel_centered_origin(visible, (size.width, size.height));
     Some(Box::new(move || {
+        // Only the keycap shows: no backdrop, no window shadow.
+        window.setOpaque(false);
+        window.setBackgroundColor(Some(&NSColor::clearColor()));
+        window.setHasShadow(false);
         window.setIgnoresMouseEvents(true);
         // One level above the panel, which sits at the pop-up menu level.
         window.setLevel(NSPopUpMenuWindowLevel + 1);
