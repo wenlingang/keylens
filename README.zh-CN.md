@@ -78,6 +78,7 @@ key = "cmd"            # cmd、option、ctrl、shift（也认 super、alt、win�
 hold-ms = 800          # 300–2000
 double-tap-ms = 350    # 200–600
 hide-on-release = false  # 仅长按：松开按键时关闭面板
+hold-animation = true    # 仅长按：按住时显示按键蓄力动画
 
 [update]
 auto-check = true      # 每天自动检查一次新版本

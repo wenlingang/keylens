@@ -78,6 +78,7 @@ key = "cmd"            # cmd, option, ctrl or shift (also super, alt, win, contr
 hold-ms = 800          # 300–2000
 double-tap-ms = 350    # 200–600
 hide-on-release = false  # hold only: close the panel when the key is released
+hold-animation = true    # hold only: show the keycap filling up while the key is held
 
 [update]
 auto-check = true      # check for new versions once a day

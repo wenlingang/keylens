@@ -481,7 +481,7 @@ impl Keylens {
             return;
         };
         // Holding the key again over an open panel only refreshes it.
-        if self.session.visible() {
+        if self.session.visible() || !self.prefs.read(cx).trigger_settings().hold_animation {
             return;
         }
         let Some((window, view)) = self.charge.clone() else {
@@ -1210,6 +1210,17 @@ mod tests {
         let (keylens, _) = setup(cx);
         let view = attach_charge(&keylens, cx);
         show_panel(&keylens, cx);
+        keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Prefetch, cx));
+        after(cx, Duration::from_secs(1));
+        assert_eq!(charge_state(&keylens, &view, cx), (false, None));
+    }
+
+    #[gpui_kit::test]
+    fn no_hold_animation_when_turned_off(cx: &mut TestAppContext) {
+        let (keylens, prefs) = setup(cx);
+        let view = attach_charge(&keylens, cx);
+        prefs.update(cx, |p, cx| p.set(Change::HoldAnimation(Some(false)), cx));
+        cx.run_until_parked();
         keylens.update(cx, |k, cx| k.on_trigger(TriggerAction::Prefetch, cx));
         after(cx, Duration::from_secs(1));
         assert_eq!(charge_state(&keylens, &view, cx), (false, None));

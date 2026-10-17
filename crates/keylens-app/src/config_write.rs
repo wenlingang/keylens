@@ -15,6 +15,7 @@ pub enum Change {
     HoldMs(Option<u64>),
     DoubleTapMs(Option<u64>),
     HideOnRelease(Option<bool>),
+    HoldAnimation(Option<bool>),
     Language(Option<String>),
     AutoCheck(Option<bool>),
     /// The version the update dialog's "Skip This Version" chose.
@@ -48,6 +49,7 @@ pub fn apply(text: &str, change: &Change, os: Os) -> Result<String, String> {
         Change::HideOnRelease(hide) => {
             set_in(&mut doc, TRIGGER, "hide-on-release", hide.map(value))
         }
+        Change::HoldAnimation(on) => set_in(&mut doc, TRIGGER, "hold-animation", on.map(value)),
         Change::AutoCheck(on) => set_in(&mut doc, UPDATE, "auto-check", on.map(value)),
         Change::SkipVersion(version) => set_in(
             &mut doc,
@@ -214,6 +216,7 @@ hold-ms = 1200
             Change::HoldMs(Some(1500)),
             Change::DoubleTapMs(Some(275)),
             Change::HideOnRelease(Some(true)),
+            Change::HoldAnimation(Some(false)),
             Change::Language(Some("zh-TW".into())),
         ];
         let text = changes
@@ -227,6 +230,7 @@ hold-ms = 1200
         assert_eq!(t.hold_ms.as_ref().unwrap().as_integer(), Some(1500));
         assert_eq!(t.double_tap_ms.as_ref().unwrap().as_integer(), Some(275));
         assert_eq!(t.hide_on_release.as_ref().unwrap().as_bool(), Some(true));
+        assert_eq!(t.hold_animation.as_ref().unwrap().as_bool(), Some(false));
     }
 
     #[test]

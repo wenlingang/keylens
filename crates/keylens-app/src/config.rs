@@ -58,6 +58,7 @@ pub struct TriggerConfig {
     pub hold_ms: Option<toml::Value>,
     pub double_tap_ms: Option<toml::Value>,
     pub hide_on_release: Option<toml::Value>,
+    pub hold_animation: Option<toml::Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,6 +94,8 @@ pub struct TriggerSettings {
     pub double_tap_ms: u64,
     /// Hide the panel when the held trigger key is released (hold mode only).
     pub hide_on_release: bool,
+    /// Show the keycap filling up while the trigger key is held (hold mode only).
+    pub hold_animation: bool,
 }
 
 impl TriggerSettings {
@@ -107,6 +110,7 @@ impl TriggerSettings {
                 hold_ms: delay.as_millis() as u64,
                 double_tap_ms: tap,
                 hide_on_release: false,
+                hold_animation: true,
             },
             Trigger::DoubleTap { key, interval } => Self {
                 mode: TriggerMode::DoubleTap,
@@ -114,6 +118,7 @@ impl TriggerSettings {
                 hold_ms: hold,
                 double_tap_ms: interval.as_millis() as u64,
                 hide_on_release: false,
+                hold_animation: true,
             },
             // Not configurable from the settings window; fall back to the macOS default.
             Trigger::Hotkey(_) | Trigger::External => Self {
@@ -122,6 +127,7 @@ impl TriggerSettings {
                 hold_ms: hold,
                 double_tap_ms: tap,
                 hide_on_release: false,
+                hold_animation: true,
             },
         }
     }
@@ -191,12 +197,22 @@ impl Config {
                 defaults.hide_on_release
             }),
         };
+        let hold_animation = match &raw.hold_animation {
+            None => defaults.hold_animation,
+            Some(value) => value.as_bool().unwrap_or_else(|| {
+                warnings.push(format!(
+                    "trigger.hold-animation: expected true or false, got {value}; using the default"
+                ));
+                defaults.hold_animation
+            }),
+        };
         let settings = TriggerSettings {
             mode,
             key,
             hold_ms,
             double_tap_ms,
             hide_on_release,
+            hold_animation,
         };
         (settings, warnings)
     }
@@ -334,6 +350,7 @@ mod tests {
                 hold_ms: 800,
                 double_tap_ms: 350,
                 hide_on_release: false,
+                hold_animation: true,
             }
         );
         assert!(warnings.is_empty());
@@ -371,6 +388,21 @@ mod tests {
         assert!(!s.hide_on_release);
         assert_eq!(warnings.len(), 1, "{warnings:?}");
         assert!(warnings[0].contains("hide-on-release"));
+    }
+
+    #[test]
+    fn hold_animation_can_be_turned_off() {
+        let (s, warnings) = settings("[trigger]\nhold-animation = false\n");
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert!(!s.hold_animation);
+    }
+
+    #[test]
+    fn a_non_boolean_hold_animation_falls_back_with_a_warning() {
+        let (s, warnings) = settings("[trigger]\nhold-animation = \"no\"\n");
+        assert!(s.hold_animation);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].contains("hold-animation"));
     }
 
     #[test]

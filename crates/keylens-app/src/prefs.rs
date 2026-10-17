@@ -202,6 +202,12 @@ impl Prefs {
             Change::Key(Some(k)) if k == d.key => Change::Key(None),
             Change::HoldMs(Some(ms)) if ms == d.hold_ms => Change::HoldMs(None),
             Change::DoubleTapMs(Some(ms)) if ms == d.double_tap_ms => Change::DoubleTapMs(None),
+            Change::HideOnRelease(Some(on)) if on == d.hide_on_release => {
+                Change::HideOnRelease(None)
+            }
+            Change::HoldAnimation(Some(on)) if on == d.hold_animation => {
+                Change::HoldAnimation(None)
+            }
             Change::AutoCheck(Some(on)) if on == UpdateSettings::default().auto_check => {
                 Change::AutoCheck(None)
             }

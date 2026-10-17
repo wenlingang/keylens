@@ -82,7 +82,7 @@ pub fn open(
         is_resizable: false,
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
             None,
-            size(px(480.), px(456.)),
+            size(px(480.), px(496.)),
             cx,
         ))),
         ..Default::default()
@@ -462,7 +462,8 @@ impl Render for SettingsView {
                 read_only,
             ),
         ];
-        // Releasing the key ends a double-tap at once, so the option only means something for hold.
+        // Releasing the key ends a double-tap at once and only a hold animates, so these options
+        // only mean something for hold.
         if current.mode == TriggerMode::Hold {
             let prefs = self.prefs.clone();
             trigger_rows.push(row(
@@ -479,6 +480,24 @@ impl Render for SettingsView {
                 ),
                 (current.hide_on_release != defaults.hide_on_release)
                     .then_some(Change::HideOnRelease(None)),
+                &self.prefs,
+                read_only,
+            ));
+            let prefs = self.prefs.clone();
+            trigger_rows.push(row(
+                "hold-animation",
+                t!("Settings.hold_animation").to_string(),
+                h_flex().justify_end().child(
+                    Switch::new("hold-animation-switch")
+                        .checked(current.hold_animation)
+                        .disabled(read_only)
+                        .on_click(move |checked, _, cx| {
+                            let change = Change::HoldAnimation(Some(*checked));
+                            prefs.update(cx, |p, cx| p.set(change, cx));
+                        }),
+                ),
+                (current.hold_animation != defaults.hold_animation)
+                    .then_some(Change::HoldAnimation(None)),
                 &self.prefs,
                 read_only,
             ));
@@ -525,45 +544,54 @@ impl Render for SettingsView {
             .track_focus(&self.focus)
             .on_action(|_: &CloseSettings, window, _| window.remove_window())
             .size_full()
-            .px_4()
-            .pt_3()
-            .pb_4()
-            .gap_6()
             .bg(cx.theme().background)
             .text_color(cx.theme().foreground)
             .text_sm()
-            .when_some(problem, |this, problem| {
-                this.child(self.render_problem(problem, cx))
-            })
-            .child(section(
-                t!("Settings.trigger_group").to_string(),
-                trigger_rows,
-                Some(delay_note.to_string().into()),
-                cx,
-            ))
-            .child(section(
-                t!("Settings.ui_group").to_string(),
-                language_rows,
-                None,
-                cx,
-            ))
-            .child(section(
-                t!("Settings.update_group").to_string(),
-                update_rows,
-                Some(t!("Settings.auto_check_note").to_string().into()),
-                cx,
-            ))
             .child(
-                // The ghost button pads its label by 8 px; 4 px more puts the label on the same
-                // start line as the section titles.
-                h_flex().w_full().px_1().child(
-                    Button::new("reset-all")
-                        .ghost()
-                        .small()
-                        .label(t!("Settings.reset_all"))
-                        .disabled(read_only || everything_default)
-                        .on_click(cx.listener(|this, _, _, cx| this.set(Change::ResetAll, cx))),
-                ),
+                v_flex()
+                    .id("settings-content")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .px_4()
+                    .pt_3()
+                    .pb_4()
+                    .gap_6()
+                    .when_some(problem, |this, problem| {
+                        this.child(self.render_problem(problem, cx))
+                    })
+                    .child(section(
+                        t!("Settings.trigger_group").to_string(),
+                        trigger_rows,
+                        Some(delay_note.to_string().into()),
+                        cx,
+                    ))
+                    .child(section(
+                        t!("Settings.ui_group").to_string(),
+                        language_rows,
+                        None,
+                        cx,
+                    ))
+                    .child(section(
+                        t!("Settings.update_group").to_string(),
+                        update_rows,
+                        Some(t!("Settings.auto_check_note").to_string().into()),
+                        cx,
+                    ))
+                    .child(
+                        // The ghost button pads its label by 8 px; 4 px more puts the label on the same
+                        // start line as the section titles.
+                        h_flex().w_full().px_1().child(
+                            Button::new("reset-all")
+                                .ghost()
+                                .small()
+                                .label(t!("Settings.reset_all"))
+                                .disabled(read_only || everything_default)
+                                .on_click(
+                                    cx.listener(|this, _, _, cx| this.set(Change::ResetAll, cx)),
+                                ),
+                        ),
+                    ),
             )
     }
 }

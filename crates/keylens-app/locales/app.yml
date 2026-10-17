@@ -284,6 +284,12 @@ Settings:
     zh-TW: "放開按鍵時關閉面板"
     zh-HK: "放開按鍵時關閉面板"
     ja: "キーを離したらパネルを閉じる"
+  hold_animation:
+    en: "Hold animation"
+    zh-CN: "按键蓄力动画"
+    zh-TW: "按鍵蓄力動畫"
+    zh-HK: "按鍵蓄力動畫"
+    ja: "長押しアニメーション"
   ui_group:
     en: "Interface"
     zh-CN: "界面"
