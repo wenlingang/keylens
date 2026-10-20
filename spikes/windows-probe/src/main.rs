@@ -39,6 +39,7 @@ mod app {
 
     use gpui_kit::component::input::{Input, InputEvent, InputState};
     use gpui_kit::component::*;
+    use gpui_kit::prelude::FluentBuilder;
     use gpui_kit::*;
     use keylens_core::community::{Catalog, CommunitySource, builtin};
     use keylens_core::{
@@ -70,7 +71,8 @@ mod app {
     impl Popup {
         fn new(target: Target, entries: Vec<Entry>, window: &mut Window, cx: &mut Context<Self>) -> Self {
             let input = cx.new(|cx| InputState::new(window, cx).placeholder("Search shortcuts…"));
-            window.focus(&input.focus_handle(cx));
+            let handle = input.focus_handle(cx);
+            window.focus(&handle, cx);
             let change = cx.subscribe_in(&input, window, |this: &mut Self, input, event: &InputEvent, window, cx| {
                 match event {
                     InputEvent::Change => {
@@ -296,7 +298,7 @@ mod app {
                 ..Default::default()
             };
             gpui_kit::open_window(options, cx, |_, cx| cx.new(|_| Status)).expect("open status window");
-            cx.on_window_closed(|cx| {
+            cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {
                     cx.quit();
                 }
