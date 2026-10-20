@@ -27,16 +27,17 @@ impl CommunitySource {
     }
 }
 
-impl ShortcutSource for CommunitySource {
-    fn load(&self, app: &AppInfo) -> Result<Vec<Entry>, SourceError> {
+impl CommunitySource {
+    /// Same entries as `load`, each paired with its VS Code command ID (if any).
+    pub fn load_with_commands(&self, app: &AppInfo) -> Vec<(Entry, Option<String>)> {
         let Some(data) = self.catalog.find(self.os, &app.ids) else {
-            return Ok(Vec::new());
+            return Vec::new();
         };
         let mut entries = Vec::new();
         for group in &data.groups {
             for shortcut in &group.shortcuts {
                 let title = shortcut.title.get(self.lang);
-                entries.push(Entry {
+                let entry = Entry {
                     id: EntryId {
                         source: self.source,
                         snapshot: 0,
@@ -53,10 +54,21 @@ impl ShortcutSource for CommunitySource {
                         .collect(),
                     shortcut: shortcut.keys(self.os).clone(),
                     enabled: true,
-                });
+                };
+                entries.push((entry, shortcut.command.clone()));
             }
         }
-        Ok(entries)
+        entries
+    }
+}
+
+impl ShortcutSource for CommunitySource {
+    fn load(&self, app: &AppInfo) -> Result<Vec<Entry>, SourceError> {
+        Ok(self
+            .load_with_commands(app)
+            .into_iter()
+            .map(|(entry, _)| entry)
+            .collect())
     }
 }
 
@@ -127,6 +139,23 @@ keys = "Mod+S"
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn load_with_commands_pairs_entries_with_their_command() {
+        let text = format!(
+            "{DATA}command = \"workbench.action.files.save\"\n[[group.shortcut]]\ntitle = \"Open\"\nkeys = \"Mod+O\"\n"
+        );
+        let (catalog, errors) = Catalog::from_files([("demo.toml", text.as_str())]);
+        assert!(errors.is_empty(), "{errors:?}");
+        let src = CommunitySource::new(Arc::new(catalog), Os::Windows, Lang::En, EntrySource::User);
+        let with = src.load_with_commands(&app("demo.exe"));
+        let commands: Vec<_> = with.iter().map(|(_, c)| c.as_deref()).collect();
+        assert_eq!(commands, [Some("workbench.action.files.save"), None]);
+        let entries: Vec<_> = with.into_iter().map(|(e, _)| e).collect();
+        assert_eq!(entries, src.load(&app("demo.exe")).unwrap());
+        assert_eq!(entries[1].id.index, 1);
+        assert!(src.load_with_commands(&app("other")).is_empty());
     }
 
     #[test]
