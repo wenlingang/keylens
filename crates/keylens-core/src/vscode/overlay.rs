@@ -1,6 +1,6 @@
 //! Applies VS Code `keybindings.json` customizations on top of community shortcut entries.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::keys::Shortcut;
 use crate::model::{Entry, EntryId, EntrySource};
@@ -17,17 +17,12 @@ struct Item {
     custom: bool,
 }
 
-#[derive(PartialEq, Eq, Hash)]
-enum DedupKey {
-    Command(String),
-    Shortcut(Shortcut),
-}
-
 /// Applies VS Code `keybindings.json` semantics to community entries.
 ///
 /// `layers` are ordered from highest to lowest priority (user toml, built-in toml); each entry
-/// carries its VS Code command ID if it has one. A command (or, for entries without one, a
-/// shortcut) defined in a higher layer hides it in lower layers. Then, in file order: `{key, -C}`
+/// carries its VS Code command ID if it has one. A lower-layer entry is dropped when a higher
+/// layer already has its command or its shortcut; like `merge`, its title and search terms are
+/// then added to the winner's `search_terms`. Then, in file order: `{key, -C}`
 /// removes C's binding on that key, `{-C}` removes all of C's bindings, and `{key, C}` adds a
 /// binding for C, evicting whatever else is on that key. Commands without a community entry go
 /// into `custom_group`, which is placed after all other groups. `when` clauses are ignored.
@@ -37,19 +32,28 @@ pub fn apply(
     custom_group: &str,
 ) -> Vec<Entry> {
     let mut items: Vec<Item> = Vec::new();
-    let mut seen: HashSet<DedupKey> = HashSet::new();
+    // Commands and shortcuts claimed by higher layers, mapped to the winning item.
+    let mut command_owners: HashMap<String, usize> = HashMap::new();
+    let mut key_owners: HashMap<Shortcut, usize> = HashMap::new();
     for layer in layers {
         let mut claimed = Vec::new();
         for (entry, command) in layer {
-            let key = match &command {
-                Some(c) => DedupKey::Command(c.clone()),
-                None => DedupKey::Shortcut(entry.shortcut.canonical()),
-            };
-            if seen.contains(&key) {
+            let key = entry.shortcut.canonical();
+            let winner = command
+                .as_ref()
+                .and_then(|c| command_owners.get(c))
+                .or_else(|| key_owners.get(&key));
+            if let Some(&winner) = winner {
+                let winner = &mut items[winner].entry;
+                for term in std::iter::once(entry.title).chain(entry.search_terms) {
+                    if term != winner.title && !winner.search_terms.contains(&term) {
+                        winner.search_terms.push(term);
+                    }
+                }
                 continue;
             }
-            claimed.push(key);
             let anchor = items.len();
+            claimed.push((command.clone(), key, anchor));
             items.push(Item {
                 entry,
                 command,
@@ -57,7 +61,12 @@ pub fn apply(
                 custom: false,
             });
         }
-        seen.extend(claimed);
+        for (command, key, index) in claimed {
+            if let Some(command) = command {
+                command_owners.entry(command).or_insert(index);
+            }
+            key_owners.entry(key).or_insert(index);
+        }
     }
 
     // Group order and per-command templates come from the merged entries, before any removal.
@@ -364,6 +373,38 @@ mod tests {
         let builtin = vec![(entry("Y", "Ctrl+Q", EntrySource::Community), None)];
         let out = apply(vec![user, builtin], &[], CUSTOM);
         assert_eq!(summary(&out), pairs(&[("X", "Ctrl+Q")]));
+    }
+
+    #[test]
+    fn higher_layer_without_command_hides_lower_command_on_same_key() {
+        let user = vec![(entry("X", "Ctrl+Q", EntrySource::User), None)];
+        let builtin = vec![with_cmd(entry("C", "Ctrl+Q", EntrySource::Community), "C")];
+        let out = apply(vec![user, builtin], &[], CUSTOM);
+        assert_eq!(summary(&out), pairs(&[("X", "Ctrl+Q")]));
+        assert_eq!(out[0].source(), EntrySource::User);
+    }
+
+    #[test]
+    fn higher_layer_command_hides_lower_entry_without_command_on_same_key() {
+        let user = vec![with_cmd(entry("C", "Ctrl+Q", EntrySource::User), "C")];
+        let builtin = vec![(entry("Y", "Ctrl+Q", EntrySource::Community), None)];
+        let out = apply(vec![user, builtin], &[], CUSTOM);
+        assert_eq!(summary(&out), pairs(&[("C", "Ctrl+Q")]));
+        assert_eq!(out[0].source(), EntrySource::User);
+    }
+
+    #[test]
+    fn dropped_lower_layer_titles_stay_searchable() {
+        let user = vec![with_cmd(entry("Mine", "Ctrl+1", EntrySource::User), "C")];
+        let mut builtin_c = entry("Builtin", "Ctrl+2", EntrySource::Community);
+        builtin_c.search_terms = vec!["内置".into(), "Mine".into()];
+        let builtin = vec![
+            with_cmd(builtin_c, "C"),
+            (entry("Other", "Ctrl+1", EntrySource::Community), None),
+        ];
+        let out = apply(vec![user, builtin], &[], CUSTOM);
+        assert_eq!(summary(&out), pairs(&[("Mine", "Ctrl+1")]));
+        assert_eq!(out[0].search_terms, ["Builtin", "内置", "Other"]);
     }
 
     #[test]
