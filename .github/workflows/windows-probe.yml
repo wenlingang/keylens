@@ -1,0 +1,26 @@
+name: Windows probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/windows]
+    paths:
+      - spikes/windows-probe/**
+      - crates/keylens-core/**
+      - .github/workflows/windows-probe.yml
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: spikes/windows-probe
+      - run: cargo build --release
+        working-directory: spikes/windows-probe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-probe
+          path: spikes/windows-probe/target/release/windows-probe.exe
