@@ -24,6 +24,7 @@ pub mod update;
 pub mod updater;
 pub mod user_data_edit;
 pub mod view;
+pub mod vscode;
 pub mod watch;
 
 use std::rc::Rc;

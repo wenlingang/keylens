@@ -156,6 +156,13 @@ Panel:
     zh-TW: "設定"
     zh-HK: "設定"
     ja: "設定"
+Group:
+  MyCustom:
+    en: "My Custom"
+    zh-CN: "我的自定义"
+    zh-TW: "我的自訂"
+    zh-HK: "我的自訂"
+    ja: "マイカスタム"
 Tray:
   permission_ok:
     en: "Accessibility: allowed"

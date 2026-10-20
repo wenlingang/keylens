@@ -1,7 +1,7 @@
 //! Detects changes in the user data folder by polling a cheap fingerprint (name, modification
 //! time and size of each `.toml` file), so edits take effect without restarting Keylens.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 /// One entry per `.toml` file, sorted by name. A missing folder is empty.
@@ -48,6 +48,11 @@ pub type Stamp = (Option<SystemTime>, u64);
 pub fn file_stamp(path: &Path) -> Option<Stamp> {
     let meta = std::fs::metadata(path).ok()?;
     Some((meta.modified().ok(), meta.len()))
+}
+
+/// [`file_stamp`] of each path, in order; missing files are `None`.
+pub fn files_stamp(paths: &[PathBuf]) -> Vec<Option<Stamp>> {
+    paths.iter().map(|path| file_stamp(path)).collect()
 }
 
 #[cfg(test)]
@@ -128,6 +133,23 @@ mod tests {
         assert!(first.is_some());
         std::fs::write(&path, "abc").unwrap();
         assert_ne!(file_stamp(&path), first);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn files_stamp_tracks_a_set_of_files() {
+        let dir = std::env::temp_dir().join(format!("keylens-stamps-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let paths = [dir.join("a.json"), dir.join("b.json")];
+        let none = files_stamp(&paths);
+        assert_eq!(none, [None, None], "missing files are allowed");
+        std::fs::write(&paths[1], "[]").unwrap();
+        let created = files_stamp(&paths);
+        assert_ne!(created, none);
+        assert_eq!(files_stamp(&paths), created, "no change, same stamps");
+        std::fs::write(&paths[1], "[ ]").unwrap();
+        assert_ne!(files_stamp(&paths), created);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
