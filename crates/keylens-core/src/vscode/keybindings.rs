@@ -16,6 +16,7 @@ pub struct Parsed {
 }
 
 pub fn parse_keybindings(text: &str, os: Os) -> Result<Parsed, String> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let clean = strip_trailing_commas(&strip_comments(text));
     if clean.trim().is_empty() {
         return Ok(Parsed::default());
@@ -195,5 +196,13 @@ mod tests {
                 .bindings
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn leading_bom_is_ignored() {
+        let text = "\u{feff}[{ \"key\": \"cmd+s\", \"command\": \"a\" }]";
+        let p = parse_keybindings(text, Os::MacOS).unwrap();
+        assert_eq!(p.bindings.len(), 1);
+        assert_eq!(p.bindings[0].command, "a");
     }
 }

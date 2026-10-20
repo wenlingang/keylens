@@ -30,7 +30,7 @@ Long-press ⌘ to see every keyboard shortcut of the current app — search them
 - **The app's colour**: the panel picks up the accent of the frontmost app's icon, and shortcuts are drawn as keycaps.
 - **Search** by title, menu path or keys. `⌘⇧`, `shift` and `cmd+shift+p` all work, regardless of modifier order.
 - **Run directly**: click to select, double-click or press Return to run. Menu items are pressed via Accessibility; community shortcuts are sent as synthesized key strokes.
-- **Community shortcut data** fills in shortcuts that menus don't expose (e.g. VS Code, Chrome, Slack), marked with ◇.
+- **Community shortcut data** fills in shortcuts that menus don't expose (e.g. VS Code, Chrome, Slack), marked with ◇. Keylens also reads the user `keybindings.json` of VS Code, VS Code Insiders and Cursor (default profile only): changes take effect within about 2 seconds, and commands you added yourself appear under "My Custom".
 - **Add your own shortcuts** from the panel's "Edit Shortcuts" or the menu bar: record keys by pressing them; they are saved to your data folder and show up in the panel within 2 seconds.
 - **Keyboard-first**: ↑↓←→ to move; Esc clears the search first, then closes the panel.
 - **Localized UI**: Simplified Chinese, English, Traditional Chinese and Japanese, following the system language by default.

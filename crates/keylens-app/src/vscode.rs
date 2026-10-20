@@ -1,8 +1,10 @@
 //! VS Code family editors (VS Code, Insiders, Cursor): shows the user's own `keybindings.json`
 //! customizations on top of the community data, instead of the plain community shortcuts.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use keylens_core::community::CommunitySource;
 use keylens_core::vscode::keybindings::{Binding, parse_keybindings};
@@ -100,11 +102,6 @@ impl Locations {
     }
 }
 
-/// The `keybindings.json` files of all flavors in the user's environment.
-pub fn watched_paths(os: Os) -> Vec<PathBuf> {
-    Locations::from_env().watched_paths(os)
-}
-
 /// Community shortcuts (user data over built-in data) with the user's `keybindings.json` applied.
 /// A missing or unreadable file means no customizations.
 pub struct KeybindingsSource {
@@ -114,7 +111,15 @@ pub struct KeybindingsSource {
     /// Title of the group for commands that have no community entry, in the data language.
     custom_group: String,
     locations: Locations,
+    /// Parsed result per file, valid while the file's (mtime, size) is unchanged, so a broken file
+    /// is read, parsed and warned about once per state rather than on every panel show.
+    cache: Mutex<HashMap<PathBuf, (Stamp, Vec<Binding>)>>,
+    #[cfg(test)]
+    parses: std::sync::atomic::AtomicUsize,
 }
+
+/// A file's modification time and size; both, since mtime alone can be too coarse.
+type Stamp = (Option<SystemTime>, u64);
 
 impl KeybindingsSource {
     pub fn new(
@@ -130,6 +135,9 @@ impl KeybindingsSource {
             os,
             custom_group: rust_i18n::t!("Group.MyCustom", locale = ui_locale(lang)).to_string(),
             locations,
+            cache: Mutex::new(HashMap::new()),
+            #[cfg(test)]
+            parses: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 
@@ -138,9 +146,35 @@ impl KeybindingsSource {
             return Vec::new();
         };
         let path = self.locations.keybindings_path(flavor, self.os);
-        let text = match std::fs::read_to_string(&path) {
+        let stamp = match std::fs::metadata(&path) {
+            Ok(meta) => (meta.modified().ok(), meta.len()),
+            Err(error) => {
+                self.cache.lock().unwrap().remove(&path);
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    tracing::warn!(path = %path.display(), "cannot read keybindings.json: {error}");
+                }
+                return Vec::new();
+            }
+        };
+        if let Some((cached, bindings)) = self.cache.lock().unwrap().get(&path)
+            && *cached == stamp
+        {
+            return bindings.clone();
+        }
+        let bindings = self.read_bindings(&path);
+        self.cache
+            .lock()
+            .unwrap()
+            .insert(path, (stamp, bindings.clone()));
+        bindings
+    }
+
+    fn read_bindings(&self, path: &Path) -> Vec<Binding> {
+        #[cfg(test)]
+        self.parses
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let text = match std::fs::read_to_string(path) {
             Ok(text) => text,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
             Err(error) => {
                 tracing::warn!(path = %path.display(), "cannot read keybindings.json: {error}");
                 return Vec::new();
@@ -297,7 +331,34 @@ command = "workbench.action.files.save"
 
     #[test]
     fn watched_paths_cover_every_flavor() {
-        assert_eq!(watched_paths(Os::MacOS).len(), Flavor::ALL.len());
+        let locations = Locations {
+            home: PathBuf::from("/h"),
+            appdata: None,
+        };
+        let paths = locations.watched_paths(Os::MacOS);
+        assert_eq!(paths.len(), Flavor::ALL.len());
+        assert!(paths.contains(&locations.keybindings_path(Flavor::Cursor, Os::MacOS)));
+    }
+
+    #[test]
+    fn broken_file_is_parsed_once_per_state() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let home = temp_home("vscode-cache");
+        let path = keybindings_path(Flavor::Code, Os::MacOS, &home, None);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "[ { not json").unwrap();
+        let vscode = app(&["com.microsoft.VSCode"]);
+        let src = source(&home, Lang::En);
+        for _ in 0..2 {
+            let entries = src.load(&vscode).unwrap();
+            assert_eq!(keys_of(&entries, "Show Command Palette"), ["⇧⌘P"]);
+        }
+        assert_eq!(src.parses.load(SeqCst), 1);
+        // A different size is a new state and is parsed again.
+        std::fs::write(&path, "[ { still not json").unwrap();
+        src.load(&vscode).unwrap();
+        assert_eq!(src.parses.load(SeqCst), 2);
+        std::fs::remove_dir_all(&home).unwrap();
     }
 
     #[test]
