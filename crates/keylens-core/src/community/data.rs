@@ -39,6 +39,8 @@ pub struct DataGroup {
 #[derive(Clone, Debug, PartialEq)]
 pub struct DataShortcut {
     pub title: Localized,
+    /// VS Code command ID, e.g. `workbench.action.showCommands`.
+    pub command: Option<String>,
     /// Shortcuts for the three platforms, stored in `os_index` order.
     keys: [Shortcut; 3],
 }
@@ -115,7 +117,18 @@ pub fn parse_app_data(file: &str, text: &str) -> Result<AppData, DataError> {
                     )));
                 }
             }
-            shortcuts.push(DataShortcut { title, keys });
+            if shortcut
+                .command
+                .as_deref()
+                .is_some_and(|c| c.trim().is_empty())
+            {
+                return Err(fail(format!("{context}: command must not be empty")));
+            }
+            shortcuts.push(DataShortcut {
+                title,
+                command: shortcut.command,
+                keys,
+            });
         }
         groups.push(DataGroup {
             title: group_title,
@@ -229,6 +242,29 @@ i18n = { zh-Hans = "常规" }
             group.shortcuts[2].keys(Os::Linux).display(Os::Linux),
             "Alt+Up"
         );
+    }
+
+    #[test]
+    fn shortcut_command_is_parsed() {
+        let text = VALID.replace(
+            "keys = \"Mod+Shift+P\"",
+            "keys = \"Mod+Shift+P\"\n  command = \"workbench.action.showCommands\"",
+        );
+        let app = parse_app_data("t.toml", &text).unwrap();
+        assert_eq!(
+            app.groups[0].shortcuts[0].command.as_deref(),
+            Some("workbench.action.showCommands")
+        );
+        assert_eq!(app.groups[0].shortcuts[1].command, None);
+    }
+
+    #[test]
+    fn empty_command_is_rejected() {
+        let text = VALID.replace(
+            "keys = \"Mod+Shift+P\"",
+            "keys = \"Mod+Shift+P\"\n  command = \"\"",
+        );
+        assert!(error(&text).contains("command must not be empty"));
     }
 
     #[test]

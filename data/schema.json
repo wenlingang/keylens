@@ -44,6 +44,7 @@
               "properties": {
                 "title": { "type": "string", "minLength": 1, "description": "Write it in your own words" },
                 "i18n": { "$ref": "#/$defs/i18n" },
+                "command": { "type": "string", "minLength": 1, "description": "VS Code command ID, e.g. workbench.action.showCommands" },
                 "keys": {
                   "oneOf": [
                     { "$ref": "#/$defs/seq" },

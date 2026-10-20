@@ -26,7 +26,8 @@ Data lives in `data/apps/`, one TOML file per app, licensed CC0.
    - Linux: the `.desktop` file name (without the extension) or the window's WM_CLASS.
 3. Give each shortcut a `title` (in English) and `keys`. Providing `i18n.zh-Hans` as well is recommended.
 4. **Write each `title` in your own words; do not copy and paste from vendor documentation.**
-5. Run `cargo test -p keylens-core` to confirm the data passes validation.
+5. Optional: add `command = "<VS Code command ID>"` to a shortcut (VS Code-family apps only, using the ID from VS Code's default keybindings); Keylens matches it against the user's `keybindings.json` so remapped keys show up.
+6. Run `cargo test -p keylens-core` to confirm the data passes validation.
 
 ### Key notation
 

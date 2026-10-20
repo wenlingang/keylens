@@ -7,9 +7,13 @@ use keylens_core::community::{Catalog, CommunitySource};
 use keylens_core::{AppInfo, AppShortcuts, EntrySource, Lang, Os, ShortcutSource, collect};
 use keylens_platform::Platform;
 
+use crate::vscode::{Flavor, KeybindingsSource, Locations};
+
 pub struct Loader {
     platform: Arc<dyn Platform>,
     os: Os,
+    /// Where VS Code family editors keep their `keybindings.json`.
+    locations: Locations,
     /// Rebuilt when the user edits their data files or switches the UI language.
     sources: RwLock<Sources>,
 }
@@ -20,23 +24,40 @@ struct Sources {
     user_catalog: Arc<Catalog>,
     builtin: Arc<CommunitySource>,
     user: Arc<CommunitySource>,
+    /// Replaces `user` and `builtin` for VS Code family editors.
+    vscode: Arc<KeybindingsSource>,
 }
 
 impl Sources {
-    fn new(builtin_catalog: Arc<Catalog>, user_catalog: Arc<Catalog>, os: Os, lang: Lang) -> Self {
+    fn new(
+        builtin_catalog: Arc<Catalog>,
+        user_catalog: Arc<Catalog>,
+        os: Os,
+        lang: Lang,
+        locations: &Locations,
+    ) -> Self {
+        let builtin = Arc::new(CommunitySource::new(
+            builtin_catalog.clone(),
+            os,
+            lang,
+            EntrySource::Community,
+        ));
+        let user = Arc::new(CommunitySource::new(
+            user_catalog.clone(),
+            os,
+            lang,
+            EntrySource::User,
+        ));
         Self {
-            builtin: Arc::new(CommunitySource::new(
-                builtin_catalog.clone(),
+            vscode: Arc::new(KeybindingsSource::new(
+                user.clone(),
+                builtin.clone(),
                 os,
                 lang,
-                EntrySource::Community,
+                locations.clone(),
             )),
-            user: Arc::new(CommunitySource::new(
-                user_catalog.clone(),
-                os,
-                lang,
-                EntrySource::User,
-            )),
+            builtin,
+            user,
             lang,
             builtin_catalog,
             user_catalog,
@@ -52,10 +73,23 @@ impl Loader {
         os: Os,
         lang: Lang,
     ) -> Self {
+        Self::with_locations(platform, builtin, user, os, lang, Locations::from_env())
+    }
+
+    /// Like `new`, but looks for VS Code family `keybindings.json` files under `locations`.
+    pub fn with_locations(
+        platform: Arc<dyn Platform>,
+        builtin: Arc<Catalog>,
+        user: Arc<Catalog>,
+        os: Os,
+        lang: Lang,
+        locations: Locations,
+    ) -> Self {
         Self {
             platform,
             os,
-            sources: RwLock::new(Sources::new(builtin, user, os, lang)),
+            sources: RwLock::new(Sources::new(builtin, user, os, lang, &locations)),
+            locations,
         }
     }
 
@@ -67,6 +101,7 @@ impl Loader {
             catalog,
             self.os,
             sources.lang,
+            &self.locations,
         );
     }
 
@@ -78,7 +113,13 @@ impl Loader {
             sources.user_catalog.clone(),
             self.os,
             lang,
+            &self.locations,
         );
+    }
+
+    /// The VS Code family `keybindings.json` files whose changes affect later loads.
+    pub fn keybindings_paths(&self) -> Vec<std::path::PathBuf> {
+        self.locations.watched_paths(self.os)
     }
 
     pub fn lang(&self) -> Lang {
@@ -90,10 +131,19 @@ impl Loader {
         let menu = self.platform.menu_source();
         // Clone the sources and release the lock before reading the menu (up to ~2 s), so
         // `set_lang` / `set_user_catalog` on the UI thread never wait for it.
-        let (user, builtin) = {
+        let (user, builtin, vscode) = {
             let sources = self.sources.read().unwrap();
-            (Arc::clone(&sources.user), Arc::clone(&sources.builtin))
+            (
+                Arc::clone(&sources.user),
+                Arc::clone(&sources.builtin),
+                Arc::clone(&sources.vscode),
+            )
         };
+        // VS Code family editors: the community data with the user's keybindings.json applied.
+        if Flavor::for_app(app, self.os).is_some() {
+            let list: [&dyn ShortcutSource; 2] = [menu.as_ref(), vscode.as_ref()];
+            return collect(app.clone(), &list);
+        }
         let list: [&dyn ShortcutSource; 3] = [menu.as_ref(), user.as_ref(), builtin.as_ref()];
         collect(app.clone(), &list)
     }
@@ -383,5 +433,80 @@ i18n = { ja = "一般" }
         loader.set_lang(Lang::En);
         assert_eq!(loader.lang(), Lang::En);
         assert_eq!(title(&loader), "Open");
+    }
+
+    #[test]
+    fn vscode_apps_show_menu_and_their_keybindings_file() {
+        use crate::vscode::{Flavor, Locations, keybindings_path};
+        let vscode = r#"
+schema = 1
+[app]
+name = "Visual Studio Code"
+[app.match]
+macos = ["com.microsoft.VSCode"]
+[[group]]
+title = "General"
+[[group.shortcut]]
+title = "Show Command Palette"
+keys = "Mod+Shift+P"
+command = "workbench.action.showCommands"
+[[group.shortcut]]
+title = "Save"
+keys = "Mod+S"
+command = "workbench.action.files.save"
+"#;
+        let home =
+            std::env::temp_dir().join(format!("keylens-loader-vscode-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let path = keybindings_path(Flavor::Code, Os::MacOS, &home, None);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            r#"[
+                { "key": "ctrl+alt+p", "command": "workbench.action.showCommands" },
+                { "key": "shift+cmd+p", "command": "-workbench.action.showCommands" }
+            ]"#,
+        )
+        .unwrap();
+
+        let platform = Arc::new(FakePlatform::default());
+        platform.set_menu(vec![menu_entry()]);
+        let (builtin, errors) = Catalog::from_files([("vscode.toml", vscode)]);
+        assert!(errors.is_empty(), "{errors:?}");
+        let loader = Loader::with_locations(
+            platform,
+            Arc::new(builtin),
+            Arc::new(Catalog::default()),
+            Os::MacOS,
+            Lang::En,
+            Locations {
+                home: home.clone(),
+                appdata: None,
+            },
+        );
+        let app = AppInfo {
+            pid: 3,
+            name: "Code".into(),
+            ids: vec!["com.microsoft.VSCode".into()],
+        };
+        let result = loader.load(&app);
+        std::fs::remove_dir_all(&home).unwrap();
+
+        let shown: Vec<_> = result
+            .groups
+            .iter()
+            .flat_map(|g| {
+                g.entries
+                    .iter()
+                    .map(|e| (e.title.clone(), e.shortcut.display(Os::MacOS)))
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                ("存储".to_string(), "⌘S".to_string()),
+                ("Show Command Palette".to_string(), "⌃⌥P".to_string()),
+            ]
+        );
     }
 }

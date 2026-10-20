@@ -252,23 +252,37 @@ impl Keylens {
     }
 
     /// Reloads the user data whenever a `.toml` file in the user data folder changes, so edits
-    /// take effect without restarting.
+    /// take effect without restarting. Also drops cached shortcuts when a VS Code family
+    /// `keybindings.json` changes, since they were built from it.
     fn watch_user_data(&mut self, cx: &mut Context<Self>) {
+        let keybindings = self.loader.keybindings_paths();
         self.user_data_task = Some(cx.spawn(async move |this, cx| {
             let dir = config::user_data_dir();
             let mut last = watch::fingerprint(&dir);
+            let mut stamps = watch::files_stamp(&keybindings);
             loop {
                 cx.background_executor().timer(USER_DATA_POLL).await;
                 let scan = dir.clone();
-                let (next, loaded) = cx
+                let files = keybindings.clone();
+                let (next, loaded, now) = cx
                     .background_executor()
                     .spawn(async move {
                         let loaded = watch::reload_if_changed(&scan, &mut last, load_dir);
-                        (last, loaded)
+                        (last, loaded, watch::files_stamp(&files))
                     })
                     .await;
                 last = next;
+                let keybindings_changed = now != stamps;
+                stamps = now;
                 let Some((catalog, errors)) = loaded else {
+                    // Reloading the user data below drops the cache anyway.
+                    if keybindings_changed
+                        && this
+                            .update(cx, |this, cx| this.on_keybindings_changed(cx))
+                            .is_err()
+                    {
+                        break;
+                    }
                     continue;
                 };
                 if this
@@ -299,6 +313,17 @@ impl Keylens {
         }
         self.loader.set_user_catalog(Arc::new(catalog));
         // Cached shortcuts were built from the old user data.
+        self.cache = Cache::new(CACHE_CAPACITY);
+        if self.session.visible()
+            && let Some(app) = self.session.target().cloned()
+        {
+            self.prefetch(app, cx);
+        }
+    }
+
+    fn on_keybindings_changed(&mut self, cx: &mut Context<Self>) {
+        tracing::info!("VS Code keybindings changed");
+        // Cached shortcuts of VS Code family editors were built from the old file.
         self.cache = Cache::new(CACHE_CAPACITY);
         if self.session.visible()
             && let Some(app) = self.session.target().cloned()

@@ -9,6 +9,7 @@ pub mod model;
 pub mod search;
 pub mod source;
 pub mod trigger;
+pub mod vscode;
 
 pub use keys::{Chord, Key, KeyParseError, Modifiers, Os, Shortcut};
 pub use locale::{Lang, Locale, Localized, resolve, resolve_preferred};

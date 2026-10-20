@@ -49,6 +49,8 @@ pub(crate) struct RawShortcut {
     #[serde(default)]
     pub i18n: BTreeMap<String, String>,
     pub keys: RawKeys,
+    #[serde(default)]
+    pub command: Option<String>,
 }
 
 pub(crate) enum RawKeys {
