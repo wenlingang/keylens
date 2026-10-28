@@ -7,6 +7,6 @@ publish = false
 [workspace]
 
 [dependencies]
-gpui-kit = "0.7.3"
+gpui-kit = "0.8.1"
 objc2-core-foundation = "0.3.2"
 objc2-core-graphics = "0.3.2"

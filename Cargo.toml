@@ -29,7 +29,7 @@ objc2-app-kit = "0.3.2"
 objc2-application-services = "0.3.2"
 objc2-core-foundation = "0.3.2"
 objc2-core-graphics = "0.3.2"
-gpui-kit = "0.7.3"
+gpui-kit = "0.8.1"
 image = { version = "0.25", default-features = false, features = ["png"] }
 async-channel = "2"
 rust-i18n = "4.2"
