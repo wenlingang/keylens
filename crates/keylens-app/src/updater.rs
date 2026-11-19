@@ -1,17 +1,17 @@
 //! In-app updates: checks for a new release on a timer and from the menu bar, asks before
 //! installing, downloads and installs it, then relaunches. The steps live in `update` (check and
-//! download) and the platform's `UpdateNative` (install, relaunch, dialogs). `[update]` in
+//! download) and `UpdateNative` (install, relaunch, dialogs; see `macos::update`). `[update]` in
 //! config.toml turns automatic checks off and remembers a skipped version.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use gpui_kit::{AsyncApp, Context, Entity, Task, WeakEntity};
-use keylens_platform::update::{Dialog, InstallError, UpdateNative, bundle_of};
 use rust_i18n::t;
 
 use crate::config_write::Change;
+use crate::macos::update::{Dialog, InstallError, bundle_of};
 use crate::prefs::Prefs;
 use crate::update::{self, Http, Release, UpdateError};
 
@@ -38,6 +38,19 @@ pub enum Failure {
 
 /// Gets what the updater is doing, for the menu bar; `None` once idle.
 pub type OnStatus = Box<dyn Fn(Option<&str>)>;
+
+/// Native functions the updater calls; tests swap in fakes.
+#[derive(Clone, Copy)]
+pub struct UpdateNative {
+    /// Installs the app inside the disk image `package` over the app bundle `app`, after checking
+    /// that it is signed by the same certificate as `app` and is `version` (so an old, validly
+    /// signed build cannot be passed off as a newer one). Blocking; call it off the main thread.
+    pub install: fn(package: &Path, app: &Path, version: &str) -> Result<(), InstallError>,
+    /// Starts `app` again once this process has exited. The caller quits right after.
+    pub relaunch: fn(app: &Path) -> std::io::Result<()>,
+    /// Shows a non-blocking dialog on the main thread; `done` gets the index of the button clicked.
+    pub dialog: fn(Dialog, Box<dyn FnOnce(usize)>),
+}
 
 pub struct Updater {
     http: Arc<dyn Http>,

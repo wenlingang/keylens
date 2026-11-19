@@ -3696,11 +3696,17 @@ name = "keylens-app"
 version = "0.1.6"
 dependencies = [
  "async-channel",
+ "block2 0.6.2",
  "gpui-kit",
  "image",
  "keylens-core",
- "keylens-macos",
- "keylens-platform",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-application-services",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation 0.3.2",
+ "raw-window-handle",
  "rust-i18n",
  "semver",
  "serde",
@@ -3723,30 +3729,6 @@ dependencies = [
  "serde",
  "thiserror 2.0.21",
  "toml 1.1.8+spec-1.1.0",
-]
-
-[[package]]
-name = "keylens-macos"
-version = "0.1.0"
-dependencies = [
- "block2 0.6.2",
- "keylens-core",
- "keylens-platform",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-application-services",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-foundation 0.3.2",
- "raw-window-handle",
-]
-
-[[package]]
-name = "keylens-platform"
-version = "0.1.0"
-dependencies = [
- "keylens-core",
- "thiserror 2.0.21",
 ]
 
 [[package]]

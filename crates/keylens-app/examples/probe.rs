@@ -10,14 +10,13 @@
 //!   probe watch <secs>                print frontmost app changes
 //!   probe icon <pid> <out.png>        save the app icon
 
-#[cfg(target_os = "macos")]
 fn main() {
     use std::sync::mpsc::channel;
     use std::time::{Duration, Instant};
 
+    use keylens_app::macos::MacPlatform;
+    use keylens_app::platform::{PermissionState, Platform};
     use keylens_core::AppInfo;
-    use keylens_macos::MacPlatform;
-    use keylens_platform::{PermissionState, Platform};
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     let platform = MacPlatform::default();
@@ -66,10 +65,10 @@ fn main() {
                 println!("FAIL: no \"{title}\" in the menu");
                 return;
             };
-            let before = keylens_macos::debug::window_titles(pid);
+            let before = keylens_app::macos::debug::window_titles(pid);
             let result = platform.execute(pid, entry);
             std::thread::sleep(Duration::from_millis(800));
-            let after = keylens_macos::debug::window_titles(pid);
+            let after = keylens_app::macos::debug::window_titles(pid);
             println!("execute -> {result:?}");
             println!("window: {before:?} -> {after:?}");
             println!(
@@ -184,9 +183,4 @@ fn main() {
         }
         _ => eprintln!("usage: see the comment at the top of the file"),
     }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn main() {
-    eprintln!("probe only runs on macOS");
 }

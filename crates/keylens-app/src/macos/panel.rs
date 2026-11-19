@@ -11,8 +11,8 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString, NSURL};
 
-use crate::ax;
-use crate::geometry::{
+use crate::macos::ax;
+use crate::macos::geometry::{
     Rect, centered_origin, panel_centered_origin, panel_size, quartz_to_cocoa, screen_containing,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};

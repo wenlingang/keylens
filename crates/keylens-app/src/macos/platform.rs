@@ -3,13 +3,13 @@
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
+use crate::platform::{ListenGuard, PermissionState, Platform, PlatformError};
 use keylens_core::{AppInfo, Entry, EntrySource, KeyEvent, Modifiers, ShortcutSource, Trigger};
-use keylens_platform::{ListenGuard, PermissionState, Platform, PlatformError};
 
-use crate::ax::{self, AxNode};
-use crate::menu::AxMenuSource;
-use crate::snapshots::Snapshots;
-use crate::{exec, keytap, workspace};
+use crate::macos::ax::{self, AxNode};
+use crate::macos::menu::AxMenuSource;
+use crate::macos::snapshots::Snapshots;
+use crate::macos::{exec, keytap, workspace};
 
 /// Maximum number of apps whose menu snapshots are kept (spec §5).
 const SNAPSHOT_CAPACITY: usize = 8;

@@ -90,9 +90,7 @@ Your own shortcut data goes in `~/.config/keylens/apps/*.toml`, using the same f
 ## Project layout
 
 - `crates/keylens-core/`: platform-independent core (shortcut model, merging, search, trigger detection, localization, community data)
-- `crates/keylens-platform/`: platform interface
-- `crates/keylens-macos/`: macOS implementation (Accessibility API, key listener, panel window, menu bar icon)
-- `crates/keylens-app/`: gpui-kit UI and controller
+- `crates/keylens-app/`: gpui-kit UI and controller; `src/macos/` holds the macOS side (Accessibility API, key listener, panel window, menu bar icon, installing updates)
 - `data/apps/`: community shortcut data (CC0)
 - `spikes/`: throwaway technical experiments, not part of the product
 

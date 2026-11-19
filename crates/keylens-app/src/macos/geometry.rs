@@ -1,5 +1,5 @@
 //! Pure geometry for placing the panel: coordinate conversion, screen selection and sizing.
-//! No system calls, so it is tested on every platform.
+//! No system calls, so it is unit-tested.
 
 /// A rectangle in points. Which corner is the origin depends on the coordinate system in use.
 #[derive(Clone, Copy, Debug, PartialEq)]

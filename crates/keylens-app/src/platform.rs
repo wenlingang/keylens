@@ -1,14 +1,14 @@
-//! Platform layer interface. The macOS implementation is in `keylens-macos`; tests use `fake::FakePlatform`.
+//! What the controller and loader need from the system: permission, the frontmost app, menu reads,
+//! executing entries and key events. `macos::MacPlatform` implements it; tests use
+//! `fake::FakePlatform`.
 
 use std::any::Any;
 use std::sync::mpsc::Sender;
 
 use keylens_core::{AppInfo, Entry, KeyEvent, ShortcutSource, Trigger};
 
-#[cfg(any(test, feature = "fake"))]
+#[cfg(test)]
 pub mod fake;
-pub mod tray;
-pub mod update;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PermissionState {

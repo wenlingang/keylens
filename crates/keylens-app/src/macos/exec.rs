@@ -3,16 +3,16 @@
 use std::thread::sleep;
 use std::time::Duration;
 
+use crate::platform::PlatformError;
 use keylens_core::{Entry, Shortcut};
-use keylens_platform::PlatformError;
 use objc2_core_foundation::{CFPreferencesCopyAppValue, CFString};
 use objc2_core_graphics::{CGEvent, CGEventField, CGEventFlags, CGEventTapLocation};
 
-use crate::ax::{self, AxNode};
-use crate::convert::{keycode, modifier_flags, us_compatible_layout};
-use crate::snapshots::Snapshots;
-use crate::synthetic;
-use crate::workspace;
+use crate::macos::ax::{self, AxNode};
+use crate::macos::convert::{keycode, modifier_flags, us_compatible_layout};
+use crate::macos::snapshots::Snapshots;
+use crate::macos::synthetic;
+use crate::macos::workspace;
 
 /// After the panel closes, wait for focus to return to the target app before sending keys (300ms was enough in experiments; a smaller value is used here).
 const KEY_POST_DELAY: Duration = Duration::from_millis(80);

@@ -8,8 +8,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Sender, channel};
 use std::time::{Duration, Instant};
 
+use crate::platform::{ListenGuard, PlatformError};
 use keylens_core::{KeyEvent, Modifiers};
-use keylens_platform::{ListenGuard, PlatformError};
 use objc2_core_foundation::{
     CFMachPort, CFRetained, CFRunLoop, kCFRunLoopCommonModes, kCFRunLoopDefaultMode,
 };
@@ -18,8 +18,8 @@ use objc2_core_graphics::{
     CGEventTapProxy, CGEventType,
 };
 
-use crate::convert::event_modifiers;
-use crate::synthetic;
+use crate::macos::convert::event_modifiers;
+use crate::macos::synthetic;
 
 /// Callback context, accessed only on the listener thread.
 struct Context {

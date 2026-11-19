@@ -11,7 +11,6 @@ path = "src/main.rs"
 
 [dependencies]
 keylens-core.workspace = true
-keylens-platform.workspace = true
 gpui-kit.workspace = true
 image.workspace = true
 async-channel.workspace = true
@@ -27,10 +26,14 @@ semver.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
-
-[target.'cfg(target_os = "macos")'.dependencies]
-keylens-macos.workspace = true
+objc2.workspace = true
+block2.workspace = true
+objc2-foundation.workspace = true
+objc2-app-kit.workspace = true
+objc2-application-services.workspace = true
+objc2-core-foundation.workspace = true
+objc2-core-graphics.workspace = true
+raw-window-handle.workspace = true
 
 [dev-dependencies]
-keylens-platform = { workspace = true, features = ["fake"] }
 gpui-kit = { workspace = true, features = ["test-support"] }

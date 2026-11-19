@@ -5,9 +5,9 @@ use std::time::{Duration, Instant};
 
 use keylens_core::{AppInfo, Entry, ShortcutSource, SourceError};
 
-use crate::ax::{self, AxNode};
-use crate::menu_tree::collect;
-use crate::snapshots::Snapshots;
+use crate::macos::ax::{self, AxNode};
+use crate::macos::menu_tree::collect;
+use crate::macos::snapshots::Snapshots;
 
 /// Total time limit for one menu read. Normal apps take 30-130ms; Electron takes about 900ms the first time.
 const READ_DEADLINE: Duration = Duration::from_secs(2);

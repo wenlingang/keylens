@@ -3,9 +3,9 @@
 use std::ptr::NonNull;
 use std::sync::mpsc::Sender;
 
+use crate::platform::ListenGuard;
 use block2::RcBlock;
 use keylens_core::AppInfo;
-use keylens_platform::ListenGuard;
 use objc2::AnyThread;
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, ProtocolObject};

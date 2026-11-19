@@ -4,9 +4,9 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+use crate::platform::Platform;
 use keylens_core::community::{Catalog, CommunitySource};
 use keylens_core::{AppInfo, AppShortcuts, EntrySource, Lang, ShortcutSource, collect};
-use keylens_platform::Platform;
 
 pub struct Loader {
     platform: Arc<dyn Platform>,
@@ -213,10 +213,10 @@ impl Cache {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platform::PermissionState;
+    use crate::platform::fake::FakePlatform;
     use keylens_core::community::Catalog;
     use keylens_core::{Entry, EntryId, Shortcut, SourceError};
-    use keylens_platform::PermissionState;
-    use keylens_platform::fake::FakePlatform;
 
     const DATA: &str = r#"
 schema = 1

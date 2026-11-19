@@ -8,7 +8,7 @@ use keylens_core::{
     AppInfo, Entry, EntryId, EntrySource, KeyEvent, Modifiers, ShortcutSource, SourceError, Trigger,
 };
 
-use crate::{ListenGuard, PermissionState, Platform, PlatformError};
+use crate::platform::{ListenGuard, PermissionState, Platform, PlatformError};
 
 type SharedSender<T> = Arc<Mutex<Option<Sender<T>>>>;
 

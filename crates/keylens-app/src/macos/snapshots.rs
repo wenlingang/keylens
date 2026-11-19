@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::platform::PlatformError;
 use keylens_core::{Entry, EntryId};
-use keylens_platform::PlatformError;
 
 struct Stored<H> {
     snapshot: u64,

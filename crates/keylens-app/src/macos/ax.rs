@@ -3,8 +3,8 @@
 use std::ptr::NonNull;
 use std::sync::Once;
 
+use crate::platform::PlatformError;
 use keylens_core::SourceError;
-use keylens_platform::PlatformError;
 use objc2_application_services::{
     AXCopyMultipleAttributeOptions, AXError, AXIsProcessTrusted, AXIsProcessTrustedWithOptions,
     AXUIElement, AXValue, AXValueType, kAXTrustedCheckOptionPrompt,
@@ -13,8 +13,8 @@ use objc2_core_foundation::{
     CFArray, CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFType, CGPoint, CGSize,
 };
 
-use crate::geometry::Rect;
-use crate::menu_tree::{ItemInfo, MenuNode};
+use crate::macos::geometry::Rect;
+use crate::macos::menu_tree::{ItemInfo, MenuNode};
 
 /// AX messaging timeout (spec §3.4).
 const MESSAGING_TIMEOUT_SECS: f32 = 1.0;

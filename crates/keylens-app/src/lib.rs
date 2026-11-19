@@ -1,5 +1,6 @@
 //! Keylens app: the panel UI and control logic.
-#![forbid(unsafe_code)]
+// Only `macos` talks to AppKit and needs `unsafe`; everything else must not.
+#![deny(unsafe_code)]
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -10,8 +11,11 @@ pub mod config_write;
 pub mod controller;
 pub mod loader;
 pub mod logging;
+#[allow(unsafe_code)]
+pub mod macos;
 pub mod model;
 pub mod permission;
+pub mod platform;
 pub mod prefs;
 pub mod recorder;
 pub mod session;
@@ -29,9 +33,8 @@ pub mod watch;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use keylens_platform::Platform;
-use keylens_platform::tray::{TrayCommand, TrayHandle, TrayLabels};
-use keylens_platform::update::UpdateNative;
+use crate::macos::tray::{Tray, TrayCommand, TrayLabels};
+use crate::updater::UpdateNative;
 
 /// Bundle identifier of released builds; any other bundle (or none) is a development build.
 pub const RELEASE_BUNDLE_ID: &str = "io.github.wenlingang.keylens";
@@ -60,57 +63,8 @@ fn tray_labels(dev: bool) -> TrayLabels {
     }
 }
 
-/// Installs the tray, forwarding menu clicks to the callback. Called on the main thread once the
-/// UI is running.
-pub type InstallTray = fn(TrayLabels, Box<dyn Fn(TrayCommand)>) -> Rc<dyn TrayHandle>;
-
-/// The platform-specific pieces `run_with` needs; everything else in startup is shared.
-pub struct Host {
-    pub platform: Arc<dyn Platform>,
-    pub native: controller::Native,
-    pub install_tray: InstallTray,
-    pub update: UpdateNative,
-    /// A development build (not the released bundle): separate logs, no automatic updates.
-    pub dev: bool,
-}
-
-/// Starts Keylens (macOS only).
-#[cfg(target_os = "macos")]
+/// Starts Keylens.
 pub fn run() {
-    fn install_tray(
-        labels: TrayLabels,
-        on_command: Box<dyn Fn(TrayCommand)>,
-    ) -> Rc<dyn TrayHandle> {
-        let mtm = keylens_macos::MainThreadMarker::new().expect("must run on the main thread");
-        Rc::new(keylens_macos::tray::Tray::install(mtm, labels, on_command))
-    }
-
-    run_with(Host {
-        platform: Arc::new(keylens_macos::MacPlatform::default()),
-        native: controller::Native {
-            hide: |w| keylens_macos::panel::hide(w),
-            raise: |w, raised| keylens_macos::panel::set_raised(w, raised),
-            fade_in: |w| keylens_macos::panel::fade_in(w),
-            show_overlay: |w, pid| keylens_macos::panel::show_overlay(w, pid),
-            reduce_motion: keylens_macos::panel::reduce_motion,
-            set_alpha: keylens_macos::panel::set_alpha,
-            place: |w, pid| keylens_macos::panel::place(w, pid),
-            beep: keylens_macos::panel::beep,
-            open: keylens_macos::panel::open_path,
-        },
-        install_tray,
-        update: UpdateNative {
-            install: keylens_macos::update::install,
-            relaunch: keylens_macos::update::relaunch,
-            dialog: keylens_macos::update::dialog,
-        },
-        dev: keylens_macos::panel::bundle_identifier().as_deref() != Some(RELEASE_BUNDLE_ID),
-    });
-}
-
-/// Starts Keylens on top of the given platform pieces. Contains no platform-specific code, so it
-/// compiles on every target; a new platform only has to provide a [`Host`].
-pub fn run_with(host: Host) {
     use gpui_kit::component::Theme;
     use gpui_kit::*;
     use keylens_core::community::{builtin, load_dir};
@@ -119,24 +73,38 @@ pub fn run_with(host: Host) {
     use crate::charge;
     use crate::controller::Keylens;
     use crate::loader::Loader;
+    // Named explicitly: gpui_kit::* also exports a `Platform`.
+    use crate::platform::Platform;
     use crate::updater::Updater;
     use crate::view::{PanelView, bind_keys};
 
     struct KeylensApp {
         _keylens: Entity<Keylens>,
         _updater: Entity<Updater>,
-        _tray: Rc<dyn TrayHandle>,
+        _tray: Rc<Tray>,
         _log_guard: Option<tracing_appender::non_blocking::WorkerGuard>,
     }
     impl Global for KeylensApp {}
 
-    let Host {
-        platform,
-        native,
-        install_tray,
-        update,
-        dev,
-    } = host;
+    let platform: Arc<dyn Platform> = Arc::new(macos::MacPlatform::default());
+    let native = controller::Native {
+        hide: |w| macos::panel::hide(w),
+        raise: |w, raised| macos::panel::set_raised(w, raised),
+        fade_in: |w| macos::panel::fade_in(w),
+        show_overlay: |w, pid| macos::panel::show_overlay(w, pid),
+        reduce_motion: macos::panel::reduce_motion,
+        set_alpha: macos::panel::set_alpha,
+        place: |w, pid| macos::panel::place(w, pid),
+        beep: macos::panel::beep,
+        open: macos::panel::open_path,
+    };
+    let update = UpdateNative {
+        install: macos::update::install,
+        relaunch: macos::update::relaunch,
+        dialog: macos::update::dialog,
+    };
+    // A development build (not the released bundle): separate logs, no automatic updates.
+    let dev = macos::panel::bundle_identifier().as_deref() != Some(RELEASE_BUNDLE_ID);
 
     let log_guard = logging::init(&logging::log_dir(dev));
     tracing::info!(version = env!("CARGO_PKG_VERSION"), dev, "Keylens starting");
@@ -254,12 +222,14 @@ pub fn run_with(host: Host) {
 
             let (tray_tx, tray_rx) = async_channel::unbounded::<TrayCommand>();
             let labels = tray_labels(dev);
-            let tray = install_tray(
+            let mtm = objc2::MainThreadMarker::new().expect("must run on the main thread");
+            let tray = Rc::new(Tray::install(
+                mtm,
                 labels,
                 Box::new(move |command| {
                     let _ = tray_tx.try_send(command);
                 }),
-            );
+            ));
 
             let tray_for_updates = tray.clone();
             let updater = cx.new(|cx| {

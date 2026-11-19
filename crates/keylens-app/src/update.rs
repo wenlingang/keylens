@@ -1,7 +1,7 @@
 //! Update check and download. Each GitHub release carries `latest.json` (written by
 //! `scripts/update-manifest.sh`); `releases/latest/download/latest.json` always serves the newest
-//! one without touching the rate-limited GitHub API. Installing is the platform's job
-//! (`keylens_platform::update`).
+//! one without touching the rate-limited GitHub API. Installing is done in
+//! `macos::update`.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};

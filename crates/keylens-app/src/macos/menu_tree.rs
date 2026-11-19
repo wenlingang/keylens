@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use keylens_core::{Entry, EntryId, EntrySource, Shortcut, SourceError};
 
-use crate::convert::menu_chord;
+use crate::macos::convert::menu_chord;
 
 /// Attributes of a menu node, corresponding to the AX attributes of the same names.
 #[derive(Clone, Debug, Default, PartialEq)]

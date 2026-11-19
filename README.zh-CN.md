@@ -90,9 +90,7 @@ auto-check = true      # 每天自动检查一次新版本
 ## 目录结构
 
 - `crates/keylens-core/`：平台无关的核心逻辑（快捷键模型、合并、搜索、触发判断、多语言、社区数据）
-- `crates/keylens-platform/`：平台接口
-- `crates/keylens-macos/`：macOS 实现（辅助功能 API、按键监听、浮层窗口、菜单栏图标）
-- `crates/keylens-app/`：gpui-kit 界面与控制逻辑
+- `crates/keylens-app/`：gpui-kit 界面与控制逻辑；`src/macos/` 是 macOS 相关部分（辅助功能 API、按键监听、浮层窗口、菜单栏图标、安装更新）
 - `data/apps/`：社区快捷键数据（CC0）
 - `spikes/`：一次性技术验证代码，不属于产品
 

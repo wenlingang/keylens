@@ -3,10 +3,9 @@
 //! Also the update dialog, an NSAlert shown without a modal session so gpui keeps running.
 
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use keylens_platform::update::{Dialog, InstallError};
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
@@ -15,6 +14,52 @@ use objc2_app_kit::{
     NSScrollView, NSTextView,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
+
+/// Why a downloaded update could not be installed.
+#[derive(Debug, thiserror::Error)]
+pub enum InstallError {
+    /// Keylens is not running from an app bundle (e.g. `cargo run`).
+    #[error("not running from an app bundle")]
+    NotInApp,
+    /// macOS runs the app from a read-only random path (App Translocation) because it was opened
+    /// where it was downloaded instead of being moved to Applications.
+    #[error("the app is translocated: {0}")]
+    Translocated(PathBuf),
+    /// The running app's signature does not pin a certificate (ad-hoc or unsigned), so there is
+    /// nothing to check the update against.
+    #[error("the running app is not signed with a certificate: {0}")]
+    Unsigned(String),
+    #[error("could not read the update package: {0}")]
+    Package(String),
+    /// The update is not signed by the same certificate as the running app.
+    #[error("the update's signature does not match: {0}")]
+    Signature(String),
+    #[error("could not replace {path}: {detail}")]
+    Replace { path: PathBuf, detail: String },
+}
+
+/// A dialog with a title, a short message, optional details and buttons. The first button is the
+/// default (Return).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Dialog {
+    pub title: String,
+    pub message: String,
+    /// Longer text (release notes) shown in a fixed-size scrolling area below the message.
+    pub details: Option<String>,
+    pub buttons: Vec<String>,
+    /// The button Escape presses.
+    pub cancel: Option<usize>,
+}
+
+/// The `.app` bundle that contains the executable `exe` (`…/Keylens.app/Contents/MacOS/Keylens`).
+pub fn bundle_of(exe: &Path) -> Option<PathBuf> {
+    let macos = exe.parent()?;
+    let contents = macos.parent()?;
+    let app = contents.parent()?;
+    let is_app = app.extension().is_some_and(|e| e == "app");
+    (macos.file_name()? == "MacOS" && contents.file_name()? == "Contents" && is_app)
+        .then(|| app.to_path_buf())
+}
 
 const APP_NAME: &str = "Keylens.app";
 /// Bundles the installer puts next to the app while it works (`<prefix>update-<pid>.app`, …).
@@ -318,5 +363,22 @@ mod tests {
             parse_requirement("code object is not signed at all\n"),
             None
         );
+    }
+
+    #[test]
+    fn bundle_of_finds_the_app_around_its_executable() {
+        assert_eq!(
+            bundle_of(Path::new(
+                "/Applications/Keylens.app/Contents/MacOS/Keylens"
+            )),
+            Some(PathBuf::from("/Applications/Keylens.app"))
+        );
+    }
+
+    #[test]
+    fn bundle_of_rejects_a_bare_executable() {
+        assert_eq!(bundle_of(Path::new("/repo/target/debug/keylens")), None);
+        assert_eq!(bundle_of(Path::new("/x/Contents/MacOS/Keylens")), None);
+        assert_eq!(bundle_of(Path::new("Keylens")), None);
     }
 }

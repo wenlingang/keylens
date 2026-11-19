@@ -4,11 +4,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use crate::platform::{ListenGuard, PermissionState, Platform};
 use gpui_kit::*;
 use keylens_core::{
     AppInfo, AppShortcuts, Entry, KeyEvent, Trigger, TriggerAction, TriggerDetector,
 };
-use keylens_platform::{ListenGuard, PermissionState, Platform};
 
 use crate::charge::{self, ChargeView};
 use crate::loader::{Cache, Freshness, Loader, Reads};
@@ -909,10 +909,10 @@ mod tests {
     // See view.rs: keep the built-in #[test] in scope next to gpui's.
     use core::prelude::v1::test;
 
+    use crate::platform::fake::FakePlatform;
     use gpui_kit::{TestAppContext, VisualTestContext};
     use keylens_core::Modifiers;
     use keylens_core::community::Catalog;
-    use keylens_platform::fake::FakePlatform;
 
     use super::*;
     use crate::config::TriggerMode;

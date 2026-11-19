@@ -13,11 +13,47 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSData, NSSize, NSString};
 
-pub use keylens_platform::tray::{TrayCommand, TrayHandle, TrayLabels};
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrayCommand {
+    Permission,
+    /// Create or open the user data file for the frontmost app.
+    EditCurrentApp,
+    OpenDataFolder,
+    /// Open Keylens' settings window.
+    Settings,
+    /// Check for a new version now (and offer to install it).
+    CheckForUpdates,
+    Quit,
+}
+
+impl TrayCommand {
+    pub const ALL: [TrayCommand; 6] = [
+        TrayCommand::Permission,
+        TrayCommand::EditCurrentApp,
+        TrayCommand::OpenDataFolder,
+        TrayCommand::Settings,
+        TrayCommand::CheckForUpdates,
+        TrayCommand::Quit,
+    ];
+}
+
+pub struct TrayLabels {
+    /// Menu bar title; "!" is appended while the permission is missing.
+    pub icon: String,
+    /// Disabled first menu item, e.g. "Keylens 0.1.0".
+    pub version: String,
+    pub permission_ok: String,
+    pub permission_missing: String,
+    pub edit_current: String,
+    pub open_data: String,
+    pub settings: String,
+    pub check_updates: String,
+    pub quit: String,
+}
 
 /// Menu bar icon, 36×36 px drawn for 18×18 pt (see `assets/tray-icon.svg`). Black plus alpha only:
 /// as a template image macOS tints it to match light and dark menu bars.
-const ICON_PNG: &[u8] = include_bytes!("../../../assets/tray-icon.png");
+const ICON_PNG: &[u8] = include_bytes!("../../../../assets/tray-icon.png");
 
 fn icon_image() -> Option<Retained<NSImage>> {
     let data = NSData::with_bytes(ICON_PNG);
@@ -188,8 +224,9 @@ impl Tray {
     }
 }
 
-impl TrayHandle for Tray {
-    fn set_data_errors(&self, text: Option<&str>) {
+impl Tray {
+    /// Shows `text` (e.g. "2 data files have errors") in the menu, or hides the item for `None`.
+    pub fn set_data_errors(&self, text: Option<&str>) {
         match text {
             Some(text) => {
                 self.errors_item.setTitle(&NSString::from_str(text));
@@ -199,7 +236,8 @@ impl TrayHandle for Tray {
         }
     }
 
-    fn set_permission(&self, granted: bool) {
+    /// Updates the permission status: the icon and the permission menu item.
+    pub fn set_permission(&self, granted: bool) {
         self.granted.set(granted);
         let labels = self.labels.borrow();
         if let Some(button) = self.item.button(self.mtm) {
@@ -220,7 +258,8 @@ impl TrayHandle for Tray {
         self.permission_item.setTitle(&NSString::from_str(title));
     }
 
-    fn set_labels(&self, labels: TrayLabels) {
+    /// Replaces every label (after the UI language changed), keeping the current state.
+    pub fn set_labels(&self, labels: TrayLabels) {
         let title = |item: &NSMenuItem, text: &str| item.setTitle(&NSString::from_str(text));
         title(&self.version_item, &labels.version);
         title(&self.edit_item, &labels.edit_current);
@@ -233,7 +272,9 @@ impl TrayHandle for Tray {
         self.set_update_status(status.as_deref());
     }
 
-    fn set_update_status(&self, status: Option<&str>) {
+    /// Shows what the updater is doing (e.g. "Downloading 45%") in place of the
+    /// check-for-updates item, disabled; `None` restores the item.
+    pub fn set_update_status(&self, status: Option<&str>) {
         *self.update_status.borrow_mut() = status.map(str::to_string);
         let title = match status {
             Some(status) => status.to_string(),
@@ -260,5 +301,11 @@ mod tests {
             assert_eq!(from_tag(tag(command)), Some(command));
         }
         assert_eq!(from_tag(0), None);
+    }
+
+    #[test]
+    fn all_lists_every_command_once() {
+        assert_eq!(TrayCommand::ALL.len(), 6);
+        assert!(TrayCommand::ALL.contains(&TrayCommand::Settings));
     }
 }
