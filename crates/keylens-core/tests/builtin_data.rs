@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use keylens_core::community::{CommunitySource, builtin};
-use keylens_core::{AppInfo, EntrySource, Lang, Os, ShortcutSource};
+use keylens_core::{AppInfo, EntrySource, Lang, ShortcutSource};
 
 #[test]
 fn all_builtin_files_are_valid() {
@@ -31,9 +31,7 @@ fn every_builtin_app_has_macos_ids_and_simplified_chinese() {
         ("notion.id", "Notion"),
         ("dev.zed.Zed", "Zed"),
     ] {
-        let data = catalog
-            .find(Os::MacOS, &[bundle_id.to_string()])
-            .expect(bundle_id);
+        let data = catalog.find(&[bundle_id.to_string()]).expect(bundle_id);
         assert_eq!(data.name, expected_name);
         for group in &data.groups {
             assert!(
@@ -49,12 +47,7 @@ fn every_builtin_app_has_macos_ids_and_simplified_chinese() {
                 );
             }
         }
-        let source = CommunitySource::new(
-            catalog.clone(),
-            Os::MacOS,
-            Lang::ZhHans,
-            EntrySource::Community,
-        );
+        let source = CommunitySource::new(catalog.clone(), Lang::ZhHans, EntrySource::Community);
         let app = AppInfo {
             pid: 1,
             name: expected_name.into(),

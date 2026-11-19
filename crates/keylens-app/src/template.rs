@@ -3,8 +3,8 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use keylens_core::AppInfo;
 use keylens_core::community::parse_app_data;
-use keylens_core::{AppInfo, Os};
 
 /// File name and contents of a user data file for `app`, or `None` if it has no usable bundle
 /// ID. The contents parse as valid data (no groups yet); an example group is left as comments.
@@ -41,11 +41,11 @@ pub fn user_data_template(app: &AppInfo) -> Option<(String, String)> {
     Some((format!("{file}.toml"), text))
 }
 
-/// The user data file to edit for `app` in `dir`: a `*.toml` file there whose match IDs for `os`
+/// The user data file to edit for `app` in `dir`: a `*.toml` file there whose `app.match.macos` IDs
 /// include one of the app's IDs (users may name files by hand), else the template's file name.
 /// Several matches: the template-named one if it is among them, else the first by name.
 /// Files that do not parse are skipped. `None` if the app has no usable bundle ID.
-pub fn user_file_for(dir: &Path, app: &AppInfo, os: Os) -> Option<PathBuf> {
+pub fn user_file_for(dir: &Path, app: &AppInfo) -> Option<PathBuf> {
     let (template_file, _) = user_data_template(app)?;
     let mut matches: Vec<String> = std::fs::read_dir(dir)
         .into_iter()
@@ -57,12 +57,7 @@ pub fn user_file_for(dir: &Path, app: &AppInfo, os: Os) -> Option<PathBuf> {
             std::fs::read_to_string(dir.join(name))
                 .ok()
                 .and_then(|text| parse_app_data(name, &text).ok())
-                .is_some_and(|data| {
-                    data.ids
-                        .for_os(os)
-                        .iter()
-                        .any(|id| app.ids.iter().any(|a| a == id))
-                })
+                .is_some_and(|data| data.ids.iter().any(|id| app.ids.iter().any(|a| a == id)))
         })
         .collect();
     matches.sort();
@@ -148,7 +143,7 @@ mod tests {
         data_file(&dir, "vscode.toml", "com.microsoft.VSCode");
         data_file(&dir, "other.toml", "com.other");
         std::fs::write(dir.join("broken.toml"), "not [ toml").unwrap();
-        let found = user_file_for(&dir, &app(&["com.microsoft.VSCode"]), Os::MacOS);
+        let found = user_file_for(&dir, &app(&["com.microsoft.VSCode"]));
         assert_eq!(found, Some(dir.join("vscode.toml")));
     }
 
@@ -157,19 +152,14 @@ mod tests {
         let dir = fresh("none");
         data_file(&dir, "other.toml", "com.other");
         std::fs::write(dir.join("broken.toml"), "not [ toml").unwrap();
-        let found = user_file_for(&dir, &app(&["com.x"]), Os::MacOS);
+        let found = user_file_for(&dir, &app(&["com.x"]));
         assert_eq!(found, Some(dir.join("com.x.toml")));
-        // A match for another platform does not count.
-        assert_eq!(
-            user_file_for(&dir, &app(&["com.other"]), Os::Linux),
-            Some(dir.join("com.other.toml"))
-        );
         // A missing folder is fine too.
         assert_eq!(
-            user_file_for(&fresh("missing"), &app(&["com.x"]), Os::MacOS),
+            user_file_for(&fresh("missing"), &app(&["com.x"])),
             Some(fresh("missing").join("com.x.toml"))
         );
-        assert_eq!(user_file_for(&dir, &app(&[]), Os::MacOS), None);
+        assert_eq!(user_file_for(&dir, &app(&[])), None);
     }
 
     #[test]
@@ -178,13 +168,13 @@ mod tests {
         data_file(&dir, "a-hand.toml", "com.x");
         data_file(&dir, "com.x.toml", "com.x");
         assert_eq!(
-            user_file_for(&dir, &app(&["com.x"]), Os::MacOS),
+            user_file_for(&dir, &app(&["com.x"])),
             Some(dir.join("com.x.toml"))
         );
         std::fs::remove_file(dir.join("com.x.toml")).unwrap();
         data_file(&dir, "b-hand.toml", "com.x");
         assert_eq!(
-            user_file_for(&dir, &app(&["com.x"]), Os::MacOS),
+            user_file_for(&dir, &app(&["com.x"])),
             Some(dir.join("a-hand.toml"))
         );
     }
@@ -195,7 +185,7 @@ mod tests {
         assert_eq!(file, "notion.id.toml");
         let data = parse_app_data(&file, &text).unwrap();
         assert_eq!(data.name, "Notion \"Beta\"");
-        assert_eq!(data.ids.macos, ["notion.id"]);
+        assert_eq!(data.ids, ["notion.id"]);
         assert!(data.groups.is_empty());
     }
 

@@ -5,12 +5,11 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use keylens_core::community::{Catalog, CommunitySource};
-use keylens_core::{AppInfo, AppShortcuts, EntrySource, Lang, Os, ShortcutSource, collect};
+use keylens_core::{AppInfo, AppShortcuts, EntrySource, Lang, ShortcutSource, collect};
 use keylens_platform::Platform;
 
 pub struct Loader {
     platform: Arc<dyn Platform>,
-    os: Os,
     /// Rebuilt when the user edits their data files or switches the UI language.
     sources: RwLock<Sources>,
 }
@@ -24,17 +23,15 @@ struct Sources {
 }
 
 impl Sources {
-    fn new(builtin_catalog: Arc<Catalog>, user_catalog: Arc<Catalog>, os: Os, lang: Lang) -> Self {
+    fn new(builtin_catalog: Arc<Catalog>, user_catalog: Arc<Catalog>, lang: Lang) -> Self {
         Self {
             builtin: Arc::new(CommunitySource::new(
                 builtin_catalog.clone(),
-                os,
                 lang,
                 EntrySource::Community,
             )),
             user: Arc::new(CommunitySource::new(
                 user_catalog.clone(),
-                os,
                 lang,
                 EntrySource::User,
             )),
@@ -50,25 +47,18 @@ impl Loader {
         platform: Arc<dyn Platform>,
         builtin: Arc<Catalog>,
         user: Arc<Catalog>,
-        os: Os,
         lang: Lang,
     ) -> Self {
         Self {
             platform,
-            os,
-            sources: RwLock::new(Sources::new(builtin, user, os, lang)),
+            sources: RwLock::new(Sources::new(builtin, user, lang)),
         }
     }
 
     /// Replaces the user data (after the user saved a file); later loads use it.
     pub fn set_user_catalog(&self, catalog: Arc<Catalog>) {
         let mut sources = self.sources.write().unwrap();
-        *sources = Sources::new(
-            sources.builtin_catalog.clone(),
-            catalog,
-            self.os,
-            sources.lang,
-        );
+        *sources = Sources::new(sources.builtin_catalog.clone(), catalog, sources.lang);
     }
 
     /// Switches the language of community titles; later loads use it.
@@ -77,7 +67,6 @@ impl Loader {
         *sources = Sources::new(
             sources.builtin_catalog.clone(),
             sources.user_catalog.clone(),
-            self.os,
             lang,
         );
     }
@@ -266,7 +255,7 @@ keys = ["Mod+K", "Z"]
             path: vec![],
             title: "存储".into(),
             search_terms: vec![],
-            shortcut: Shortcut::parse_seq(&["Mod+S"], Os::MacOS).unwrap(),
+            shortcut: Shortcut::parse_seq(&["Mod+S"]).unwrap(),
             enabled: true,
         }
     }
@@ -275,13 +264,7 @@ keys = ["Mod+K", "Z"]
         let (builtin, errors) = Catalog::from_files([("demo.toml", DATA)]);
         assert!(errors.is_empty());
         let (user, _) = Catalog::from_files(Vec::<(String, String)>::new());
-        Loader::new(
-            platform,
-            Arc::new(builtin),
-            Arc::new(user),
-            Os::MacOS,
-            Lang::ZhHans,
-        )
+        Loader::new(platform, Arc::new(builtin), Arc::new(user), Lang::ZhHans)
     }
 
     #[test]
@@ -420,7 +403,6 @@ i18n = { ja = "一般" }
             platform,
             Arc::new(catalog),
             Arc::new(Catalog::default()),
-            Os::MacOS,
             Lang::En,
         );
         let app = AppInfo {

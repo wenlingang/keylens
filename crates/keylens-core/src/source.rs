@@ -45,7 +45,7 @@ pub fn collect(app: AppInfo, sources: &[&dyn ShortcutSource]) -> AppShortcuts {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keys::{Os, Shortcut};
+    use crate::keys::Shortcut;
     use crate::model::{EntryId, EntrySource};
 
     struct Fixed(Result<Vec<Entry>, SourceError>);
@@ -75,7 +75,7 @@ mod tests {
             path: vec![],
             title: title.into(),
             search_terms: vec![],
-            shortcut: Shortcut::parse_seq(&[keys], Os::MacOS).unwrap(),
+            shortcut: Shortcut::parse_seq(&[keys]).unwrap(),
             enabled: true,
         }
     }

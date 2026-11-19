@@ -2,7 +2,6 @@
 use core::prelude::v1::test;
 
 use gpui_kit::TestAppContext;
-use keylens_core::Os;
 use keylens_core::community::{AppData, parse_app_data};
 
 use super::*;
@@ -30,7 +29,7 @@ fn editor(cx: &mut TestAppContext, name: &str) -> (WindowHandle<ShortcutEditor>,
     let path = temp_dir(name).join(FILE);
     let file = path.clone();
     let window = cx.add_window(move |window, cx| {
-        ShortcutEditor::new(demo_app(), file, Os::MacOS, |_| {}, || {}, window, cx)
+        ShortcutEditor::new(demo_app(), file, |_| {}, || {}, window, cx)
     });
     // Focus events only reach an active window.
     window
@@ -97,12 +96,7 @@ fn adding_a_shortcut_writes_the_file_and_lists_it(cx: &mut TestAppContext) {
     assert_eq!(data.groups.len(), 1);
     assert_eq!(data.groups[0].title.en, "General");
     assert_eq!(titles(&data), ["Find"]);
-    assert_eq!(
-        data.groups[0].shortcuts[0]
-            .keys(Os::MacOS)
-            .display(Os::MacOS),
-        "⌘F"
-    );
+    assert_eq!(data.groups[0].shortcuts[0].keys().display(), "⌘F");
     read(window, cx, |view| {
         assert!(view.form.is_none());
         assert_eq!(view.problem, None);
@@ -165,12 +159,7 @@ fn editing_changes_the_entry_in_place(cx: &mut TestAppContext) {
         .unwrap();
     let data = data(&path);
     assert_eq!(titles(&data), ["Find in File", "Save"]);
-    assert_eq!(
-        data.groups[0].shortcuts[0]
-            .keys(Os::MacOS)
-            .display(Os::MacOS),
-        "⇧⌘F"
-    );
+    assert_eq!(data.groups[0].shortcuts[0].keys().display(), "⇧⌘F");
 }
 
 #[gpui_kit::test]
@@ -362,7 +351,7 @@ fn opening_twice_keeps_one_window_and_switches_app(cx: &mut TestAppContext) {
         name: "Other".into(),
         ids: vec!["com.keylens.test-other".into()],
     };
-    let first = cx.update(|cx| open_in(dir.clone(), demo_app(), Os::MacOS, |_| {}, || {}, cx));
+    let first = cx.update(|cx| open_in(dir.clone(), demo_app(), |_| {}, || {}, cx));
     let (handle, view) = first.expect("a new window");
     handle
         .update(cx, |_, window, cx| {
@@ -370,7 +359,7 @@ fn opening_twice_keeps_one_window_and_switches_app(cx: &mut TestAppContext) {
         })
         .unwrap();
     assert!(view.read_with(cx, |view, _| view.form.is_some()));
-    let second = cx.update(|cx| open_in(dir.clone(), other, Os::MacOS, |_| {}, || {}, cx));
+    let second = cx.update(|cx| open_in(dir.clone(), other, |_| {}, || {}, cx));
     assert!(second.is_none());
     assert_eq!(cx.windows().len(), 1);
     view.read_with(cx, |view, _| {
@@ -388,7 +377,7 @@ fn an_app_without_an_id_opens_nothing(cx: &mut TestAppContext) {
         name: "NoId".into(),
         ids: vec![],
     };
-    let opened = cx.update(|cx| open_in(temp_dir("noid"), app, Os::MacOS, |_| {}, || {}, cx));
+    let opened = cx.update(|cx| open_in(temp_dir("noid"), app, |_| {}, || {}, cx));
     assert!(opened.is_none());
     assert_eq!(cx.windows().len(), 0);
 }
@@ -424,7 +413,6 @@ fn the_close_shortcut_is_recorded_while_recording(cx: &mut TestAppContext) {
             temp_dir("record-close"),
             demo_app(),
             // The keystroke below is the current platform's: ⌘W on macOS, Ctrl+W elsewhere.
-            Os::current(),
             |_| {},
             || {},
             cx,
@@ -597,7 +585,6 @@ fn open_in_editor_beeps_when_the_file_cannot_be_created(cx: &mut TestAppContext)
         ShortcutEditor::new(
             demo_app(),
             path,
-            Os::MacOS,
             |_| panic!("nothing to open"),
             || {
                 BEEPS.fetch_add(1, Ordering::SeqCst);
@@ -616,12 +603,12 @@ fn open_in_editor_beeps_when_the_file_cannot_be_created(cx: &mut TestAppContext)
 fn an_edit_the_data_parser_would_reject_is_not_written(cx: &mut TestAppContext) {
     let (window, path) = editor(cx, "loadable");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    // Per-platform keys are skipped by the friendly duplicate check, but on macOS this entry
-    // uses Mod+F, so the data parser would reject a second Mod+F.
+    // `keys` tables are skipped by the friendly duplicate check, but this entry's `macos`
+    // override is Mod+F, so the data parser would reject a second Mod+F.
     let text = "schema = 1\n\n[app]\nname = \"Demo\"\n\n[app.match]\n\
-                macos = [\"com.keylens.test-editor\"]\nlinux = [\"demo\"]\n\n\
+                macos = [\"com.keylens.test-editor\"]\n\n\
                 [[group]]\ntitle = \"General\"\n\n[[group.shortcut]]\ntitle = \"Find\"\n\
-                keys = { default = \"Mod+F\", linux = \"Ctrl+G\" }\n";
+                keys = { default = \"Ctrl+G\", macos = \"Mod+F\" }\n";
     std::fs::write(&path, text).unwrap();
     data(&path);
     window
@@ -666,7 +653,7 @@ fn the_editor_edits_a_hand_named_file_for_the_app(cx: &mut TestAppContext) {
     )
     .unwrap();
     let (_, view) = cx
-        .update(|cx| open_in(dir.clone(), demo_app(), Os::MacOS, |_| {}, || {}, cx))
+        .update(|cx| open_in(dir.clone(), demo_app(), |_| {}, || {}, cx))
         .expect("a new window");
     view.read_with(cx, |view, _| assert_eq!(view.path, hand));
 }

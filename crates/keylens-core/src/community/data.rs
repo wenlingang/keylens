@@ -2,32 +2,16 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::community::raw::{RawFile, RawKeys, RawSeq};
-use crate::keys::{Os, Shortcut};
+use crate::community::raw::RawFile;
+use crate::keys::Shortcut;
 use crate::locale::{Lang, Localized};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AppData {
     pub name: String,
-    pub ids: AppIds,
+    /// Bundle identifiers from `app.match.macos`.
+    pub ids: Vec<String>,
     pub groups: Vec<DataGroup>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct AppIds {
-    pub macos: Vec<String>,
-    pub windows: Vec<String>,
-    pub linux: Vec<String>,
-}
-
-impl AppIds {
-    pub fn for_os(&self, os: Os) -> &[String] {
-        match os {
-            Os::MacOS => &self.macos,
-            Os::Windows => &self.windows,
-            Os::Linux => &self.linux,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -39,21 +23,12 @@ pub struct DataGroup {
 #[derive(Clone, Debug, PartialEq)]
 pub struct DataShortcut {
     pub title: Localized,
-    /// Shortcuts for the three platforms, stored in `os_index` order.
-    keys: [Shortcut; 3],
+    keys: Shortcut,
 }
 
 impl DataShortcut {
-    pub fn keys(&self, os: Os) -> &Shortcut {
-        &self.keys[os_index(os)]
-    }
-}
-
-fn os_index(os: Os) -> usize {
-    match os {
-        Os::MacOS => 0,
-        Os::Windows => 1,
-        Os::Linux => 2,
+    pub fn keys(&self) -> &Shortcut {
+        &self.keys
     }
 }
 
@@ -79,16 +54,12 @@ pub fn parse_app_data(file: &str, text: &str) -> Result<AppData, DataError> {
     if raw.app.name.trim().is_empty() {
         return Err(fail("app.name is empty".into()));
     }
-    let ids = AppIds {
-        macos: raw.app.matches.macos,
-        windows: raw.app.matches.windows,
-        linux: raw.app.matches.linux,
-    };
-    if Os::ALL.iter().all(|os| ids.for_os(*os).is_empty()) {
-        return Err(fail("app.match needs at least one id".into()));
+    let ids = raw.app.matches.macos;
+    if ids.is_empty() {
+        return Err(fail("app.match.macos needs at least one bundle id".into()));
     }
 
-    let mut seen: [HashMap<Shortcut, String>; 3] = Default::default();
+    let mut seen: HashMap<Shortcut, String> = HashMap::new();
     let mut groups = Vec::new();
     for group in raw.group {
         let group_title = localized(&group.title, group.i18n)
@@ -101,19 +72,13 @@ pub fn parse_app_data(file: &str, text: &str) -> Result<AppData, DataError> {
             let context = format!("`{}` › `{}`", group.title, shortcut.title);
             let title = localized(&shortcut.title, shortcut.i18n)
                 .map_err(|m| fail(format!("{context}: {m}")))?;
-            let keys = resolve_keys(&shortcut.keys).map_err(|e| fail(format!("{context}: {e}")))?;
-            for os in Os::ALL {
-                if ids.for_os(os).is_empty() {
-                    continue;
-                }
-                let key = &keys[os_index(os)];
-                if let Some(other) = seen[os_index(os)].insert(key.clone(), shortcut.title.clone())
-                {
-                    return Err(fail(format!(
-                        "{context}: {} on {os:?} is already used by `{other}`",
-                        key.display(os)
-                    )));
-                }
+            let keys = Shortcut::parse_seq(&shortcut.keys.seq().parts())
+                .map_err(|e| fail(format!("{context}: {e}")))?;
+            if let Some(other) = seen.insert(keys.clone(), shortcut.title.clone()) {
+                return Err(fail(format!(
+                    "{context}: {} is already used by `{other}`",
+                    keys.display()
+                )));
             }
             shortcuts.push(DataShortcut { title, keys });
         }
@@ -148,26 +113,6 @@ fn localized(en: &str, i18n: BTreeMap<String, String>) -> Result<Localized, Stri
     })
 }
 
-fn pick(keys: &RawKeys, os: Os) -> &RawSeq {
-    match keys {
-        RawKeys::Same(seq) => seq,
-        RawKeys::PerOs(per_os) => match os {
-            Os::MacOS => per_os.macos.as_ref(),
-            Os::Windows => per_os.windows.as_ref(),
-            Os::Linux => per_os.linux.as_ref(),
-        }
-        .unwrap_or(&per_os.default),
-    }
-}
-
-fn resolve_keys(keys: &RawKeys) -> Result<[Shortcut; 3], crate::keys::KeyParseError> {
-    Ok([
-        Shortcut::parse_seq(&pick(keys, Os::MacOS).parts(), Os::MacOS)?,
-        Shortcut::parse_seq(&pick(keys, Os::Windows).parts(), Os::Windows)?,
-        Shortcut::parse_seq(&pick(keys, Os::Linux).parts(), Os::Linux)?,
-    ])
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,7 +126,6 @@ name = "Visual Studio Code"
 
 [app.match]
 macos = ["com.microsoft.VSCode"]
-windows = ["Code.exe"]
 
 [[group]]
 title = "General"
@@ -209,26 +153,45 @@ i18n = { zh-Hans = "常规" }
     fn parses_a_valid_file() {
         let app = parse_app_data("vscode.toml", VALID).unwrap();
         assert_eq!(app.name, "Visual Studio Code");
-        assert_eq!(app.ids.for_os(Os::MacOS), ["com.microsoft.VSCode"]);
-        assert!(app.ids.for_os(Os::Linux).is_empty());
+        assert_eq!(app.ids, ["com.microsoft.VSCode"]);
         let group = &app.groups[0];
         assert_eq!(group.title.get(Lang::ZhHans), "常规");
         let palette = &group.shortcuts[0];
         assert_eq!(palette.title.get(Lang::Ja), "コマンドパレットを表示");
-        assert_eq!(palette.keys(Os::MacOS).display(Os::MacOS), "⇧⌘P");
-        assert_eq!(
-            palette.keys(Os::Windows).display(Os::Windows),
-            "Ctrl+Shift+P"
+        assert_eq!(palette.keys().display(), "⇧⌘P");
+        assert_eq!(group.shortcuts[1].keys().display(), "⌘K ⌘S");
+        assert_eq!(group.shortcuts[2].keys().display(), "⌥↑");
+    }
+
+    #[test]
+    fn keys_table_falls_back_to_default_without_macos() {
+        let text = VALID.replace(
+            "keys = { default = \"Alt+Up\", macos = \"Option+Up\" }",
+            "keys = { default = \"Ctrl+Up\" }",
         );
-        assert_eq!(
-            group.shortcuts[1].keys(Os::MacOS).display(Os::MacOS),
-            "⌘K ⌘S"
+        let app = parse_app_data("test.toml", &text).unwrap();
+        assert_eq!(app.groups[0].shortcuts[2].keys().display(), "⌃↑");
+    }
+
+    #[test]
+    fn legacy_windows_and_linux_keys_are_ignored() {
+        let text = VALID
+            .replace(
+                "macos = [\"com.microsoft.VSCode\"]",
+                "macos = [\"com.microsoft.VSCode\"]\nwindows = [\"Code.exe\"]\nlinux = [\"code\"]",
+            )
+            .replace(
+                "keys = { default = \"Alt+Up\", macos = \"Option+Up\" }",
+                "keys = { default = \"Alt+Up\", macos = \"Option+Up\", windows = \"Ctrl+Up\", linux = \"Not+A+Key\" }",
+            );
+        let app = parse_app_data("legacy.toml", &text).unwrap();
+        assert_eq!(app, parse_app_data("legacy.toml", VALID).unwrap());
+        // A legacy key that duplicates another shortcut no longer counts as a conflict.
+        let dup = VALID.replace(
+            "keys = { default = \"Alt+Up\", macos = \"Option+Up\" }",
+            "keys = { default = \"Alt+Up\", windows = \"Mod+Shift+P\", linux = \"Mod+Shift+P\" }",
         );
-        assert_eq!(group.shortcuts[2].keys(Os::MacOS).display(Os::MacOS), "⌥↑");
-        assert_eq!(
-            group.shortcuts[2].keys(Os::Linux).display(Os::Linux),
-            "Alt+Up"
-        );
+        assert!(parse_app_data("test.toml", &dup).is_ok());
     }
 
     #[test]
@@ -263,10 +226,13 @@ i18n = { zh-Hans = "常规" }
     #[test]
     fn rejects_wrong_schema_and_missing_ids() {
         assert!(error(&VALID.replace("schema = 1", "schema = 2")).contains("schema"));
-        let no_ids = VALID
-            .replace("macos = [\"com.microsoft.VSCode\"]", "")
-            .replace("windows = [\"Code.exe\"]", "");
+        let no_ids = VALID.replace("macos = [\"com.microsoft.VSCode\"]", "");
         assert!(error(&no_ids).contains("app.match"));
+        let windows_only = VALID.replace(
+            "macos = [\"com.microsoft.VSCode\"]",
+            "windows = [\"Code.exe\"]",
+        );
+        assert!(error(&windows_only).contains("app.match"));
     }
 
     #[test]
@@ -278,14 +244,9 @@ i18n = { zh-Hans = "常规" }
     }
 
     #[test]
-    fn rejects_duplicate_shortcuts_on_platforms_with_ids() {
+    fn rejects_duplicate_shortcuts() {
         let dup = VALID.replace("[\"Mod+K\", \"Mod+S\"]", "\"Mod+Shift+P\"");
         assert!(error(&dup).contains("already used"), "{}", error(&dup));
-        let linux_only = VALID.replace(
-            "keys = { default = \"Alt+Up\", macos = \"Option+Up\" }",
-            "keys = { default = \"Alt+Up\", windows = \"Ctrl+Up\", linux = \"Mod+Shift+P\" }",
-        );
-        assert!(parse_app_data("test.toml", &linux_only).is_ok());
     }
 
     #[test]

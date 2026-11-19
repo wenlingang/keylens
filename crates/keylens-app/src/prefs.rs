@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use gpui_kit::Context;
-use keylens_core::{Locale, Os, Trigger};
+use keylens_core::{Locale, Trigger};
 
 use crate::config::{Config, TriggerSettings, UpdateSettings, choose_locale, parse_config};
 use crate::config_write::{self, Change};
@@ -23,7 +23,6 @@ pub struct Prefs {
     path: PathBuf,
     system_locales: Vec<String>,
     default_trigger: Trigger,
-    os: Os,
     /// The text `config` was parsed from; edits apply to it, so changes that failed to write are
     /// kept and written with the next successful save.
     text: String,
@@ -33,18 +32,12 @@ pub struct Prefs {
 }
 
 impl Prefs {
-    pub fn load(
-        path: PathBuf,
-        system_locales: Vec<String>,
-        default_trigger: Trigger,
-        os: Os,
-    ) -> Self {
+    pub fn load(path: PathBuf, system_locales: Vec<String>, default_trigger: Trigger) -> Self {
         let stamp = watch::file_stamp(&path);
         let mut prefs = Self {
             path,
             system_locales,
             default_trigger,
-            os,
             text: String::new(),
             config: Config::default(),
             problem: None,
@@ -102,7 +95,7 @@ impl Prefs {
             return;
         }
         let change = self.normalize(change);
-        let text = match config_write::apply(&self.text, &change, self.os) {
+        let text = match config_write::apply(&self.text, &change) {
             Ok(text) => text,
             Err(error) => {
                 self.problem = Some(Problem::Invalid(format!(
@@ -207,7 +200,7 @@ mod tests {
     use std::path::PathBuf;
 
     use gpui_kit::{AppContext as _, Entity, TestAppContext};
-    use keylens_core::{Lang, Modifiers, Os, Trigger};
+    use keylens_core::{Lang, Modifiers, Trigger};
 
     use super::*;
     use crate::config::TriggerMode;
@@ -232,12 +225,7 @@ mod tests {
     }
 
     fn prefs(cx: &mut TestAppContext, path: &Path) -> Entity<Prefs> {
-        let prefs = Prefs::load(
-            path.to_path_buf(),
-            vec!["en-US".into()],
-            mac_default(),
-            Os::MacOS,
-        );
+        let prefs = Prefs::load(path.to_path_buf(), vec!["en-US".into()], mac_default());
         cx.new(|_| prefs)
     }
 
@@ -253,7 +241,7 @@ mod tests {
     #[test]
     fn missing_file_is_the_default_without_a_problem() {
         let path = temp_config("missing", None);
-        let p = Prefs::load(path, vec![], mac_default(), Os::MacOS);
+        let p = Prefs::load(path, vec![], mac_default());
         assert_eq!(p.config(), &Config::default());
         assert!(p.problem().is_none());
         assert_eq!(p.trigger_settings(), p.default_trigger_settings());
@@ -262,7 +250,7 @@ mod tests {
     #[test]
     fn invalid_file_at_launch_is_read_only() {
         let path = temp_config("broken", Some("language = "));
-        let p = Prefs::load(path, vec![], mac_default(), Os::MacOS);
+        let p = Prefs::load(path, vec![], mac_default());
         assert!(p.read_only());
         assert!(matches!(p.problem(), Some(Problem::Invalid(e)) if e.contains("config.toml")));
         assert_eq!(p.config(), &Config::default());
@@ -271,7 +259,7 @@ mod tests {
     #[test]
     fn locale_prefers_the_config_over_the_system() {
         let path = temp_config("locale", Some("language = \"ja\""));
-        let p = Prefs::load(path, vec!["zh-Hans-CN".into()], mac_default(), Os::MacOS);
+        let p = Prefs::load(path, vec!["zh-Hans-CN".into()], mac_default());
         assert_eq!(p.locale().lang, Lang::Ja);
     }
 

@@ -231,7 +231,6 @@ pub fn keycode(key: Key) -> Option<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use keylens_core::Os;
 
     #[test]
     fn ax_modifier_bits_match_measured_encoding() {
@@ -296,13 +295,8 @@ mod tests {
     #[test]
     fn menu_chord_combines_key_and_modifiers() {
         let chord = menu_chord(Some("S"), None, Some(1)).unwrap();
-        assert_eq!(chord.display(Os::MacOS), "⇧⌘S");
-        assert_eq!(
-            menu_chord(Some("N"), None, None)
-                .unwrap()
-                .display(Os::MacOS),
-            "⌘N"
-        );
+        assert_eq!(chord.display(), "⇧⌘S");
+        assert_eq!(menu_chord(Some("N"), None, None).unwrap().display(), "⌘N");
         assert!(menu_chord(None, None, Some(0)).is_none());
     }
 

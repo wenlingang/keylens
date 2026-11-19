@@ -6,8 +6,6 @@ name = "Slack"
 
 [app.match]
 macos = ["com.tinyspeck.slackmacgap"]
-windows = ["slack.exe"]
-linux = ["slack"]
 
 [[group]]
 title = "Navigation"
@@ -41,12 +39,12 @@ i18n = { zh-Hans = "导航", zh-Hant = "導覽", ja = "ナビゲーション" }
   [[group.shortcut]]
   title = "Go Back in History"
   i18n = { zh-Hans = "返回上一个位置", zh-Hant = "返回上一個位置", ja = "履歴を戻る" }
-  keys = { default = "Alt+Left", macos = "Cmd+[" }
+  keys = "Cmd+["
 
   [[group.shortcut]]
   title = "Go Forward in History"
   i18n = { zh-Hans = "前往下一个位置", zh-Hant = "前往下一個位置", ja = "履歴を進む" }
-  keys = { default = "Alt+Right", macos = "Cmd+]" }
+  keys = "Cmd+]"
 
   [[group.shortcut]]
   title = "Open Threads"

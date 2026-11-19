@@ -2,29 +2,7 @@
 
 use std::ops::BitOr;
 
-/// The running platform; determines what `Mod` means and the display style.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Os {
-    MacOS,
-    Windows,
-    Linux,
-}
-
-impl Os {
-    pub const ALL: [Os; 3] = [Os::MacOS, Os::Windows, Os::Linux];
-
-    pub fn current() -> Os {
-        if cfg!(target_os = "macos") {
-            Os::MacOS
-        } else if cfg!(target_os = "windows") {
-            Os::Windows
-        } else {
-            Os::Linux
-        }
-    }
-}
-
-/// Set of modifier keys. `META` is ⌘ on macOS, the Win key on Windows, and the Super key on Linux.
+/// Set of modifier keys. `META` is ⌘.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Modifiers(u8);
 
@@ -44,14 +22,6 @@ impl Modifiers {
         self.0 == 0
     }
 
-    /// The modifier that `Mod` maps to in data files: ⌘ on macOS, Ctrl on other platforms.
-    pub const fn primary(os: Os) -> Self {
-        match os {
-            Os::MacOS => Self::META,
-            Os::Windows | Os::Linux => Self::CTRL,
-        }
-    }
-
     /// The modifiers a trigger can use, in the order the settings window lists them.
     pub const TRIGGER_KEYS: [Modifiers; 4] = [
         Modifiers::META,
@@ -61,25 +31,21 @@ impl Modifiers {
     ];
 
     /// Parses the single modifier named in `config.toml` (`key = "cmd"`), accepting the same
-    /// aliases as shortcut notation. `mod` and `fn` are rejected: one depends on the OS, the
-    /// other cannot be detected as a trigger.
+    /// aliases as shortcut notation. `mod` and `fn` are rejected: `mod` is data-file notation,
+    /// and `fn` cannot be detected as a trigger.
     pub fn from_trigger_name(name: &str) -> Option<Modifiers> {
         match name.to_ascii_lowercase().as_str() {
             "mod" | "fn" => None,
-            other => parse_modifier(other, Os::MacOS),
+            other => parse_modifier(other),
         }
     }
 
-    /// The name written back to `config.toml`, in the platform's own words.
-    pub fn trigger_name(self, os: Os) -> &'static str {
-        match (self, os) {
-            (Modifiers::META, Os::MacOS) => "cmd",
-            (Modifiers::META, Os::Windows) => "win",
-            (Modifiers::META, Os::Linux) => "super",
-            (Modifiers::ALT, Os::MacOS) => "option",
-            (Modifiers::ALT, _) => "alt",
-            (Modifiers::CTRL, _) => "ctrl",
-            (Modifiers::SHIFT, _) => "shift",
+    /// The name written back to `config.toml`, in macOS terms.
+    pub fn trigger_name(self) -> &'static str {
+        match self {
+            Modifiers::ALT => "option",
+            Modifiers::CTRL => "ctrl",
+            Modifiers::SHIFT => "shift",
             _ => "cmd",
         }
     }
@@ -180,103 +146,24 @@ impl Key {
         }
     }
 
-    fn label(self, os: Os) -> String {
-        let mac = os == Os::MacOS;
+    fn label(self) -> String {
         let text = match self {
             Key::Char(c) => return c.to_string(),
             Key::F(n) => return format!("F{n}"),
-            Key::Up => {
-                if mac {
-                    "↑"
-                } else {
-                    "Up"
-                }
-            }
-            Key::Down => {
-                if mac {
-                    "↓"
-                } else {
-                    "Down"
-                }
-            }
-            Key::Left => {
-                if mac {
-                    "←"
-                } else {
-                    "Left"
-                }
-            }
-            Key::Right => {
-                if mac {
-                    "→"
-                } else {
-                    "Right"
-                }
-            }
-            Key::Enter => {
-                if mac {
-                    "↩"
-                } else {
-                    "Enter"
-                }
-            }
-            Key::Tab => {
-                if mac {
-                    "⇥"
-                } else {
-                    "Tab"
-                }
-            }
+            Key::Up => "↑",
+            Key::Down => "↓",
+            Key::Left => "←",
+            Key::Right => "→",
+            Key::Enter => "↩",
+            Key::Tab => "⇥",
             Key::Space => "Space",
-            Key::Backspace => {
-                if mac {
-                    "⌫"
-                } else {
-                    "Backspace"
-                }
-            }
-            Key::Delete => {
-                if mac {
-                    "⌦"
-                } else {
-                    "Delete"
-                }
-            }
-            Key::Escape => {
-                if mac {
-                    "⎋"
-                } else {
-                    "Esc"
-                }
-            }
-            Key::Home => {
-                if mac {
-                    "↖"
-                } else {
-                    "Home"
-                }
-            }
-            Key::End => {
-                if mac {
-                    "↘"
-                } else {
-                    "End"
-                }
-            }
-            Key::PageUp => {
-                if mac {
-                    "⇞"
-                } else {
-                    "PgUp"
-                }
-            }
-            Key::PageDown => {
-                if mac {
-                    "⇟"
-                } else {
-                    "PgDn"
-                }
-            }
+            Key::Backspace => "⌫",
+            Key::Delete => "⌦",
+            Key::Escape => "⎋",
+            Key::Home => "↖",
+            Key::End => "↘",
+            Key::PageUp => "⇞",
+            Key::PageDown => "⇟",
         };
         text.to_string()
     }
@@ -317,10 +204,11 @@ pub enum KeyParseError {
     DuplicateModifier(String, String),
 }
 
-pub(crate) fn parse_modifier(token: &str, os: Os) -> Option<Modifiers> {
+/// Parses a modifier name. `Mod` is ⌘; `super`/`win` are kept as aliases of ⌘ so older
+/// data and config files keep parsing.
+pub(crate) fn parse_modifier(token: &str) -> Option<Modifiers> {
     match token.to_ascii_lowercase().as_str() {
-        "mod" => Some(Modifiers::primary(os)),
-        "cmd" | "command" | "super" | "win" | "meta" => Some(Modifiers::META),
+        "mod" | "cmd" | "command" | "super" | "win" | "meta" => Some(Modifiers::META),
         "ctrl" | "control" => Some(Modifiers::CTRL),
         "alt" | "option" | "opt" => Some(Modifiers::ALT),
         "shift" => Some(Modifiers::SHIFT),
@@ -338,7 +226,7 @@ pub struct Chord {
 
 impl Chord {
     /// Parses notation like `Mod+Shift+P`, case-insensitively.
-    pub fn parse(text: &str, os: Os) -> Result<Chord, KeyParseError> {
+    pub fn parse(text: &str) -> Result<Chord, KeyParseError> {
         let text = text.trim();
         if text.is_empty() {
             return Err(KeyParseError::Empty);
@@ -349,7 +237,7 @@ impl Chord {
             if token.is_empty() {
                 return Err(KeyParseError::Unknown(text.to_string()));
             }
-            if let Some(m) = parse_modifier(token, os) {
+            if let Some(m) = parse_modifier(token) {
                 if modifiers.contains(m) {
                     return Err(KeyParseError::DuplicateModifier(text.into(), token.into()));
                 }
@@ -367,45 +255,29 @@ impl Chord {
         Ok(Chord { modifiers, key })
     }
 
-    /// Splits into keycaps in display order, e.g. ["⇧", "⌘", "P"] on macOS, ["Ctrl", "Shift", "P"] on Windows.
-    pub fn caps(&self, os: Os) -> Vec<String> {
-        self.labeled_caps(os)
+    /// Splits into keycaps in display order, e.g. ["⇧", "⌘", "P"].
+    pub fn caps(&self) -> Vec<String> {
+        self.labeled_caps()
             .into_iter()
             .map(|(_, label)| label)
             .collect()
     }
 
     /// Like [`Chord::caps`], with the modifier each cap stands for (`None` for the main key).
-    pub fn labeled_caps(&self, os: Os) -> Vec<(Option<Modifiers>, String)> {
-        let names: [(Modifiers, &str); 5] = match os {
-            Os::MacOS => [
-                (Modifiers::FN, "fn"),
-                (Modifiers::CTRL, "⌃"),
-                (Modifiers::ALT, "⌥"),
-                (Modifiers::SHIFT, "⇧"),
-                (Modifiers::META, "⌘"),
-            ],
-            Os::Windows => [
-                (Modifiers::CTRL, "Ctrl"),
-                (Modifiers::ALT, "Alt"),
-                (Modifiers::SHIFT, "Shift"),
-                (Modifiers::META, "Win"),
-                (Modifiers::FN, "Fn"),
-            ],
-            Os::Linux => [
-                (Modifiers::CTRL, "Ctrl"),
-                (Modifiers::ALT, "Alt"),
-                (Modifiers::SHIFT, "Shift"),
-                (Modifiers::META, "Super"),
-                (Modifiers::FN, "Fn"),
-            ],
-        };
-        let mut caps: Vec<(Option<Modifiers>, String)> = names
+    pub fn labeled_caps(&self) -> Vec<(Option<Modifiers>, String)> {
+        const NAMES: [(Modifiers, &str); 5] = [
+            (Modifiers::FN, "fn"),
+            (Modifiers::CTRL, "⌃"),
+            (Modifiers::ALT, "⌥"),
+            (Modifiers::SHIFT, "⇧"),
+            (Modifiers::META, "⌘"),
+        ];
+        let mut caps: Vec<(Option<Modifiers>, String)> = NAMES
             .iter()
             .filter(|(m, _)| self.modifiers.contains(*m))
             .map(|(m, name)| (Some(*m), name.to_string()))
             .collect();
-        caps.push((None, self.key.label(os)));
+        caps.push((None, self.key.label()));
         caps
     }
 
@@ -423,13 +295,8 @@ impl Chord {
         self
     }
 
-    pub fn display(&self, os: Os) -> String {
-        let caps = self.caps(os);
-        if os == Os::MacOS {
-            caps.concat()
-        } else {
-            caps.join("+")
-        }
+    pub fn display(&self) -> String {
+        self.caps().concat()
     }
 }
 
@@ -442,13 +309,13 @@ impl Shortcut {
         Self(vec![chord])
     }
 
-    pub fn parse_seq<S: AsRef<str>>(parts: &[S], os: Os) -> Result<Shortcut, KeyParseError> {
+    pub fn parse_seq<S: AsRef<str>>(parts: &[S]) -> Result<Shortcut, KeyParseError> {
         if parts.is_empty() {
             return Err(KeyParseError::Empty);
         }
         parts
             .iter()
-            .map(|p| Chord::parse(p.as_ref(), os))
+            .map(|p| Chord::parse(p.as_ref()))
             .collect::<Result<Vec<_>, _>>()
             .map(Shortcut)
     }
@@ -462,17 +329,17 @@ impl Shortcut {
         &self.0
     }
 
-    pub fn display(&self, os: Os) -> String {
+    pub fn display(&self) -> String {
         self.0
             .iter()
-            .map(|c| c.display(os))
+            .map(|c| c.display())
             .collect::<Vec<_>>()
             .join(" ")
     }
 
     /// Lowercase text for search: the display form plus English names of modifiers and special keys.
-    pub fn search_text(&self, os: Os) -> String {
-        let mut out = self.display(os).to_lowercase();
+    pub fn search_text(&self) -> String {
+        let mut out = self.display().to_lowercase();
         for chord in &self.0 {
             for (m, words) in [
                 (Modifiers::META, "cmd command meta super win"),
@@ -500,67 +367,48 @@ impl Shortcut {
 mod tests {
     use super::*;
 
-    fn chord(s: &str, os: Os) -> Chord {
-        Chord::parse(s, os).unwrap()
+    fn chord(s: &str) -> Chord {
+        Chord::parse(s).unwrap()
     }
 
     #[test]
-    fn mod_is_command_on_macos_and_ctrl_elsewhere() {
-        let mac = chord("Mod+Shift+P", Os::MacOS);
-        assert_eq!(mac.modifiers, Modifiers::META | Modifiers::SHIFT);
-        assert_eq!(mac.key, Key::Char('P'));
-        let win = chord("Mod+Shift+P", Os::Windows);
-        assert_eq!(win.modifiers, Modifiers::CTRL | Modifiers::SHIFT);
+    fn mod_is_command() {
+        let c = chord("Mod+Shift+P");
+        assert_eq!(c.modifiers, Modifiers::META | Modifiers::SHIFT);
+        assert_eq!(c.key, Key::Char('P'));
+        assert_eq!(chord("Super+P"), chord("Cmd+P"));
+        assert_eq!(chord("Win+P"), chord("Mod+P"));
     }
 
     #[test]
-    fn display_follows_platform_conventions() {
-        assert_eq!(chord("Mod+Shift+P", Os::MacOS).display(Os::MacOS), "⇧⌘P");
-        assert_eq!(
-            chord("Mod+Shift+P", Os::Windows).display(Os::Windows),
-            "Ctrl+Shift+P"
-        );
-        assert_eq!(
-            chord("Ctrl+Alt+Shift+Cmd+K", Os::MacOS).display(Os::MacOS),
-            "⌃⌥⇧⌘K"
-        );
-        assert_eq!(chord("Option+Up", Os::MacOS).display(Os::MacOS), "⌥↑");
-        assert_eq!(
-            chord("Super+Left", Os::Linux).display(Os::Linux),
-            "Super+Left"
-        );
-        assert_eq!(chord("Win+E", Os::Windows).display(Os::Windows), "Win+E");
+    fn display_uses_mac_symbols() {
+        assert_eq!(chord("Mod+Shift+P").display(), "⇧⌘P");
+        assert_eq!(chord("Ctrl+Alt+Shift+Cmd+K").display(), "⌃⌥⇧⌘K");
+        assert_eq!(chord("Option+Up").display(), "⌥↑");
+        assert_eq!(chord("Super+Left").display(), "⌘←");
+        assert_eq!(chord("Ctrl+`").display(), "⌃`");
     }
 
     #[test]
     fn caps_split_modifiers_and_key() {
-        assert_eq!(
-            chord("Mod+Shift+P", Os::MacOS).caps(Os::MacOS),
-            ["⇧", "⌘", "P"]
-        );
-        assert_eq!(
-            chord("Mod+Enter", Os::Windows).caps(Os::Windows),
-            ["Ctrl", "Enter"]
-        );
+        assert_eq!(chord("Mod+Shift+P").caps(), ["⇧", "⌘", "P"]);
+        assert_eq!(chord("Mod+Enter").caps(), ["⌘", "↩"]);
     }
 
     #[test]
     fn parsing_is_case_insensitive_and_accepts_aliases() {
-        assert_eq!(
-            chord("cmd+shift+p", Os::MacOS),
-            chord("Command+Shift+P", Os::MacOS)
-        );
-        assert_eq!(chord("Opt+Z", Os::MacOS), chord("Alt+Z", Os::MacOS));
-        assert_eq!(chord("Esc", Os::MacOS).key, Key::Escape);
-        assert_eq!(chord("Return", Os::MacOS).key, Key::Enter);
+        assert_eq!(chord("cmd+shift+p"), chord("Command+Shift+P"));
+        assert_eq!(chord("Opt+Z"), chord("Alt+Z"));
+        assert_eq!(chord("Control+Z"), chord("Ctrl+Z"));
+        assert_eq!(chord("Esc").key, Key::Escape);
+        assert_eq!(chord("Return").key, Key::Enter);
     }
 
     #[test]
     fn function_keys_and_punctuation() {
-        assert_eq!(chord("F12", Os::MacOS).key, Key::F(12));
-        assert_eq!(chord("Mod+/", Os::MacOS).key, Key::Char('/'));
-        assert_eq!(chord("Ctrl+`", Os::Windows).display(Os::Windows), "Ctrl+`");
-        assert_eq!(chord("F", Os::MacOS).key, Key::Char('F'));
+        assert_eq!(chord("F12").key, Key::F(12));
+        assert_eq!(chord("Mod+/").key, Key::Char('/'));
+        assert_eq!(chord("F").key, Key::Char('F'));
     }
 
     #[test]
@@ -571,51 +419,36 @@ mod tests {
             modifiers: Modifiers::META,
             key: Key::from_char('+'),
         };
-        assert_eq!(plus.display(Os::MacOS), "⌘+");
+        assert_eq!(plus.display(), "⌘+");
     }
 
     #[test]
     fn invalid_combinations_are_rejected() {
         use KeyParseError::*;
-        assert_eq!(Chord::parse("", Os::MacOS), Err(Empty));
+        assert_eq!(Chord::parse(""), Err(Empty));
+        assert_eq!(Chord::parse("Mod+Shft+P"), Err(Unknown("Shft".into())));
+        assert_eq!(Chord::parse("Mod+Shift"), Err(NoKey("Mod+Shift".into())));
+        assert_eq!(Chord::parse("A+B"), Err(MultipleKeys("A+B".into())));
         assert_eq!(
-            Chord::parse("Mod+Shft+P", Os::MacOS),
-            Err(Unknown("Shft".into()))
-        );
-        assert_eq!(
-            Chord::parse("Mod+Shift", Os::MacOS),
-            Err(NoKey("Mod+Shift".into()))
-        );
-        assert_eq!(
-            Chord::parse("A+B", Os::MacOS),
-            Err(MultipleKeys("A+B".into()))
-        );
-        assert_eq!(
-            Chord::parse("Cmd+Cmd+A", Os::MacOS),
+            Chord::parse("Cmd+Cmd+A"),
             Err(DuplicateModifier("Cmd+Cmd+A".into(), "Cmd".into()))
         );
-        assert_eq!(
-            Chord::parse("Mod++", Os::MacOS),
-            Err(Unknown("Mod++".into()))
-        );
-        assert_eq!(Chord::parse("F25", Os::MacOS), Err(Unknown("F25".into())));
+        assert_eq!(Chord::parse("Mod++"), Err(Unknown("Mod++".into())));
+        assert_eq!(Chord::parse("F25"), Err(Unknown("F25".into())));
     }
 
     #[test]
     fn sequences_display_with_spaces() {
-        let s = Shortcut::parse_seq(&["Mod+K", "Mod+S"], Os::MacOS).unwrap();
-        assert_eq!(s.display(Os::MacOS), "⌘K ⌘S");
+        let s = Shortcut::parse_seq(&["Mod+K", "Mod+S"]).unwrap();
+        assert_eq!(s.display(), "⌘K ⌘S");
         assert_eq!(s.chords().len(), 2);
-        assert_eq!(
-            Shortcut::parse_seq::<&str>(&[], Os::MacOS),
-            Err(KeyParseError::Empty)
-        );
+        assert_eq!(Shortcut::parse_seq::<&str>(&[]), Err(KeyParseError::Empty));
     }
 
     #[test]
     fn search_text_contains_symbols_and_words() {
-        let s = Shortcut::parse_seq(&["Mod+Shift+Up"], Os::MacOS).unwrap();
-        let text = s.search_text(Os::MacOS);
+        let s = Shortcut::parse_seq(&["Mod+Shift+Up"]).unwrap();
+        let text = s.search_text();
         for word in ["⇧⌘↑", "shift", "command", "cmd", "up"] {
             assert!(text.contains(word), "{text:?} is missing {word:?}");
         }
@@ -623,29 +456,23 @@ mod tests {
 
     #[test]
     fn trigger_names_round_trip_and_accept_aliases() {
-        for os in Os::ALL {
-            for key in Modifiers::TRIGGER_KEYS {
-                assert_eq!(
-                    Modifiers::from_trigger_name(key.trigger_name(os)),
-                    Some(key)
-                );
-            }
+        for key in Modifiers::TRIGGER_KEYS {
+            assert_eq!(Modifiers::from_trigger_name(key.trigger_name()), Some(key));
         }
-        assert_eq!(Modifiers::META.trigger_name(Os::MacOS), "cmd");
-        assert_eq!(Modifiers::META.trigger_name(Os::Linux), "super");
-        assert_eq!(Modifiers::ALT.trigger_name(Os::MacOS), "option");
-        assert_eq!(Modifiers::ALT.trigger_name(Os::Linux), "alt");
+        assert_eq!(Modifiers::META.trigger_name(), "cmd");
+        assert_eq!(Modifiers::ALT.trigger_name(), "option");
         assert_eq!(
             Modifiers::from_trigger_name("Command"),
             Some(Modifiers::META)
         );
         assert_eq!(Modifiers::from_trigger_name("win"), Some(Modifiers::META));
+        assert_eq!(Modifiers::from_trigger_name("super"), Some(Modifiers::META));
         assert_eq!(
             Modifiers::from_trigger_name("control"),
             Some(Modifiers::CTRL)
         );
+        assert_eq!(Modifiers::from_trigger_name("alt"), Some(Modifiers::ALT));
         assert_eq!(Modifiers::from_trigger_name("opt"), Some(Modifiers::ALT));
-        // `mod` depends on the OS and `fn` is not readable as a trigger; neither is accepted.
         assert_eq!(Modifiers::from_trigger_name("mod"), None);
         assert_eq!(Modifiers::from_trigger_name("fn"), None);
         assert_eq!(Modifiers::from_trigger_name("cmd+shift"), None);

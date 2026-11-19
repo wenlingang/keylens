@@ -447,12 +447,12 @@ Editor:
     zh-TW: "手動輸入"
     zh-HK: "手動輸入"
     ja: "手入力"
-  per_platform:
-    en: "Keys differ per platform — edit them in the file"
-    zh-CN: "按键按平台区分，请在文件中修改"
-    zh-TW: "按鍵依平台區分，請在檔案中修改"
-    zh-HK: "按鍵依平台區分，請在檔案中修改"
-    ja: "キーはプラットフォームごとに異なります。ファイルで編集してください"
+  keys_table:
+    en: "These keys are written as a table — edit them in the file"
+    zh-CN: "按键以表格形式书写，请在文件中修改"
+    zh-TW: "按鍵以表格形式書寫，請在檔案中修改"
+    zh-HK: "按鍵以表格形式書寫，請在檔案中修改"
+    ja: "キーはテーブル形式で書かれています。ファイルで編集してください"
   save:
     en: "Save"
     zh-CN: "保存"

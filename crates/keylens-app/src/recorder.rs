@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use keylens_core::{Modifiers, Os, Shortcut};
+use keylens_core::Shortcut;
 
 /// After the first chord, a second chord within this window makes a two-step sequence.
 pub const SEQUENCE_WINDOW: Duration = Duration::from_secs(1);
@@ -13,25 +13,18 @@ pub struct Pressed {
     pub control: bool,
     pub alt: bool,
     pub shift: bool,
-    /// ⌘ on macOS, the Win key on Windows, Super on Linux.
+    /// ⌘.
     pub platform: bool,
     pub function: bool,
 }
 
-pub fn chord_text(pressed: Pressed, key: &str, os: Os) -> Option<String> {
+pub fn chord_text(pressed: Pressed, key: &str) -> Option<String> {
     let key = key_name(key)?;
-    let primary = Modifiers::primary(os);
     let mut parts: Vec<&str> = Vec::new();
-    let is_primary = |m: Modifiers| m == primary;
-    if (pressed.platform && is_primary(Modifiers::META))
-        || (pressed.control && is_primary(Modifiers::CTRL))
-    {
+    if pressed.platform {
         parts.push("Mod");
     }
-    if pressed.platform && !is_primary(Modifiers::META) {
-        parts.push("Cmd");
-    }
-    if pressed.control && !is_primary(Modifiers::CTRL) {
+    if pressed.control {
         parts.push("Ctrl");
     }
     if pressed.alt {
@@ -48,7 +41,7 @@ pub fn chord_text(pressed: Pressed, key: &str, os: Os) -> Option<String> {
         .chain(std::iter::once(key.as_str()))
         .collect::<Vec<_>>()
         .join("+");
-    Shortcut::parse_seq(&[&text], os).ok().map(|_| text)
+    Shortcut::parse_seq(&[&text]).ok().map(|_| text)
 }
 
 /// gpui's key name (lowercase: "p", "enter", "f5", ",") in keylens notation, or `None` for a
@@ -97,15 +90,13 @@ mod tests {
     }
 
     #[test]
-    fn primary_modifier_becomes_mod_per_platform() {
+    fn command_becomes_mod() {
         let ctrl = Pressed {
             control: true,
             ..Default::default()
         };
-        assert_eq!(chord_text(cmd(), "s", Os::MacOS).as_deref(), Some("Mod+S"));
-        assert_eq!(chord_text(ctrl, "s", Os::MacOS).as_deref(), Some("Ctrl+S"));
-        assert_eq!(chord_text(ctrl, "s", Os::Linux).as_deref(), Some("Mod+S"));
-        assert_eq!(chord_text(cmd(), "s", Os::Linux).as_deref(), Some("Cmd+S"));
+        assert_eq!(chord_text(cmd(), "s").as_deref(), Some("Mod+S"));
+        assert_eq!(chord_text(ctrl, "s").as_deref(), Some("Ctrl+S"));
     }
 
     #[test]
@@ -118,34 +109,19 @@ mod tests {
             function: false,
         };
         assert_eq!(
-            chord_text(all, "p", Os::MacOS).as_deref(),
+            chord_text(all, "p").as_deref(),
             Some("Mod+Ctrl+Alt+Shift+P")
         );
     }
 
     #[test]
     fn named_keys_use_keylens_names() {
-        assert_eq!(
-            chord_text(cmd(), "enter", Os::MacOS).as_deref(),
-            Some("Mod+Enter")
-        );
-        assert_eq!(
-            chord_text(cmd(), "up", Os::MacOS).as_deref(),
-            Some("Mod+Up")
-        );
-        assert_eq!(
-            chord_text(Pressed::default(), "f5", Os::MacOS).as_deref(),
-            Some("F5")
-        );
-        assert_eq!(
-            chord_text(cmd(), "pageup", Os::MacOS).as_deref(),
-            Some("Mod+PageUp")
-        );
-        assert_eq!(
-            chord_text(cmd(), "space", Os::MacOS).as_deref(),
-            Some("Mod+Space")
-        );
-        assert_eq!(chord_text(cmd(), ",", Os::MacOS).as_deref(), Some("Mod+,"));
+        assert_eq!(chord_text(cmd(), "enter").as_deref(), Some("Mod+Enter"));
+        assert_eq!(chord_text(cmd(), "up").as_deref(), Some("Mod+Up"));
+        assert_eq!(chord_text(Pressed::default(), "f5").as_deref(), Some("F5"));
+        assert_eq!(chord_text(cmd(), "pageup").as_deref(), Some("Mod+PageUp"));
+        assert_eq!(chord_text(cmd(), "space").as_deref(), Some("Mod+Space"));
+        assert_eq!(chord_text(cmd(), ",").as_deref(), Some("Mod+,"));
     }
 
     #[test]
@@ -160,19 +136,18 @@ mod tests {
                 ..shift
             },
             "1",
-            Os::MacOS,
         )
         .unwrap();
         assert_eq!(text, "Mod+Shift+1");
-        assert!(Shortcut::parse_seq(&[text], Os::MacOS).is_ok());
+        assert!(Shortcut::parse_seq(&[text]).is_ok());
     }
 
     #[test]
     fn modifier_only_or_unknown_keys_are_not_recorded() {
-        assert_eq!(chord_text(cmd(), "", Os::MacOS), None);
-        assert_eq!(chord_text(cmd(), "shift", Os::MacOS), None);
-        assert_eq!(chord_text(cmd(), "cmd", Os::MacOS), None);
-        assert_eq!(chord_text(cmd(), "unknownkey", Os::MacOS), None);
+        assert_eq!(chord_text(cmd(), ""), None);
+        assert_eq!(chord_text(cmd(), "shift"), None);
+        assert_eq!(chord_text(cmd(), "cmd"), None);
+        assert_eq!(chord_text(cmd(), "unknownkey"), None);
     }
 
     #[test]
@@ -205,8 +180,8 @@ mod tests {
             "-",
             "=",
         ] {
-            let text = chord_text(cmd(), key, Os::MacOS).unwrap_or_else(|| panic!("{key}"));
-            assert!(Shortcut::parse_seq(&[&text], Os::MacOS).is_ok(), "{text}");
+            let text = chord_text(cmd(), key).unwrap_or_else(|| panic!("{key}"));
+            assert!(Shortcut::parse_seq(&[&text]).is_ok(), "{text}");
         }
     }
 }

@@ -9,7 +9,7 @@ use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{ActiveTheme, Theme, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::*;
-use keylens_core::{AppInfo, AppShortcuts, Entry, EntrySource, KeyQuery, Os, Shortcut};
+use keylens_core::{AppInfo, AppShortcuts, Entry, EntrySource, KeyQuery, Shortcut};
 use rust_i18n::t;
 
 use crate::model::{ExecKind, PanelModel, PanelStatus, Row, scroll_target};
@@ -120,7 +120,7 @@ pub struct PanelView {
 impl EventEmitter<PanelEvent> for PanelView {}
 
 impl PanelView {
-    pub fn new(os: Os, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let input = cx.new(|cx| {
             InputState::new(window, cx).placeholder(t!("Panel.search_placeholder").to_string())
         });
@@ -162,7 +162,7 @@ impl PanelView {
             }
         });
         Self {
-            model: PanelModel::new(os),
+            model: PanelModel::new(),
             input,
             focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
@@ -304,7 +304,7 @@ impl PanelView {
             .shortcut
             .chords()
             .iter()
-            .map(|c| c.caps(self.model.os()).len())
+            .map(|c| c.caps().len())
             .sum::<usize>() as u32;
         self.presses += 1;
         self.pressing = Some((index, self.presses));
@@ -397,7 +397,7 @@ impl PanelView {
                 .and_then(|icon| icon.accent)
                 .unwrap_or_else(|| rgb(crate::charge::DEFAULT_ACCENT).into()),
             dark: cx.theme().is_dark(),
-            keys: KeyQuery::parse(self.model.query(), self.model.os()),
+            keys: KeyQuery::parse(self.model.query()),
         }
     }
 
@@ -412,7 +412,6 @@ impl PanelView {
         cx: &App,
     ) -> Div {
         let theme = cx.theme();
-        let os = self.model.os();
         let press = self
             .pressing
             .filter(|(pressed, _)| *pressed == entry)
@@ -428,8 +427,8 @@ impl PanelView {
                         .child("→"),
                 );
             }
-            let lit = paint.keys.lit_caps(chord, os);
-            for ((_, label), lit) in chord.labeled_caps(os).into_iter().zip(lit) {
+            let lit = paint.keys.lit_caps(chord);
+            for ((_, label), lit) in chord.labeled_caps().into_iter().zip(lit) {
                 let cap = keycap(label, lit, paint);
                 let index = *cap_index;
                 *cap_index += 1;
@@ -1048,7 +1047,7 @@ mod tests {
             path: vec![],
             title: title.into(),
             search_terms: vec![],
-            shortcut: Shortcut::parse_seq(&[keys], Os::MacOS).unwrap(),
+            shortcut: Shortcut::parse_seq(&[keys]).unwrap(),
             enabled,
         };
         AppShortcuts {
@@ -1075,7 +1074,7 @@ mod tests {
             gpui_kit::init(cx);
             bind_keys(cx);
         });
-        let window = cx.add_window(|window, cx| PanelView::new(Os::MacOS, window, cx));
+        let window = cx.add_window(PanelView::new);
         let events = Rc::new(RefCell::new(Vec::new()));
         let sink = events.clone();
         window

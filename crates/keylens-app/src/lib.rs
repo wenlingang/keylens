@@ -113,7 +113,6 @@ pub fn run() {
 pub fn run_with(host: Host) {
     use gpui_kit::component::Theme;
     use gpui_kit::*;
-    use keylens_core::Os;
     use keylens_core::community::{builtin, load_dir};
     use rust_i18n::t;
 
@@ -146,12 +145,10 @@ pub fn run_with(host: Host) {
         config::config_path(),
         sys_locale::get_locales().collect(),
         platform.default_trigger(),
-        keylens_core::Os::current(),
     );
     let locale = prefs_state.locale();
     rust_i18n::set_locale(locale.ui);
 
-    let os = Os::current();
     let (builtin_catalog, builtin_errors) = builtin();
     let (user_catalog, user_errors) = load_dir(&config::user_data_dir());
     for error in builtin_errors.iter().chain(&user_errors) {
@@ -162,7 +159,6 @@ pub fn run_with(host: Host) {
         platform.clone(),
         Arc::new(builtin_catalog),
         Arc::new(user_catalog),
-        os,
         locale.lang,
     ));
 
@@ -200,7 +196,7 @@ pub fn run_with(host: Host) {
                 ..Default::default()
             };
             let (window, view) = gpui_kit::open_window(options, cx, |window, cx| {
-                cx.new(|cx| PanelView::new(os, window, cx))
+                cx.new(|cx| PanelView::new(window, cx))
             })
             .expect("failed to create the panel window");
             let _ = window.update(cx, |_, window, cx| {

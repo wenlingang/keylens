@@ -11,7 +11,7 @@ use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{ActiveTheme, Disableable as _, Sizable as _, Theme, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::*;
-use keylens_core::{Modifiers, Os};
+use keylens_core::Modifiers;
 use rust_i18n::t;
 
 use crate::config::{
@@ -46,7 +46,6 @@ impl Global for SettingsWindow {}
 /// view when a new window was opened.
 pub fn open(
     prefs: Entity<Prefs>,
-    os: Os,
     open_path: fn(&Path),
     cx: &mut App,
 ) -> Option<(AnyWindowHandle, Entity<SettingsView>)> {
@@ -80,7 +79,7 @@ pub fn open(
         ..Default::default()
     };
     match gpui_kit::open_window(options, cx, |window, cx| {
-        cx.new(|cx| SettingsView::new(prefs, os, open_path, window, cx))
+        cx.new(|cx| SettingsView::new(prefs, open_path, window, cx))
     }) {
         Ok((handle, view)) => {
             // `focus: true` is not enough for an Accessory app's window to become key everywhere.
@@ -104,23 +103,17 @@ pub fn committed_ms(text: &str, range: &RangeInclusive<u64>) -> Option<u64> {
         .filter(|ms| range.contains(ms))
 }
 
-pub fn modifier_label(key: Modifiers, os: Os) -> &'static str {
-    match (key, os) {
-        (Modifiers::META, Os::MacOS) => "⌘ Command",
-        (Modifiers::ALT, Os::MacOS) => "⌥ Option",
-        (Modifiers::CTRL, Os::MacOS) => "⌃ Control",
-        (Modifiers::SHIFT, Os::MacOS) => "⇧ Shift",
-        (Modifiers::META, Os::Windows) => "Win",
-        (Modifiers::META, _) => "Super",
-        (Modifiers::ALT, _) => "Alt",
-        (Modifiers::CTRL, _) => "Ctrl",
-        _ => "Shift",
+pub fn modifier_label(key: Modifiers) -> &'static str {
+    match key {
+        Modifiers::META => "⌘ Command",
+        Modifiers::ALT => "⌥ Option",
+        Modifiers::CTRL => "⌃ Control",
+        _ => "⇧ Shift",
     }
 }
 
 pub struct SettingsView {
     prefs: Entity<Prefs>,
-    os: Os,
     open_path: fn(&Path),
     hold: Entity<InputState>,
     tap: Entity<InputState>,
@@ -131,7 +124,6 @@ pub struct SettingsView {
 impl SettingsView {
     pub fn new(
         prefs: Entity<Prefs>,
-        os: Os,
         open_path: fn(&Path),
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -172,7 +164,6 @@ impl SettingsView {
         window.focus(&focus, cx);
         Self {
             prefs,
-            os,
             open_path,
             hold,
             tap,
@@ -363,7 +354,6 @@ impl Render for SettingsView {
         let everything_default = current == defaults
             && language.is_none()
             && update.auto_check == update_default.auto_check;
-        let os = self.os;
 
         let modes = vec![
             (
@@ -377,7 +367,7 @@ impl Render for SettingsView {
         ];
         let keys = Modifiers::TRIGGER_KEYS
             .iter()
-            .map(|k| (*k, SharedString::from(modifier_label(*k, os))))
+            .map(|k| (*k, SharedString::from(modifier_label(*k))))
             .collect();
         let mut languages: Vec<(Option<String>, SharedString)> =
             vec![(None, t!("Settings.language_system").to_string().into())];
@@ -615,10 +605,10 @@ mod tests {
 
     #[test]
     fn modifier_labels_use_platform_names() {
-        assert_eq!(modifier_label(Modifiers::META, Os::MacOS), "⌘ Command");
-        assert_eq!(modifier_label(Modifiers::ALT, Os::MacOS), "⌥ Option");
-        assert_eq!(modifier_label(Modifiers::META, Os::Linux), "Super");
-        assert_eq!(modifier_label(Modifiers::CTRL, Os::Linux), "Ctrl");
+        assert_eq!(modifier_label(Modifiers::META), "⌘ Command");
+        assert_eq!(modifier_label(Modifiers::ALT), "⌥ Option");
+        assert_eq!(modifier_label(Modifiers::CTRL), "⌃ Control");
+        assert_eq!(modifier_label(Modifiers::SHIFT), "⇧ Shift");
     }
 
     fn prefs(cx: &mut TestAppContext, name: &str) -> Entity<Prefs> {
@@ -628,7 +618,7 @@ mod tests {
             key: Modifiers::META,
             delay: Trigger::DEFAULT_HOLD_DELAY,
         };
-        let p = Prefs::load(dir.join("config.toml"), vec![], default, Os::MacOS);
+        let p = Prefs::load(dir.join("config.toml"), vec![], default);
         cx.new(|_| p)
     }
 
@@ -637,8 +627,8 @@ mod tests {
         cx.update(gpui_kit::init);
         let prefs = prefs(cx, "twice");
         cx.update(|cx| {
-            open(prefs.clone(), Os::MacOS, |_| {}, cx);
-            open(prefs.clone(), Os::MacOS, |_| {}, cx);
+            open(prefs.clone(), |_| {}, cx);
+            open(prefs.clone(), |_| {}, cx);
         });
         assert_eq!(cx.windows().len(), 1);
     }
@@ -647,9 +637,8 @@ mod tests {
     fn number_fields_follow_external_changes(cx: &mut TestAppContext) {
         cx.update(gpui_kit::init);
         let prefs = prefs(cx, "sync");
-        let window = cx.add_window(|window, cx| {
-            SettingsView::new(prefs.clone(), Os::MacOS, |_| {}, window, cx)
-        });
+        let window =
+            cx.add_window(|window, cx| SettingsView::new(prefs.clone(), |_| {}, window, cx));
         prefs.update(cx, |p, cx| p.set(Change::HoldMs(Some(1500)), cx));
         cx.run_until_parked();
         window
@@ -663,7 +652,7 @@ mod tests {
     fn close_shortcut_works_without_clicking(cx: &mut TestAppContext) {
         cx.update(gpui_kit::init);
         let prefs = prefs(cx, "close");
-        cx.update(|cx| open(prefs.clone(), Os::MacOS, |_| {}, cx));
+        cx.update(|cx| open(prefs.clone(), |_| {}, cx));
         assert_eq!(cx.windows().len(), 1);
         let handle = cx.windows()[0];
         cx.simulate_keystrokes(handle, "cmd-w");
@@ -675,9 +664,8 @@ mod tests {
     fn blur_restores_cleared_duration_field(cx: &mut TestAppContext) {
         cx.update(gpui_kit::init);
         let prefs = prefs(cx, "blur");
-        let window = cx.add_window(|window, cx| {
-            SettingsView::new(prefs.clone(), Os::MacOS, |_| {}, window, cx)
-        });
+        let window =
+            cx.add_window(|window, cx| SettingsView::new(prefs.clone(), |_| {}, window, cx));
         let effective = prefs.read_with(cx, |p, _| p.trigger_settings().hold_ms);
         window
             .update(cx, |view, window, cx| {

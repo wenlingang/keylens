@@ -116,7 +116,7 @@ impl<N: MenuNode> Walker<N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use keylens_core::{Os, SourceError};
+    use keylens_core::SourceError;
     use std::time::{Duration, Instant};
 
     fn later() -> Instant {
@@ -212,7 +212,7 @@ mod tests {
                     e.group.as_str(),
                     e.path.join("›"),
                     e.title.as_str(),
-                    e.shortcut.display(Os::MacOS),
+                    e.shortcut.display(),
                 )
             })
             .collect();

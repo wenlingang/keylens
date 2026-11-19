@@ -20,21 +20,17 @@ Reading other apps' menus and listening for global key presses both require the 
 Data lives in `data/apps/`, one TOML file per app, licensed CC0.
 
 1. Copy an existing file (for example `data/apps/slack.toml`) as a template. Name the file after the app's short English name.
-2. Fill in `[app.match]`:
-   - macOS: the bundle ID, which you can look up with `osascript -e 'id of app "App Name"'`;
-   - Windows: the process name, such as `Code.exe`;
-   - Linux: the `.desktop` file name (without the extension) or the window's WM_CLASS.
+2. Fill in `[app.match]` with `macos = ["<bundle ID>"]`; you can look the bundle ID up with `osascript -e 'id of app "App Name"'`.
 3. Give each shortcut a `title` (in English) and `keys`. Providing `i18n.zh-Hans` as well is recommended.
 4. **Write each `title` in your own words; do not copy and paste from vendor documentation.**
 5. Run `cargo test -p keylens-core` to confirm the data passes validation.
 
 ### Key notation
 
-- Modifiers: `Mod` (⌘ on macOS, Ctrl on Windows/Linux), `Cmd`, `Ctrl`, `Alt`/`Option`, `Shift`, `Super`/`Win`, `Fn`
+- Modifiers: `Mod` (⌘), `Cmd`, `Ctrl`, `Alt`/`Option`, `Shift`, `Fn`
 - Main keys: `A`–`Z`, `0`–`9`, `F1`–`F24`, `Up`, `Down`, `Left`, `Right`, `Enter`, `Tab`, `Space`, `Backspace`, `Delete`, `Escape`, `Home`, `End`, `PageUp`, `PageDown`, and `` ` - = [ ] \ ; ' , . / ``
 - Join keys with `+`: `Mod+Shift+P`
 - Write key sequences as an array: `["Mod+K", "Mod+S"]`
-- When platforms differ: `{ default = "Alt+Up", macos = "Option+Up" }`
 
 If your editor has the Even Better TOML extension, the `#:schema ../schema.json` line at the top of each file provides completion and validation.
 

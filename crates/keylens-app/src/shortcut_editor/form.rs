@@ -26,8 +26,8 @@ pub(super) struct Form {
     pub(super) keys: Vec<String>,
     /// `keys` when recording started, put back by Esc.
     pub(super) keys_before: Vec<String>,
-    /// The entry's keys differ per platform: they are left as they are.
-    pub(super) per_platform: bool,
+    /// The entry's `keys` is a table (`{ default = ..., macos = ... }`): left as it is.
+    pub(super) keys_table: bool,
     pub(super) recording: bool,
     pub(super) last_chord_at: Option<Instant>,
     /// `Some` once the user chose to type the keys instead of recording them.
@@ -87,7 +87,7 @@ impl ShortcutEditor {
             target,
             original_title: title,
             title: input,
-            per_platform: keys.is_none(),
+            keys_table: keys.is_none(),
             keys: keys.unwrap_or_default(),
             keys_before: Vec::new(),
             recording: false,
@@ -108,7 +108,7 @@ impl ShortcutEditor {
     }
 
     pub(super) fn start_recording(&mut self, cx: &mut Context<Self>) {
-        if let Some(form) = self.form.as_mut().filter(|f| !f.per_platform) {
+        if let Some(form) = self.form.as_mut().filter(|f| !f.keys_table) {
             form.recording = true;
             form.keys_before = form.keys.clone();
             form.last_chord_at = None;
@@ -131,7 +131,6 @@ impl ShortcutEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        let os = self.os;
         let Some(form) = self.form.as_mut().filter(|f| f.recording) else {
             return false;
         };
@@ -155,7 +154,7 @@ impl ShortcutEditor {
                 platform: m.platform,
                 function: m.function,
             };
-            let Some(chord) = chord_text(pressed, &keystroke.key, os) else {
+            let Some(chord) = chord_text(pressed, &keystroke.key) else {
                 return false;
             };
             // The executor's clock, so tests can let time pass.
@@ -213,12 +212,12 @@ impl ShortcutEditor {
 
     /// The title of another entry with the same keys, if any.
     fn duplicate_of(&self, keys: &[String], except: Option<At>) -> Option<String> {
-        let mine = Shortcut::parse_seq(keys, self.os).ok()?;
+        let mine = Shortcut::parse_seq(keys).ok()?;
         self.groups.iter().enumerate().find_map(|(group, g)| {
             g.shortcuts.iter().enumerate().find_map(|(index, s)| {
                 let theirs = s.keys.as_ref()?;
                 (except != Some(At { group, index })
-                    && Shortcut::parse_seq(theirs, self.os).ok().as_ref() == Some(&mine))
+                    && Shortcut::parse_seq(theirs).ok().as_ref() == Some(&mine))
                 .then(|| s.title.clone())
             })
         })
@@ -234,7 +233,7 @@ impl ShortcutEditor {
             return;
         };
         let title = form.title.read(cx).value().trim().to_string();
-        let keys = if form.per_platform {
+        let keys = if form.keys_table {
             None
         } else {
             Some(match &form.manual {
@@ -258,7 +257,7 @@ impl ShortcutEditor {
             Some(t!("Editor.title_required").to_string())
         } else if keys
             .as_ref()
-            .is_some_and(|k| k.is_empty() || Shortcut::parse_seq(k, self.os).is_err())
+            .is_some_and(|k| k.is_empty() || Shortcut::parse_seq(k).is_err())
         {
             Some(t!("Editor.invalid_keys").to_string())
         } else if group.is_empty() {
@@ -304,7 +303,7 @@ impl ShortcutEditor {
             None => (self.group_dropdown(form, cx).into_any_element(), None),
         };
         let theme = cx.theme();
-        let manual_link = (form.manual.is_none() && !form.per_platform).then(|| {
+        let manual_link = (form.manual.is_none() && !form.keys_table).then(|| {
             div()
                 .id("type-keys")
                 .text_xs()
@@ -381,12 +380,12 @@ impl ShortcutEditor {
         let theme = cx.theme();
         let focused = self.recorder.is_focused(window);
         let shown = |keys: &[String]| {
-            Shortcut::parse_seq(keys, self.os)
-                .map(|s| s.display(self.os))
+            Shortcut::parse_seq(keys)
+                .map(|s| s.display())
                 .unwrap_or_else(|_| keys.join(" "))
         };
-        let (text, muted) = if form.per_platform {
-            (t!("Editor.per_platform").to_string(), true)
+        let (text, muted) = if form.keys_table {
+            (t!("Editor.keys_table").to_string(), true)
         } else if form.recording && form.last_chord_at.is_none() {
             (t!("Editor.recording").to_string(), true)
         } else if form.keys.is_empty() {
@@ -410,8 +409,8 @@ impl ShortcutEditor {
             } else {
                 theme.foreground
             })
-            .when(form.per_platform, |this| this.text_xs().opacity(0.6))
-            .when(!form.per_platform, |this| {
+            .when(form.keys_table, |this| this.text_xs().opacity(0.6))
+            .when(!form.keys_table, |this| {
                 this.cursor_pointer()
                     .track_focus(&self.recorder)
                     .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {

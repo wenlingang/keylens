@@ -766,9 +766,7 @@ impl Keylens {
         let open_path = self.native.open;
         // Open after this update: the panel's window may still be borrowed here.
         cx.spawn(async move |this, cx| {
-            let opened = cx.update(|cx| {
-                settings_view::open(prefs, keylens_core::Os::current(), open_path, cx)
-            });
+            let opened = cx.update(|cx| settings_view::open(prefs, open_path, cx));
             if let Some((handle, view)) = opened {
                 let _ = this.update(cx, |this, cx| this.on_child_opened(handle, view, cx));
             }
@@ -787,9 +785,7 @@ impl Keylens {
         let beep = self.native.beep;
         // Open after this update: the panel's window may still be borrowed here.
         cx.spawn(async move |this, cx| {
-            let opened = cx.update(|cx| {
-                shortcut_editor::open(app, keylens_core::Os::current(), open_path, beep, cx)
-            });
+            let opened = cx.update(|cx| shortcut_editor::open(app, open_path, beep, cx));
             if let Some((handle, view)) = opened {
                 let _ = this.update(cx, |this, cx| this.on_child_opened(handle, view, cx));
             }
@@ -914,8 +910,8 @@ mod tests {
     use core::prelude::v1::test;
 
     use gpui_kit::{TestAppContext, VisualTestContext};
+    use keylens_core::Modifiers;
     use keylens_core::community::Catalog;
-    use keylens_core::{Modifiers, Os};
     use keylens_platform::fake::FakePlatform;
 
     use super::*;
@@ -941,7 +937,6 @@ mod tests {
             platform.clone(),
             Arc::new(Catalog::default()),
             Arc::new(Catalog::default()),
-            Os::MacOS,
             keylens_core::Lang::En,
         ));
         // One directory per test: tests run in parallel in one process, and one that writes a
@@ -950,14 +945,9 @@ mod tests {
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let dir = std::env::temp_dir().join(format!("keylens-ctl-{}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let prefs = Prefs::load(
-            dir.join("config.toml"),
-            vec![],
-            platform.default_trigger(),
-            Os::MacOS,
-        );
+        let prefs = Prefs::load(dir.join("config.toml"), vec![], platform.default_trigger());
         let prefs = cx.new(|_| prefs);
-        let window = cx.add_window(|window, cx| PanelView::new(Os::MacOS, window, cx));
+        let window = cx.add_window(PanelView::new);
         let view = window.update(cx, |_, _, cx| cx.entity()).unwrap();
         let native = Native {
             hide: |_| {},

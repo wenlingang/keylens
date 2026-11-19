@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-use keylens_core::{AppInfo, AppShortcuts, Entry, EntrySource, Os, SourceError, filter};
+use keylens_core::{AppInfo, AppShortcuts, Entry, EntrySource, SourceError, filter};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PanelStatus {
@@ -70,7 +70,6 @@ struct GroupRows {
 }
 
 pub struct PanelModel {
-    os: Os,
     status: PanelStatus,
     app: Option<AppInfo>,
     entries: Vec<Entry>,
@@ -82,10 +81,15 @@ pub struct PanelModel {
     selected: Option<(usize, usize)>,
 }
 
+impl Default for PanelModel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PanelModel {
-    pub fn new(os: Os) -> Self {
+    pub fn new() -> Self {
         Self {
-            os,
             status: PanelStatus::Loading,
             app: None,
             entries: Vec::new(),
@@ -108,10 +112,6 @@ impl PanelModel {
 
     pub fn app(&self) -> Option<&AppInfo> {
         self.app.as_ref()
-    }
-
-    pub fn os(&self) -> Os {
-        self.os
     }
 
     /// Starts showing an app that has no data yet.
@@ -293,7 +293,7 @@ impl PanelModel {
                 })
                 .collect()
         } else {
-            let rows: Vec<Row> = filter(&self.entries, &self.query, self.os)
+            let rows: Vec<Row> = filter(&self.entries, &self.query)
                 .into_iter()
                 .map(|m| Row::Item {
                     entry: m.index,
@@ -386,7 +386,7 @@ mod tests {
             path: vec![],
             title: title.into(),
             search_terms: vec![],
-            shortcut: Shortcut::parse_seq(&[keys], Os::MacOS).unwrap(),
+            shortcut: Shortcut::parse_seq(&[keys]).unwrap(),
             enabled: true,
         }
     }
@@ -442,7 +442,7 @@ mod tests {
     }
 
     fn ready(columns: usize) -> PanelModel {
-        let mut m = PanelModel::new(Os::MacOS);
+        let mut m = PanelModel::new();
         m.set_columns(columns);
         m.set_data(data());
         m
@@ -543,7 +543,7 @@ mod tests {
 
     #[test]
     fn loading_and_permission_states() {
-        let mut m = PanelModel::new(Os::MacOS);
+        let mut m = PanelModel::new();
         m.set_loading(AppInfo {
             pid: 3,
             name: "X".into(),

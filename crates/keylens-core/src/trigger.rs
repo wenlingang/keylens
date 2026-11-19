@@ -8,7 +8,7 @@ use crate::keys::{Chord, Modifiers};
 pub enum Trigger {
     /// Long-press a modifier key. macOS default: ⌘, 800ms.
     HoldModifier { key: Modifiers, delay: Duration },
-    /// Double-tap a modifier key. Windows / X11 default (wired up from v0.2).
+    /// Double-tap a modifier key.
     DoubleTap { key: Modifiers, interval: Duration },
     /// Key combination; the platform registers a global hotkey to handle it (reserved).
     Hotkey(Chord),
@@ -391,7 +391,7 @@ mod tests {
         let t0 = Instant::now();
         for trigger in [
             Trigger::External,
-            Trigger::Hotkey(crate::keys::Chord::parse("Mod+K", crate::keys::Os::MacOS).unwrap()),
+            Trigger::Hotkey(crate::keys::Chord::parse("Mod+K").unwrap()),
         ] {
             let mut d = TriggerDetector::new(trigger);
             assert_eq!(d.on_event(ModifiersChanged(CMD), t0), None);

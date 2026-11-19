@@ -6,14 +6,13 @@ use std::path::Path;
 use include_dir::{Dir, include_dir};
 
 use crate::community::data::{AppData, DataError, parse_app_data};
-use crate::keys::Os;
 
 static BUILTIN: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/../../data/apps");
 
 #[derive(Default)]
 pub struct Catalog {
     apps: Vec<AppData>,
-    index: HashMap<(Os, String), usize>,
+    index: HashMap<String, usize>,
 }
 
 impl Catalog {
@@ -37,33 +36,26 @@ impl Catalog {
     }
 
     fn insert(&mut self, file: &str, app: AppData) -> Result<(), DataError> {
-        for os in Os::ALL {
-            for id in app.ids.for_os(os) {
-                if let Some(&existing) = self.index.get(&(os, id.clone())) {
-                    return Err(DataError {
-                        file: file.to_string(),
-                        message: format!(
-                            "id `{id}` is already used by {}",
-                            self.apps[existing].name
-                        ),
-                    });
-                }
+        for id in &app.ids {
+            if let Some(&existing) = self.index.get(id) {
+                return Err(DataError {
+                    file: file.to_string(),
+                    message: format!("id `{id}` is already used by {}", self.apps[existing].name),
+                });
             }
         }
         let position = self.apps.len();
-        for os in Os::ALL {
-            for id in app.ids.for_os(os) {
-                self.index.insert((os, id.clone()), position);
-            }
+        for id in &app.ids {
+            self.index.insert(id.clone(), position);
         }
         self.apps.push(app);
         Ok(())
     }
 
     /// Looks up data by any one ID of the frontmost app.
-    pub fn find(&self, os: Os, ids: &[String]) -> Option<&AppData> {
+    pub fn find(&self, ids: &[String]) -> Option<&AppData> {
         ids.iter()
-            .find_map(|id| self.index.get(&(os, id.clone())))
+            .find_map(|id| self.index.get(id))
             .map(|&position| &self.apps[position])
     }
 
@@ -135,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn finds_apps_by_platform_id() {
+    fn finds_apps_by_bundle_id() {
         let (catalog, errors) = Catalog::from_files([
             ("a.toml", file("A", "com.a")),
             ("b.toml", file("B", "com.b")),
@@ -143,8 +135,8 @@ mod tests {
         assert!(errors.is_empty());
         assert_eq!(catalog.len(), 2);
         let ids = vec!["com.x".to_string(), "com.b".to_string()];
-        assert_eq!(catalog.find(Os::MacOS, &ids).unwrap().name, "B");
-        assert!(catalog.find(Os::Windows, &ids).is_none());
+        assert_eq!(catalog.find(&ids).unwrap().name, "B");
+        assert!(catalog.find(&["com.x".to_string()]).is_none());
     }
 
     #[test]

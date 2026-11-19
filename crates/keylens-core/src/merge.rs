@@ -56,7 +56,7 @@ pub fn group_entries(entries: Vec<Entry>) -> Vec<Group> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keys::{Chord, Key, Modifiers, Os, Shortcut};
+    use crate::keys::{Chord, Key, Modifiers, Shortcut};
     use crate::model::{EntryId, EntrySource};
 
     fn entry(source: EntrySource, index: u32, group: &str, title: &str, keys: &str) -> Entry {
@@ -70,7 +70,7 @@ mod tests {
             path: vec![],
             title: title.into(),
             search_terms: vec![],
-            shortcut: Shortcut::parse_seq(&[keys], Os::MacOS).unwrap(),
+            shortcut: Shortcut::parse_seq(&[keys]).unwrap(),
             enabled: true,
         }
     }
@@ -119,7 +119,7 @@ mod tests {
         // ⇧⌘[ and ⌘[ are different shortcuts and must not be merged
         assert_eq!(titles, ["放大", "选择下一个标签", "后退", "Previous Tab"]);
         assert_eq!(merged[0].search_terms, ["Zoom In"]);
-        assert_eq!(merged[0].shortcut.display(Os::MacOS), "⌘+");
+        assert_eq!(merged[0].shortcut.display(), "⌘+");
     }
 
     #[test]

@@ -390,7 +390,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use gpui_kit::{AppContext, TestAppContext};
-    use keylens_core::{Modifiers, Os, Trigger};
+    use keylens_core::{Modifiers, Trigger};
 
     use super::*;
 
@@ -490,7 +490,6 @@ mod tests {
                     key: Modifiers::META,
                     delay: Trigger::DEFAULT_HOLD_DELAY,
                 },
-                Os::MacOS,
             )
         });
         let statuses = Rc::new(RefCell::new(Vec::new()));

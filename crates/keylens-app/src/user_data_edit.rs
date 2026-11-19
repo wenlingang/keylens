@@ -1,8 +1,8 @@
 //! Edits a user shortcut data file (`apps/<id>.toml`) in place with `toml_edit`: comments, i18n,
-//! per-platform keys and unknown keys survive. Positions are `(group, index)` and checked against
+//! `keys` tables (`{ default = ..., macos = ... }`) and unknown keys survive. Positions are `(group, index)` and checked against
 //! the title the editor showed, so a file changed on disk is never edited at the wrong entry.
 
-use keylens_core::{Os, Shortcut};
+use keylens_core::Shortcut;
 use toml_edit::{Array, ArrayOfTables, DocumentMut, Item, Table, value};
 
 /// A shortcut's position: group index, then index inside the group.
@@ -15,7 +15,7 @@ pub struct At {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShortcutView {
     pub title: String,
-    /// The chords as written, e.g. ["Mod+K", "Mod+S"]; `None` when keys differ per platform.
+    /// The chords as written, e.g. ["Mod+K", "Mod+S"]; `None` when `keys` is a table.
     pub keys: Option<Vec<String>>,
     /// For display, e.g. "⌘K ⌘S"; the raw text when it does not parse.
     pub display: String,
@@ -81,7 +81,7 @@ fn keys_item(keys: &[String]) -> Item {
     }
 }
 
-/// The chords of a `keys` value written as a string or an array; `None` for a per-platform table.
+/// The chords of a `keys` value written as a string or an array; `None` for a table.
 fn chords(item: &Item) -> Option<Vec<String>> {
     if let Some(s) = item.as_str() {
         return Some(vec![s.to_string()]);
@@ -93,15 +93,7 @@ fn chords(item: &Item) -> Option<Vec<String>> {
         .collect()
 }
 
-fn os_key(os: Os) -> &'static str {
-    match os {
-        Os::MacOS => "macos",
-        Os::Windows => "windows",
-        Os::Linux => "linux",
-    }
-}
-
-pub fn list(text: &str, os: Os) -> Result<Vec<GroupView>, String> {
+pub fn list(text: &str) -> Result<Vec<GroupView>, String> {
     let doc = parse(text)?;
     let Some(item) = doc.get("group") else {
         return Ok(Vec::new());
@@ -116,7 +108,7 @@ pub fn list(text: &str, os: Os) -> Result<Vec<GroupView>, String> {
                     .as_array_of_tables()
                     .ok_or(SHORTCUT_LAYOUT)?
                     .iter()
-                    .map(|entry| shortcut_view(entry, os))
+                    .map(shortcut_view)
                     .collect(),
             };
             Ok(GroupView {
@@ -127,19 +119,19 @@ pub fn list(text: &str, os: Os) -> Result<Vec<GroupView>, String> {
         .collect()
 }
 
-fn shortcut_view(item: &Table, os: Os) -> ShortcutView {
+fn shortcut_view(item: &Table) -> ShortcutView {
     let keys = item.get("keys").and_then(chords);
     let display = match &keys {
-        Some(parts) => Shortcut::parse_seq(parts, os)
-            .map(|s| s.display(os))
+        Some(parts) => Shortcut::parse_seq(parts)
+            .map(|s| s.display())
             .unwrap_or_else(|_| parts.join(" ")),
         None => item
             .get("keys")
             .and_then(Item::as_table_like)
-            .and_then(|t| t.get(os_key(os)).or_else(|| t.get("default")))
+            .and_then(|t| t.get("macos").or_else(|| t.get("default")))
             .and_then(chords)
-            .and_then(|p| Shortcut::parse_seq(&p, os).ok())
-            .map(|s| s.display(os))
+            .and_then(|p| Shortcut::parse_seq(&p).ok())
+            .map(|s| s.display())
             .unwrap_or_default(),
     };
     ShortcutView {
@@ -219,7 +211,7 @@ pub fn update(
     let entry = entry_mut(groups, at, expected_title)?;
     if let Some(keys) = keys {
         if entry.get("keys").is_some_and(|k| chords(k).is_none()) {
-            return Err("the file changed: this shortcut has per-platform keys".to_string());
+            return Err("the file changed: this shortcut has a keys table".to_string());
         }
         set_value(entry, "keys", keys_item(keys));
     }
@@ -322,8 +314,8 @@ fn renumber(table: &mut Table, next: &mut isize) {
 
 #[cfg(test)]
 mod tests {
+    use keylens_core::Shortcut;
     use keylens_core::community::parse_app_data;
-    use keylens_core::{Os, Shortcut};
 
     use super::*;
 
@@ -349,7 +341,7 @@ title = "View"
 
   [[group.shortcut]]
   title = "Zoom"
-  keys = { default = "Mod+=", windows = "Ctrl+=" }
+  keys = { default = "Ctrl+=", macos = "Mod+=" }
 "#;
 
     const EMPTY: &str =
@@ -375,22 +367,21 @@ title = "View"
 
     #[test]
     fn list_shows_groups_titles_and_keys() {
-        let groups = list(TWO_GROUPS, Os::MacOS).unwrap();
+        let groups = list(TWO_GROUPS).unwrap();
         assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].title, "Files");
         assert_eq!(groups[0].shortcuts[0].title, "Open");
         assert_eq!(groups[0].shortcuts[0].keys, Some(keys(&["Mod+O"])));
         assert_eq!(
             groups[0].shortcuts[0].display,
-            Shortcut::parse_seq(&["Mod+O"], Os::MacOS)
-                .unwrap()
-                .display(Os::MacOS)
+            Shortcut::parse_seq(&["Mod+O"]).unwrap().display()
         );
         assert_eq!(
             groups[1].shortcuts[0].keys, None,
-            "per-platform keys are not editable"
+            "keys tables are not editable"
         );
-        assert!(list(EMPTY, Os::MacOS).unwrap().is_empty());
+        assert_eq!(groups[1].shortcuts[0].display, "⌘=");
+        assert!(list(EMPTY).unwrap().is_empty());
     }
 
     #[test]
@@ -405,7 +396,7 @@ title = "View"
         );
         assert!(text.contains("# my shortcuts") && text.contains("# file stuff"));
         assert!(text.contains("zh-Hans = \"打开\""));
-        assert!(text.contains("windows = \"Ctrl+=\""));
+        assert!(text.contains("keys = { default = \"Ctrl+=\", macos = \"Mod+=\" }"));
     }
 
     #[test]
@@ -436,7 +427,7 @@ title = "View"
             "Files",
         )
         .unwrap();
-        let groups = list(&text, Os::MacOS).unwrap();
+        let groups = list(&text).unwrap();
         assert_eq!(groups[0].shortcuts[0].title, "Open File");
         assert_eq!(groups[0].shortcuts[0].keys, Some(keys(&["Mod+Shift+O"])));
         assert!(text.contains("zh-Hans = \"打开\""), "other fields stay");
@@ -453,14 +444,11 @@ title = "View"
     }
 
     #[test]
-    fn per_platform_keys_survive_a_title_edit() {
+    fn keys_tables_survive_a_title_edit() {
         let at = At { group: 1, index: 0 };
         let text = update(TWO_GROUPS, at, "Zoom", "Zoom In", None, "View").unwrap();
-        assert!(text.contains("windows = \"Ctrl+=\""));
-        assert_eq!(
-            list(&text, Os::MacOS).unwrap()[1].shortcuts[0].title,
-            "Zoom In"
-        );
+        assert!(text.contains("keys = { default = \"Ctrl+=\", macos = \"Mod+=\" }"));
+        assert_eq!(list(&text).unwrap()[1].shortcuts[0].title, "Zoom In");
     }
 
     #[test]
@@ -488,13 +476,13 @@ title = "View"
     fn removing_the_only_entry_leaves_a_valid_file() {
         let text = add(EMPTY, "General", "Find", &keys(&["Mod+F"])).unwrap();
         let (text, _) = remove(&text, At { group: 0, index: 0 }, "Find").unwrap();
-        assert!(list(&text, Os::MacOS).unwrap().is_empty());
+        assert!(list(&text).unwrap().is_empty());
         assert!(parse_app_data("demo.toml", &text).is_ok());
     }
 
     #[test]
     fn invalid_text_is_an_error() {
-        assert!(list("schema = ", Os::MacOS).is_err());
+        assert!(list("schema = ").is_err());
         assert!(add("schema = ", "G", "T", &keys(&["Mod+T"])).is_err());
     }
 
@@ -511,13 +499,13 @@ title = "View"
             text.contains("  title = \"Open File\"") && text.contains("  keys = \"Mod+P\""),
             "{text}"
         );
-        let groups = list(&text, Os::MacOS).unwrap();
+        let groups = list(&text).unwrap();
         assert_eq!(groups[0].shortcuts[0].title, "Open File");
         assert_eq!(groups[0].shortcuts[0].keys, Some(keys(&["Mod+P"])));
     }
 
     #[test]
-    fn new_keys_are_refused_for_per_platform_entries() {
+    fn new_keys_are_refused_for_keys_tables() {
         let at = At { group: 1, index: 0 };
         assert!(
             update(
@@ -537,7 +525,7 @@ title = "View"
         let inline_groups = "schema = 1\ngroup = [{ title = \"G\", shortcut = [{ title = \"A\", keys = \"Mod+A\" }] }]\n";
         let inline_shortcuts = "schema = 1\n\n[[group]]\ntitle = \"G\"\nshortcut = [{ title = \"A\", keys = \"Mod+A\" }]\n";
         for src in [inline_groups, inline_shortcuts] {
-            assert!(list(src, Os::MacOS).is_err(), "{src}");
+            assert!(list(src).is_err(), "{src}");
             assert!(add(src, "G", "B", &keys(&["Mod+B"])).is_err(), "{src}");
         }
     }

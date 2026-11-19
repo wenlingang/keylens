@@ -69,7 +69,7 @@ impl<H: Clone> Snapshots<H> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use keylens_core::{EntrySource, Os, Shortcut};
+    use keylens_core::{EntrySource, Shortcut};
 
     fn entry(snapshot: u64, index: u32) -> Entry {
         Entry {
@@ -82,7 +82,7 @@ mod tests {
             path: vec![],
             title: "新建".into(),
             search_terms: vec![],
-            shortcut: Shortcut::parse_seq(&["Mod+N"], Os::MacOS).unwrap(),
+            shortcut: Shortcut::parse_seq(&["Mod+N"]).unwrap(),
             enabled: true,
         }
     }

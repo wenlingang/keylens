@@ -69,7 +69,7 @@ pub const KEYS: &[&str] = &[
     "Editor.recording",
     "Editor.click_to_record",
     "Editor.manual",
-    "Editor.per_platform",
+    "Editor.keys_table",
     "Editor.save",
     "Editor.cancel",
     "Editor.title_required",

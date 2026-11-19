@@ -15,7 +15,7 @@ fn main() {
     use std::sync::mpsc::channel;
     use std::time::{Duration, Instant};
 
-    use keylens_core::{AppInfo, Os};
+    use keylens_core::AppInfo;
     use keylens_macos::MacPlatform;
     use keylens_platform::{PermissionState, Platform};
 
@@ -48,7 +48,7 @@ fn main() {
                                         .join(" › ");
                                 println!(
                                     "  {path}  {}  enabled={}",
-                                    e.shortcut.display(Os::MacOS),
+                                    e.shortcut.display(),
                                     e.enabled
                                 );
                             }
@@ -109,7 +109,7 @@ fn main() {
                 path: vec![],
                 title: "F19".into(),
                 search_terms: vec![],
-                shortcut: keylens_core::Shortcut::parse_seq(&["F19"], Os::MacOS).unwrap(),
+                shortcut: keylens_core::Shortcut::parse_seq(&["F19"]).unwrap(),
                 enabled: true,
             };
             let target = platform.frontmost_app().map_or(0, |a| a.pid);

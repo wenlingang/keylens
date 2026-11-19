@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use keylens_core::{Modifiers, Os};
+use keylens_core::Modifiers;
 use toml_edit::{DocumentMut, Item, TableLike, value};
 
 use crate::config::TriggerMode;
@@ -27,7 +27,7 @@ pub enum Change {
 const TRIGGER: &str = "trigger";
 const UPDATE: &str = "update";
 
-pub fn apply(text: &str, change: &Change, os: Os) -> Result<String, String> {
+pub fn apply(text: &str, change: &Change) -> Result<String, String> {
     let mut doc: DocumentMut = text
         .parse()
         .map_err(|e: toml_edit::TomlError| e.to_string())?;
@@ -37,7 +37,7 @@ pub fn apply(text: &str, change: &Change, os: Os) -> Result<String, String> {
             &mut doc,
             TRIGGER,
             "key",
-            key.map(|k| value(k.trigger_name(os))),
+            key.map(|k| value(k.trigger_name())),
         ),
         Change::HoldMs(ms) => set_in(&mut doc, TRIGGER, "hold-ms", ms.map(|ms| value(ms as i64))),
         Change::DoubleTapMs(ms) => set_in(
@@ -166,7 +166,7 @@ hold-ms = 1200
 
     #[test]
     fn edits_keep_comments_order_and_unknown_keys() {
-        let text = apply(HAND_WRITTEN, &Change::Key(Some(Modifiers::ALT)), Os::MacOS).unwrap();
+        let text = apply(HAND_WRITTEN, &Change::Key(Some(Modifiers::ALT))).unwrap();
         assert!(text.contains("# my keylens config"));
         assert!(text.contains("# I am learning Japanese"));
         assert!(text.contains("# slower, I keep triggering it by accident"));
@@ -177,16 +177,16 @@ hold-ms = 1200
 
     #[test]
     fn update_settings_go_to_their_own_table() {
-        let text = apply("", &Change::AutoCheck(Some(false)), Os::MacOS).unwrap();
-        let text = apply(&text, &Change::SkipVersion(Some("0.2.0".into())), Os::MacOS).unwrap();
+        let text = apply("", &Change::AutoCheck(Some(false))).unwrap();
+        let text = apply(&text, &Change::SkipVersion(Some("0.2.0".into()))).unwrap();
         let (update, warnings) = parse_config(&text).unwrap().update_settings();
         assert!(warnings.is_empty());
         assert!(!update.auto_check);
         assert_eq!(update.skip_version.as_deref(), Some("0.2.0"));
         assert!(text.contains("[update]"), "{text}");
 
-        let text = apply(&text, &Change::AutoCheck(None), Os::MacOS).unwrap();
-        let text = apply(&text, &Change::SkipVersion(None), Os::MacOS).unwrap();
+        let text = apply(&text, &Change::AutoCheck(None)).unwrap();
+        let text = apply(&text, &Change::SkipVersion(None)).unwrap();
         assert!(
             !text.contains("update"),
             "an empty [update] table is dropped: {text}"
@@ -196,16 +196,16 @@ hold-ms = 1200
     #[test]
     fn reset_all_clears_update_settings_too() {
         let text = "[update]\nauto-check = false\n";
-        let text = apply(text, &Change::ResetAll, Os::MacOS).unwrap();
+        let text = apply(text, &Change::ResetAll).unwrap();
         assert!(text.trim().is_empty(), "{text}");
     }
 
     #[test]
-    fn key_is_written_in_the_platform_words() {
-        let mac = apply("", &Change::Key(Some(Modifiers::META)), Os::MacOS).unwrap();
-        let linux = apply("", &Change::Key(Some(Modifiers::META)), Os::Linux).unwrap();
-        assert!(mac.contains("key = \"cmd\""), "{mac}");
-        assert!(linux.contains("key = \"super\""), "{linux}");
+    fn key_is_written_in_mac_words() {
+        let cmd = apply("", &Change::Key(Some(Modifiers::META))).unwrap();
+        let option = apply("", &Change::Key(Some(Modifiers::ALT))).unwrap();
+        assert!(cmd.contains("key = \"cmd\""), "{cmd}");
+        assert!(option.contains("key = \"option\""), "{option}");
     }
 
     #[test]
@@ -221,7 +221,7 @@ hold-ms = 1200
         ];
         let text = changes
             .iter()
-            .fold(String::new(), |text, c| apply(&text, c, Os::MacOS).unwrap());
+            .fold(String::new(), |text, c| apply(&text, c).unwrap());
         let config = parse_config(&text).unwrap();
         assert_eq!(config.language.as_deref(), Some("zh-TW"));
         let t = &config.trigger;
@@ -235,18 +235,18 @@ hold-ms = 1200
 
     #[test]
     fn restoring_defaults_removes_keys_and_the_empty_table() {
-        let text = apply(HAND_WRITTEN, &Change::HoldMs(None), Os::MacOS).unwrap();
+        let text = apply(HAND_WRITTEN, &Change::HoldMs(None)).unwrap();
         assert!(!text.contains("hold-ms"), "{text}");
         assert!(!text.contains("[trigger]"), "{text}");
         assert!(text.contains("future-option = 1"));
 
-        let text = apply(HAND_WRITTEN, &Change::Language(None), Os::MacOS).unwrap();
+        let text = apply(HAND_WRITTEN, &Change::Language(None)).unwrap();
         assert!(!text.contains("language"), "{text}");
     }
 
     #[test]
     fn reset_all_keeps_unknown_keys() {
-        let text = apply(HAND_WRITTEN, &Change::ResetAll, Os::MacOS).unwrap();
+        let text = apply(HAND_WRITTEN, &Change::ResetAll).unwrap();
         assert!(!text.contains("language"));
         assert!(!text.contains("[trigger]"));
         assert!(text.contains("future-option = 1"));
@@ -261,8 +261,8 @@ language = \"ja\" # trailing language
 # above hold
 hold-ms = 1200 # trailing hold
 ";
-        let text = apply(text, &Change::Language(Some("zh-TW".into())), Os::MacOS).unwrap();
-        let text = apply(&text, &Change::HoldMs(Some(900)), Os::MacOS).unwrap();
+        let text = apply(text, &Change::Language(Some("zh-TW".into()))).unwrap();
+        let text = apply(&text, &Change::HoldMs(Some(900))).unwrap();
         assert!(text.contains("# above language"), "{text}");
         assert!(text.contains("# trailing language"), "{text}");
         assert!(text.contains("# above hold"), "{text}");
@@ -275,12 +275,7 @@ hold-ms = 1200 # trailing hold
 
     #[test]
     fn inline_trigger_tables_are_edited_too() {
-        let text = apply(
-            "trigger = { key = \"cmd\" }\n",
-            &Change::HoldMs(Some(900)),
-            Os::MacOS,
-        )
-        .unwrap();
+        let text = apply("trigger = { key = \"cmd\" }\n", &Change::HoldMs(Some(900))).unwrap();
         let config = parse_config(&text).unwrap();
         assert_eq!(config.trigger.hold_ms.unwrap().as_integer(), Some(900));
         assert_eq!(config.trigger.key.unwrap().as_str(), Some("cmd"));
@@ -288,7 +283,7 @@ hold-ms = 1200 # trailing hold
 
     #[test]
     fn invalid_text_is_an_error() {
-        assert!(apply("language = ", &Change::ResetAll, Os::MacOS).is_err());
+        assert!(apply("language = ", &Change::ResetAll).is_err());
     }
 
     fn temp_dir(name: &str) -> std::path::PathBuf {

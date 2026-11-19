@@ -10,7 +10,7 @@ pub mod search;
 pub mod source;
 pub mod trigger;
 
-pub use keys::{Chord, Key, KeyParseError, Modifiers, Os, Shortcut};
+pub use keys::{Chord, Key, KeyParseError, Modifiers, Shortcut};
 pub use locale::{Lang, Locale, Localized, resolve, resolve_preferred};
 pub use merge::{group_entries, merge};
 pub use model::{AppInfo, Entry, EntryId, EntrySource, Group};

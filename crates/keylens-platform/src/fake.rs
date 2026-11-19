@@ -190,7 +190,7 @@ impl Platform for FakePlatform {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use keylens_core::{Modifiers, Os, Shortcut};
+    use keylens_core::{Modifiers, Shortcut};
 
     fn entry(index: u32, enabled: bool) -> Entry {
         Entry {
@@ -203,7 +203,7 @@ mod tests {
             path: vec![],
             title: "保存".into(),
             search_terms: vec![],
-            shortcut: Shortcut::parse_seq(&["Mod+S"], Os::MacOS).unwrap(),
+            shortcut: Shortcut::parse_seq(&["Mod+S"]).unwrap(),
             enabled,
         }
     }

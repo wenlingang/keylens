@@ -11,8 +11,8 @@ use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::{ActiveTheme, Disableable as _, Sizable as _, Theme, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::*;
+use keylens_core::AppInfo;
 use keylens_core::community::parse_app_data;
-use keylens_core::{AppInfo, Os};
 use rust_i18n::t;
 
 use crate::ui::{ChildDeactivated, section};
@@ -36,18 +36,16 @@ impl Global for EditorWindow {}
 /// usable ID (the caller checks that first, see `Keylens::open_editor`).
 pub fn open(
     app: AppInfo,
-    os: Os,
     open_path: fn(&Path),
     beep: fn(),
     cx: &mut App,
 ) -> Option<(AnyWindowHandle, Entity<ShortcutEditor>)> {
-    open_in(config::user_data_dir(), app, os, open_path, beep, cx)
+    open_in(config::user_data_dir(), app, open_path, beep, cx)
 }
 
 fn open_in(
     dir: PathBuf,
     app: AppInfo,
-    os: Os,
     open_path: fn(&Path),
     beep: fn(),
     cx: &mut App,
@@ -65,7 +63,7 @@ fn open_in(
     {
         return None;
     }
-    let path = template::user_file_for(&dir, &app, os)?;
+    let path = template::user_file_for(&dir, &app)?;
     // Bind once: the global exists from the first opening on.
     if !cx.has_global::<EditorWindow>() {
         cx.bind_keys([KeyBinding::new("cmd-w", CloseEditor, Some(KEY_CONTEXT))]);
@@ -87,7 +85,7 @@ fn open_in(
         ..Default::default()
     };
     match gpui_kit::open_window(options, cx, |window, cx| {
-        cx.new(|cx| ShortcutEditor::new(app, path, os, open_path, beep, window, cx))
+        cx.new(|cx| ShortcutEditor::new(app, path, open_path, beep, window, cx))
     }) {
         Ok((handle, view)) => {
             // `focus: true` is not enough for an Accessory app's window to become key everywhere.
@@ -116,7 +114,6 @@ pub enum EditorProblem {
 
 pub struct ShortcutEditor {
     app: AppInfo,
-    os: Os,
     open_path: fn(&Path),
     beep: fn(),
     /// The app's user data file: the existing one that matches it, else `<user data dir>/<template
@@ -151,7 +148,6 @@ impl ShortcutEditor {
     pub fn new(
         app: AppInfo,
         path: PathBuf,
-        os: Os,
         open_path: fn(&Path),
         beep: fn(),
         window: &mut Window,
@@ -200,7 +196,6 @@ impl ShortcutEditor {
         window.focus(&focus, cx);
         let mut editor = Self {
             app,
-            os,
             open_path,
             beep,
             path,
@@ -222,7 +217,7 @@ impl ShortcutEditor {
     /// file already shown changes nothing.
     pub fn set_app(&mut self, app: AppInfo, window: &mut Window, cx: &mut Context<Self>) {
         let dir = self.path.parent().unwrap_or(Path::new("."));
-        let Some(path) = template::user_file_for(dir, &app, self.os) else {
+        let Some(path) = template::user_file_for(dir, &app) else {
             return;
         };
         if path == self.path {
@@ -267,7 +262,7 @@ impl ShortcutEditor {
         let listed = if self.text.is_empty() {
             Ok(Vec::new())
         } else {
-            user_data_edit::list(&self.text, self.os)
+            user_data_edit::list(&self.text)
         };
         match listed {
             Ok(groups) => {
@@ -348,11 +343,11 @@ impl ShortcutEditor {
         }
         let text = edit(&self.base_text()).map_err(WriteError::Edit)?;
         // The safety net behind the form's checks: never write a file the panel cannot load
-        // (e.g. keys taken on another platform the file matches).
+        // (e.g. keys taken by a `keys` table's `macos` override).
         let file = self.path.file_name().unwrap_or_default().to_string_lossy();
         parse_app_data(&file, &text).map_err(|e| WriteError::Edit(e.message))?;
         config_write::write_atomic(&self.path, &text).map_err(|e| WriteError::Io(e.to_string()))?;
-        self.groups = user_data_edit::list(&text, self.os).unwrap_or_default();
+        self.groups = user_data_edit::list(&text).unwrap_or_default();
         self.text = text;
         self.problem = None;
         Ok(())

@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
+use serde::de::IgnoredAny;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -26,10 +27,12 @@ pub(crate) struct RawApp {
 pub(crate) struct RawMatch {
     #[serde(default)]
     pub macos: Vec<String>,
-    #[serde(default)]
-    pub windows: Vec<String>,
-    #[serde(default)]
-    pub linux: Vec<String>,
+    /// Legacy key from when Windows was supported; kept so old files still load, value ignored.
+    #[serde(default, rename = "windows")]
+    _windows: Option<IgnoredAny>,
+    /// Legacy key from when Linux was supported; kept so old files still load, value ignored.
+    #[serde(default, rename = "linux")]
+    _linux: Option<IgnoredAny>,
 }
 
 #[derive(Deserialize)]
@@ -53,10 +56,10 @@ pub(crate) struct RawShortcut {
 
 pub(crate) enum RawKeys {
     Same(RawSeq),
-    PerOs(RawPerOs),
+    Table(RawKeyTable),
 }
 
-/// Dispatches on the value's type instead of using `untagged`: the table case deserializes directly into `RawPerOs`,
+/// Dispatches on the value's type instead of using `untagged`: the table case deserializes directly into `RawKeyTable`,
 /// so errors like `unknown field` and `missing field default` reach contributors unchanged.
 impl<'de> Deserialize<'de> for RawKeys {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -80,8 +83,8 @@ impl<'de> Deserialize<'de> for RawKeys {
             }
 
             fn visit_map<A: serde::de::MapAccess<'de>>(self, map: A) -> Result<RawKeys, A::Error> {
-                RawPerOs::deserialize(serde::de::value::MapAccessDeserializer::new(map))
-                    .map(RawKeys::PerOs)
+                RawKeyTable::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+                    .map(RawKeys::Table)
             }
         }
 
@@ -107,9 +110,25 @@ impl RawSeq {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct RawPerOs {
+/// The table form `keys = { default = ..., macos = ... }`, from when shortcuts could differ per
+/// platform. Still accepted so existing files keep their meaning: `macos` overrides `default`.
+pub(crate) struct RawKeyTable {
     pub default: RawSeq,
     pub macos: Option<RawSeq>,
-    pub windows: Option<RawSeq>,
-    pub linux: Option<RawSeq>,
+    /// Legacy key from when Windows was supported; kept so old files still load, value ignored.
+    #[serde(default, rename = "windows")]
+    _windows: Option<IgnoredAny>,
+    /// Legacy key from when Linux was supported; kept so old files still load, value ignored.
+    #[serde(default, rename = "linux")]
+    _linux: Option<IgnoredAny>,
+}
+
+impl RawKeys {
+    /// The key sequence that applies on macOS.
+    pub fn seq(&self) -> &RawSeq {
+        match self {
+            RawKeys::Same(seq) => seq,
+            RawKeys::Table(table) => table.macos.as_ref().unwrap_or(&table.default),
+        }
+    }
 }
