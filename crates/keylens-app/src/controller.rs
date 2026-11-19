@@ -11,7 +11,7 @@ use keylens_core::{
 use keylens_platform::{ListenGuard, PermissionState, Platform};
 
 use crate::charge::{self, ChargeView};
-use crate::loader::{Cache, Freshness, Loader};
+use crate::loader::{Cache, Freshness, Loader, Reads};
 use crate::permission::{PermissionAction, PermissionWatch};
 use crate::prefs::Prefs;
 use crate::session::{Effect, Session};
@@ -79,6 +79,8 @@ pub struct Keylens {
     on_locale: Option<Box<dyn Fn()>>,
     cache: Cache,
     freshness: Freshness,
+    /// Which apps are being read or were just read, so reads are not repeated (see `Reads`).
+    reads: Reads,
     icons: HashMap<i32, Option<AppIcon>>,
     detector: TriggerDetector,
     window: AnyWindowHandle,
@@ -140,6 +142,7 @@ impl Keylens {
             on_locale: None,
             cache: Cache::new(CACHE_CAPACITY),
             freshness: Freshness::default(),
+            reads: Reads::default(),
             icons: HashMap::new(),
             detector,
             window,
@@ -300,6 +303,7 @@ impl Keylens {
         self.loader.set_user_catalog(Arc::new(catalog));
         // Cached shortcuts were built from the old user data.
         self.cache = Cache::new(CACHE_CAPACITY);
+        self.reads.invalidate();
         if self.session.visible()
             && let Some(app) = self.session.target().cloned()
         {
@@ -351,6 +355,7 @@ impl Keylens {
             self.loader.set_lang(locale.lang);
             // Cached shortcuts carry titles in the old language.
             self.cache = Cache::new(CACHE_CAPACITY);
+            self.reads.invalidate();
             let view = self.view.clone();
             let _ = self.window.update(cx, |_, window, cx| {
                 view.update(cx, |view, cx| view.refresh_locale(window, cx))
@@ -581,6 +586,9 @@ impl Keylens {
     // ---- Reading ----
 
     fn prefetch(&mut self, app: AppInfo, cx: &mut Context<Self>) {
+        if !self.reads.start(app.pid, Instant::now()) {
+            return;
+        }
         let loader = self.loader.clone();
         let platform = self.platform.clone();
         let need_icon = !self.icons.contains_key(&app.pid);
@@ -607,6 +615,8 @@ impl Keylens {
 
     fn on_loaded(&mut self, data: AppShortcuts, icon: Option<LoadedIcon>, cx: &mut Context<Self>) {
         let pid = data.app.pid;
+        self.reads
+            .finish(pid, data.warnings.is_empty(), Instant::now());
         if !data.warnings.is_empty() {
             tracing::warn!(app = %data.app.name, warnings = ?data.warnings, "menu read failed");
         }
@@ -844,6 +854,11 @@ impl Keylens {
     }
 
     fn execute(&mut self, entry: Entry, cx: &mut Context<Self>) {
+        // Taken before hiding, which forgets the target.
+        let Some(target) = self.session.target().map(|a| a.pid) else {
+            (self.native.beep)();
+            return;
+        };
         self.hide(cx);
         let platform = self.platform.clone();
         let beep = self.native.beep;
@@ -851,7 +866,7 @@ impl Keylens {
         cx.spawn(async move |_, cx| {
             let result = cx
                 .background_executor()
-                .spawn(async move { platform.execute(&entry) })
+                .spawn(async move { platform.execute(target, &entry) })
                 .await;
             if let Err(error) = result {
                 tracing::warn!(entry = %title, %error, "execute failed");
@@ -1258,6 +1273,34 @@ mod tests {
         cx.run_until_parked();
         hold_and_release(&keylens, &fake, cx);
         assert!(!panel_visible(&keylens, cx));
+    }
+
+    #[gpui_kit::test]
+    fn pressing_the_trigger_key_does_not_reread_a_fresh_menu(cx: &mut TestAppContext) {
+        let fake = Arc::new(FakePlatform::default());
+        let (keylens, _) = setup_with(cx, || {}, fake.clone());
+        fake.set_frontmost(Some(AppInfo {
+            pid: 42,
+            name: "Demo".into(),
+            ids: vec![],
+        }));
+        switch_to(&keylens, 42, cx);
+        settle(cx);
+        assert_eq!(fake.menu_reads(), 1);
+        // Ordinary shortcuts such as ⌘C press the trigger key without showing the panel.
+        for _ in 0..3 {
+            for action in [TriggerAction::Prefetch, TriggerAction::Cancel] {
+                keylens.update(cx, |k, cx| k.on_trigger(action, cx));
+            }
+            cx.run_until_parked();
+        }
+        // A full hold: the press and the panel showing share one read.
+        for action in [TriggerAction::Prefetch, TriggerAction::Show] {
+            keylens.update(cx, |k, cx| k.on_trigger(action, cx));
+        }
+        cx.run_until_parked();
+        assert!(panel_visible(&keylens, cx));
+        assert_eq!(fake.menu_reads(), 1, "a fresh menu was read again");
     }
 
     #[gpui_kit::test]

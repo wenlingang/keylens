@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 use keylens_core::community::{Catalog, CommunitySource};
 use keylens_core::{AppInfo, AppShortcuts, EntrySource, Lang, Os, ShortcutSource, collect};
@@ -134,6 +135,62 @@ impl Freshness {
             // The menu read failed: only use it if there is no good menu data to keep.
             (None, old) => old.is_none(),
         }
+    }
+}
+
+/// Decides whether to start reading an app's menu, so one press of the trigger key does not read
+/// it twice (on the press, then again when the panel shows) and ordinary shortcuts such as ⌘C do
+/// not read it every time.
+///
+/// A read is skipped while one for the same app is still running, or when one finished
+/// successfully less than [`Reads::FRESH`] ago. Failed reads (e.g. timed out) never count as fresh.
+#[derive(Default)]
+pub struct Reads {
+    /// When each running read started.
+    running: HashMap<i32, Instant>,
+    finished: HashMap<i32, Instant>,
+}
+
+impl Reads {
+    /// How long a successful read stays fresh enough to show without reading again.
+    pub const FRESH: Duration = Duration::from_secs(3);
+    /// A read still marked running after this long is assumed lost (a menu read gives up after
+    /// 2s), so a lost read cannot block the app's reads forever.
+    const LOST: Duration = Duration::from_secs(10);
+
+    /// Returns whether to read `pid` now, and if so marks the read as running.
+    pub fn start(&mut self, pid: i32, now: Instant) -> bool {
+        if let Some(&at) = self.running.get(&pid)
+            && now.saturating_duration_since(at) < Self::LOST
+        {
+            return false;
+        }
+        if let Some(&at) = self.finished.get(&pid)
+            && now.saturating_duration_since(at) < Self::FRESH
+        {
+            return false;
+        }
+        self.running.insert(pid, now);
+        true
+    }
+
+    pub fn finish(&mut self, pid: i32, ok: bool, now: Instant) {
+        self.running.remove(&pid);
+        if ok {
+            self.finished.insert(pid, now);
+        } else {
+            self.finished.remove(&pid);
+        }
+        // Only recent reads matter; drop the rest so quit apps do not pile up.
+        self.finished
+            .retain(|_, at| now.saturating_duration_since(*at) < Self::FRESH);
+    }
+
+    /// Forgets which reads are fresh, e.g. after the user data or language changed: the next
+    /// request reads again.
+    pub fn invalidate(&mut self) {
+        self.running.clear();
+        self.finished.clear();
     }
 }
 
@@ -383,5 +440,48 @@ i18n = { ja = "一般" }
         loader.set_lang(Lang::En);
         assert_eq!(loader.lang(), Lang::En);
         assert_eq!(title(&loader), "Open");
+    }
+    #[test]
+    fn reads_skip_running_and_fresh_reads() {
+        let t0 = Instant::now();
+        let mut reads = Reads::default();
+        assert!(reads.start(1, t0));
+        // The press started a read; showing the panel must not start another.
+        assert!(!reads.start(1, t0 + Duration::from_millis(100)));
+        // Other apps are independent.
+        assert!(reads.start(2, t0));
+        reads.finish(1, true, t0 + Duration::from_millis(900));
+        assert!(!reads.start(1, t0 + Duration::from_millis(1000)));
+        assert!(reads.start(1, t0 + Duration::from_millis(900) + Reads::FRESH));
+    }
+
+    #[test]
+    fn a_lost_read_does_not_block_forever() {
+        let t0 = Instant::now();
+        let mut reads = Reads::default();
+        assert!(reads.start(1, t0));
+        assert!(!reads.start(1, t0 + Duration::from_secs(5)));
+        assert!(reads.start(1, t0 + Reads::LOST));
+    }
+
+    #[test]
+    fn failed_reads_are_not_fresh() {
+        let t0 = Instant::now();
+        let mut reads = Reads::default();
+        assert!(reads.start(1, t0));
+        reads.finish(1, false, t0);
+        assert!(reads.start(1, t0 + Duration::from_millis(10)));
+    }
+
+    #[test]
+    fn invalidate_forces_the_next_read() {
+        let t0 = Instant::now();
+        let mut reads = Reads::default();
+        assert!(reads.start(1, t0));
+        reads.finish(1, true, t0);
+        assert!(reads.start(2, t0));
+        reads.invalidate();
+        assert!(reads.start(1, t0));
+        assert!(reads.start(2, t0));
     }
 }
