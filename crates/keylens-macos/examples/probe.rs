@@ -67,7 +67,7 @@ fn main() {
                 return;
             };
             let before = keylens_macos::debug::window_titles(pid);
-            let result = platform.execute(entry);
+            let result = platform.execute(pid, entry);
             std::thread::sleep(Duration::from_millis(800));
             let after = keylens_macos::debug::window_titles(pid);
             println!("execute -> {result:?}");
@@ -112,7 +112,8 @@ fn main() {
                 shortcut: keylens_core::Shortcut::parse_seq(&["F19"], Os::MacOS).unwrap(),
                 enabled: true,
             };
-            println!("execute -> {:?}", platform.execute(&f19));
+            let target = platform.frontmost_app().map_or(0, |a| a.pid);
+            println!("execute -> {:?}", platform.execute(target, &f19));
             std::thread::sleep(Duration::from_millis(500));
             let events: Vec<_> = rx.try_iter().collect();
             println!("received {} events: {events:?}", events.len());

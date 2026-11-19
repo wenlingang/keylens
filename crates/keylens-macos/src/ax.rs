@@ -113,10 +113,12 @@ fn elements(value: CFRetained<CFType>) -> Vec<AxNode> {
     let Ok(array) = value.downcast::<CFArray>() else {
         return Vec::new();
     };
-    // SAFETY: The values of AXChildren / AXWindows are arrays of AXUIElement.
-    unsafe { array.cast_unchecked::<AXUIElement>() }
+    // SAFETY: Every element of a CFArray is a CF object. The app being read supplies the array,
+    // so its elements are not trusted to be AXUIElement: each one is checked below.
+    unsafe { array.cast_unchecked::<CFType>() }
         .to_vec()
         .into_iter()
+        .filter_map(|element| element.downcast::<AXUIElement>().ok())
         .map(AxNode)
         .collect()
 }

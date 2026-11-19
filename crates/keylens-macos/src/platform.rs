@@ -50,13 +50,15 @@ impl Platform for MacPlatform {
         })
     }
 
-    fn execute(&self, entry: &Entry) -> Result<(), PlatformError> {
+    fn execute(&self, target: i32, entry: &Entry) -> Result<(), PlatformError> {
         if !entry.enabled {
             return Err(PlatformError::Disabled);
         }
         match entry.source() {
             EntrySource::Menu => exec::press_menu(&self.snapshots, entry),
-            EntrySource::User | EntrySource::Community => exec::post_shortcut(&entry.shortcut),
+            EntrySource::User | EntrySource::Community => {
+                exec::post_shortcut(target, &entry.shortcut)
+            }
         }
     }
 

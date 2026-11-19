@@ -145,9 +145,14 @@ impl Platform for FakePlatform {
         })
     }
 
-    fn execute(&self, entry: &Entry) -> Result<(), PlatformError> {
+    fn execute(&self, target: i32, entry: &Entry) -> Result<(), PlatformError> {
         if !entry.enabled {
             return Err(PlatformError::Disabled);
+        }
+        if entry.source() != EntrySource::Menu
+            && self.frontmost_app().map(|a| a.pid) != Some(target)
+        {
+            return Err(PlatformError::TargetNotFrontmost);
         }
         let current = self.menu.lock().unwrap().snapshot;
         if entry.source() == EntrySource::Menu && entry.id.snapshot != current {
@@ -206,9 +211,9 @@ mod tests {
     #[test]
     fn records_executed_entries_and_refuses_disabled_ones() {
         let platform = FakePlatform::default();
-        platform.execute(&entry(0, true)).unwrap();
+        platform.execute(1, &entry(0, true)).unwrap();
         assert!(matches!(
-            platform.execute(&entry(1, false)),
+            platform.execute(1, &entry(1, false)),
             Err(PlatformError::Disabled)
         ));
         assert_eq!(
@@ -219,6 +224,27 @@ mod tests {
                 index: 0
             }]
         );
+    }
+
+    #[test]
+    fn synthesized_keys_need_the_target_frontmost() {
+        let platform = FakePlatform::default();
+        let mut community = entry(0, true);
+        community.id.source = EntrySource::Community;
+        assert!(matches!(
+            platform.execute(1, &community),
+            Err(PlatformError::TargetNotFrontmost)
+        ));
+        platform.set_frontmost(Some(AppInfo {
+            pid: 1,
+            name: "Demo".into(),
+            ids: vec![],
+        }));
+        platform.execute(1, &community).unwrap();
+        assert!(matches!(
+            platform.execute(2, &community),
+            Err(PlatformError::TargetNotFrontmost)
+        ));
     }
 
     #[test]
@@ -235,10 +261,10 @@ mod tests {
         let new = platform.menu_source().load(&app).unwrap();
         assert_ne!(old[0].id, new[0].id);
         assert!(matches!(
-            platform.execute(&old[0]),
+            platform.execute(1, &old[0]),
             Err(PlatformError::Stale)
         ));
-        platform.execute(&new[0]).unwrap();
+        platform.execute(1, &new[0]).unwrap();
     }
 
     #[test]

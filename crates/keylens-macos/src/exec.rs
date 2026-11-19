@@ -12,9 +12,14 @@ use crate::ax::{self, AxNode};
 use crate::convert::{keycode, modifier_flags, us_compatible_layout};
 use crate::snapshots::Snapshots;
 use crate::synthetic;
+use crate::workspace;
 
 /// After the panel closes, wait for focus to return to the target app before sending keys (300ms was enough in experiments; a smaller value is used here).
 const KEY_POST_DELAY: Duration = Duration::from_millis(80);
+/// How long to keep waiting, after `KEY_POST_DELAY`, for the target app to become frontmost
+/// before giving up, and how often to check.
+const FOCUS_WAIT: Duration = Duration::from_millis(500);
+const FOCUS_POLL: Duration = Duration::from_millis(20);
 /// Interval between consecutive key presses (e.g. ⌘K ⌘S).
 const CHORD_GAP: Duration = Duration::from_millis(50);
 
@@ -36,7 +41,24 @@ pub fn press_menu(snapshots: &Snapshots<AxNode>, entry: &Entry) -> Result<(), Pl
     ax::press(&node)
 }
 
-pub fn post_shortcut(shortcut: &Shortcut) -> Result<(), PlatformError> {
+/// Waits until `pid` is the frontmost app, for at most `FOCUS_WAIT`.
+fn wait_frontmost(pid: i32) -> Result<(), PlatformError> {
+    let mut waited = Duration::ZERO;
+    loop {
+        if workspace::frontmost_app().map(|a| a.pid) == Some(pid) {
+            return Ok(());
+        }
+        if waited >= FOCUS_WAIT {
+            return Err(PlatformError::TargetNotFrontmost);
+        }
+        sleep(FOCUS_POLL);
+        waited += FOCUS_POLL;
+    }
+}
+
+/// Sends `shortcut` as key events, but only once the app `target` is frontmost: the events go to
+/// whichever app is frontmost, so sending them to the wrong one could e.g. quit it.
+pub fn post_shortcut(target: i32, shortcut: &Shortcut) -> Result<(), PlatformError> {
     if let Some(layout) = current_layout()
         && !us_compatible_layout(&layout)
     {
@@ -53,6 +75,7 @@ pub fn post_shortcut(shortcut: &Shortcut) -> Result<(), PlatformError> {
         })
         .collect::<Result<Vec<_>, _>>()?;
     sleep(KEY_POST_DELAY);
+    wait_frontmost(target)?;
     for (i, (chord, code)) in chords.iter().zip(codes).enumerate() {
         if i > 0 {
             sleep(CHORD_GAP);

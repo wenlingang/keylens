@@ -24,6 +24,10 @@ pub enum PlatformError {
     Stale,
     #[error("the menu item is disabled")]
     Disabled,
+    /// Synthesized keys were not sent: the app they were meant for is not frontmost any more,
+    /// and sending them anyway would run the shortcut in whichever app is (e.g. ⌘Q).
+    #[error("the target app is no longer frontmost")]
+    TargetNotFrontmost,
     #[error("{0}")]
     Other(String),
 }
@@ -48,7 +52,9 @@ pub trait Platform: Send + Sync {
     /// When a menu entry comes from an earlier read (`EntryId::snapshot` is not the latest),
     /// it must return `PlatformError::Stale`, or re-confirm by group, path and title before executing;
     /// it must never execute directly by `index`, which could press a different menu item.
-    fn execute(&self, entry: &Entry) -> Result<(), PlatformError>;
+    /// Synthesized keys are only sent while the app `target` (a pid) is frontmost; otherwise it
+    /// returns `PlatformError::TargetNotFrontmost`.
+    fn execute(&self, target: i32, entry: &Entry) -> Result<(), PlatformError>;
     /// Starts sending global key events to `tx` until the returned guard is dropped.
     fn start_key_events(&self, tx: Sender<KeyEvent>) -> Result<ListenGuard, PlatformError>;
     /// Sends the new app to `tx` when the frontmost app changes, until the returned guard is dropped.
