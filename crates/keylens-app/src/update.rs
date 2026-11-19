@@ -92,6 +92,10 @@ pub trait Http: Send + Sync {
 
 /// How often a download reports its progress.
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(250);
+/// Size limits, so a bad server or manifest cannot fill the disk: the manifest is a few hundred
+/// bytes and a release .dmg a few tens of megabytes.
+const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
+const MAX_PACKAGE_BYTES: u64 = 200 * 1024 * 1024;
 
 /// `/usr/bin/curl`, present on every macOS, so no HTTP/TLS stack is linked in.
 pub struct Curl;
@@ -124,12 +128,14 @@ impl Http for Curl {
     fn get(&self, url: &str) -> Result<Vec<u8>, String> {
         let mut command = Self::command(url);
         command.args(["--max-time", "30"]);
+        command.args(["--max-filesize", &MAX_MANIFEST_BYTES.to_string()]);
         Self::run(command)
     }
 
     fn download(&self, url: &str, to: &Path, progress: &dyn Fn(u64)) -> Result<(), String> {
         let mut command = Self::command(url);
         command
+            .args(["--max-filesize", &MAX_PACKAGE_BYTES.to_string()])
             .args(["--max-time", "900", "--output"])
             .arg(to)
             .stdout(std::process::Stdio::null())

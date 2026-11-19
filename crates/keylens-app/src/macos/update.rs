@@ -96,6 +96,7 @@ pub fn install(package: &Path, app: &Path, version: &str) -> Result<(), InstallE
     let old = parent.join(format!("{LEFTOVER_PREFIX}old-{pid}.app"));
 
     let result = copy_out_of(package, &staged)
+        .and_then(|()| ensure_real_bundle(&staged))
         .and_then(|()| verify(&staged, &requirement))
         .and_then(|()| check_version(&staged, version))
         .and_then(|()| swap(app, &staged, &old));
@@ -152,6 +153,20 @@ fn copy_out_of(package: &Path, staged: &Path) -> Result<(), InstallError> {
     });
     let _ = std::fs::remove_dir(&mount);
     copied.map(|_| ()).map_err(InstallError::Package)
+}
+
+/// The copied bundle must be a real folder: `ditto` copies a symlink as a symlink, and `codesign`
+/// and the swap would then follow it to whatever bundle it points at elsewhere on disk.
+fn ensure_real_bundle(staged: &Path) -> Result<(), InstallError> {
+    let meta =
+        std::fs::symlink_metadata(staged).map_err(|e| InstallError::Package(e.to_string()))?;
+    if meta.is_dir() {
+        Ok(())
+    } else {
+        Err(InstallError::Package(format!(
+            "{APP_NAME} in the package is not a folder"
+        )))
+    }
 }
 
 fn verify(staged: &Path, requirement: &str) -> Result<(), InstallError> {
@@ -346,6 +361,27 @@ fn details_view(mtm: MainThreadMarker, text: &str) -> Retained<NSScrollView> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_real_folder_is_a_bundle() {
+        let dir = std::env::temp_dir().join(format!("keylens-bundle-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let real = dir.join("Real.app");
+        std::fs::create_dir_all(&real).unwrap();
+        let link = dir.join("Link.app");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let file = dir.join("File.app");
+        std::fs::write(&file, "").unwrap();
+        let real_ok = ensure_real_bundle(&real).is_ok();
+        let link_ok = ensure_real_bundle(&link).is_ok();
+        let file_ok = ensure_real_bundle(&file).is_ok();
+        let missing_ok = ensure_real_bundle(&dir.join("Missing.app")).is_ok();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(real_ok);
+        assert!(!link_ok, "a symlinked bundle must be refused");
+        assert!(!file_ok);
+        assert!(!missing_ok);
+    }
 
     #[test]
     fn parse_requirement_takes_the_designated_line() {
