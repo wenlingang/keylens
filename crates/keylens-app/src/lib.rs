@@ -170,11 +170,7 @@ pub fn run_with(host: Host) {
         .with_assets(gpui_kit::assets::Assets)
         .run(move |cx| {
             gpui_kit::init(cx);
-            let prefs = cx.new(|cx| {
-                let mut prefs = prefs_state;
-                prefs.watch(cx);
-                prefs
-            });
+            let prefs = cx.new(|_| prefs_state);
             cx.set_activation_policy(ActivationPolicy::Accessory);
             cx.set_quit_mode(QuitMode::Explicit);
             bind_keys(cx);

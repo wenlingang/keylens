@@ -1,13 +1,14 @@
 //! Global key listener: a listen-only, non-intercepting CGEventTap running on its own thread.
 
-use std::cell::OnceCell;
+use std::cell::{Cell, OnceCell};
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Sender, channel};
+use std::time::{Duration, Instant};
 
-use keylens_core::KeyEvent;
+use keylens_core::{KeyEvent, Modifiers};
 use keylens_platform::{ListenGuard, PlatformError};
 use objc2_core_foundation::{
     CFMachPort, CFRetained, CFRunLoop, kCFRunLoopCommonModes, kCFRunLoopDefaultMode,
@@ -24,6 +25,20 @@ use crate::synthetic;
 struct Context {
     tx: Sender<KeyEvent>,
     port: OnceCell<CFRetained<CFMachPort>>,
+    /// The modifiers held after the last FlagsChanged, and when it came.
+    modifiers: Cell<(Modifiers, Option<Instant>)>,
+}
+
+/// How long after the last modifier change a key or mouse press still matters to a trigger: it
+/// covers the longest double-tap interval (600ms).
+const PRESS_RELEVANCE: Duration = Duration::from_secs(1);
+
+/// Whether a key or mouse press is worth sending on. Triggers only care about presses while a
+/// modifier is held or shortly after one was released (between the taps of a double-tap), so
+/// ordinary typing does not wake the app up for every key.
+fn press_matters(held: Modifiers, last_change: Option<Instant>, now: Instant) -> bool {
+    !held.is_empty()
+        || last_change.is_some_and(|at| now.saturating_duration_since(at) < PRESS_RELEVANCE)
 }
 
 /// The listener thread's run loop and stop flag.
@@ -77,13 +92,19 @@ unsafe extern "C-unwind" fn on_event(
     let key_event = if ty == CGEventType::FlagsChanged {
         // SAFETY: The event is valid for the duration of the callback.
         let flags = CGEvent::flags(Some(unsafe { event.as_ref() }));
-        Some(KeyEvent::ModifiersChanged(event_modifiers(flags.0)))
-    } else if ty == CGEventType::KeyDown {
-        Some(KeyEvent::KeyDown)
-    } else if ty == CGEventType::LeftMouseDown || ty == CGEventType::RightMouseDown {
-        Some(KeyEvent::MouseDown)
+        let modifiers = event_modifiers(flags.0);
+        context.modifiers.set((modifiers, Some(Instant::now())));
+        Some(KeyEvent::ModifiersChanged(modifiers))
     } else {
-        None
+        let press = if ty == CGEventType::KeyDown {
+            Some(KeyEvent::KeyDown)
+        } else if ty == CGEventType::LeftMouseDown || ty == CGEventType::RightMouseDown {
+            Some(KeyEvent::MouseDown)
+        } else {
+            None
+        };
+        let (held, last_change) = context.modifiers.get();
+        press.filter(|_| press_matters(held, last_change, Instant::now()))
     };
     if let Some(key_event) = key_event {
         let _ = context.tx.send(key_event);
@@ -99,6 +120,7 @@ pub fn start(tx: Sender<KeyEvent>) -> Result<ListenGuard, PlatformError> {
             let context = Box::into_raw(Box::new(Context {
                 tx,
                 port: OnceCell::new(),
+                modifiers: Cell::new((Modifiers::NONE, None)),
             }));
             let mask: CGEventMask = (1 << CGEventType::FlagsChanged.0)
                 | (1 << CGEventType::KeyDown.0)
@@ -158,4 +180,22 @@ pub fn start(tx: Sender<KeyEvent>) -> Result<ListenGuard, PlatformError> {
         .recv()
         .map_err(|_| PlatformError::Other("key tap thread exited".into()))??;
     Ok(ListenGuard::new(handle))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn presses_matter_only_near_modifier_use() {
+        let t0 = Instant::now();
+        let ms = Duration::from_millis;
+        // Plain typing, nothing pressed since launch or long ago.
+        assert!(!press_matters(Modifiers::NONE, None, t0));
+        assert!(!press_matters(Modifiers::NONE, Some(t0), t0 + ms(1500)));
+        // A modifier is held: an ordinary shortcut (⌘C) must cancel a hold.
+        assert!(press_matters(Modifiers::META, Some(t0), t0 + ms(5000)));
+        // Between the taps of a double-tap: typing must cancel it.
+        assert!(press_matters(Modifiers::NONE, Some(t0), t0 + ms(600)));
+    }
 }

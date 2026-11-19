@@ -24,8 +24,12 @@ use keylens_core::community::{Catalog, DataError, load_dir};
 
 /// Number of cached apps (spec §5).
 const CACHE_CAPACITY: usize = 8;
+/// How often Accessibility permission is checked while it is missing or the key listener is not
+/// running (a grant should take effect at once), and while listening (only to notice a revocation).
 const PERMISSION_POLL: Duration = Duration::from_secs(1);
-/// How often the user data folder is checked for edits.
+const PERMISSION_POLL_LISTENING: Duration = Duration::from_secs(5);
+/// How often the user data folder and `config.toml` are checked for edits (one timer for both,
+/// so an idle Keylens wakes up as rarely as possible).
 const USER_DATA_POLL: Duration = Duration::from_secs(2);
 /// How long to wait after a Keylens window loses focus before checking where focus went: AppKit
 /// reports the old window resigning before the new one becoming key.
@@ -211,7 +215,15 @@ impl Keylens {
                         return;
                     }
                 }
-                cx.background_executor().timer(PERMISSION_POLL).await;
+                let Ok(listening) = this.update(cx, |this, _| this.listening) else {
+                    break;
+                };
+                let poll = if listening {
+                    PERMISSION_POLL_LISTENING
+                } else {
+                    PERMISSION_POLL
+                };
+                cx.background_executor().timer(poll).await;
             }
         }));
     }
@@ -254,14 +266,20 @@ impl Keylens {
         }
     }
 
-    /// Reloads the user data whenever a `.toml` file in the user data folder changes, so edits
-    /// take effect without restarting.
+    /// Reloads the user data whenever a `.toml` file in the user data folder changes, and the
+    /// settings whenever `config.toml` changes, so edits take effect without restarting.
     fn watch_user_data(&mut self, cx: &mut Context<Self>) {
         self.user_data_task = Some(cx.spawn(async move |this, cx| {
             let dir = config::user_data_dir();
             let mut last = watch::fingerprint(&dir);
             loop {
                 cx.background_executor().timer(USER_DATA_POLL).await;
+                if this
+                    .update(cx, |this, cx| this.prefs.update(cx, |p, cx| p.reload(cx)))
+                    .is_err()
+                {
+                    break;
+                }
                 let scan = dir.clone();
                 let (next, loaded) = cx
                     .background_executor()

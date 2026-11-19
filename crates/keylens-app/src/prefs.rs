@@ -1,17 +1,15 @@
 //! `Prefs`: the one owner of `config.toml`. The settings window edits it; the controller, tray and
-//! settings window observe it. Hand edits to the file are picked up by polling.
+//! settings window observe it. Hand edits to the file are picked up by polling: the controller
+//! calls `reload` on the same timer that checks the user data folder.
 
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
-use gpui_kit::{Context, Task};
+use gpui_kit::Context;
 use keylens_core::{Locale, Os, Trigger};
 
 use crate::config::{Config, TriggerSettings, UpdateSettings, choose_locale, parse_config};
 use crate::config_write::{self, Change};
 use crate::watch::{self, Stamp};
-
-const POLL: Duration = Duration::from_secs(2);
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Problem {
@@ -32,7 +30,6 @@ pub struct Prefs {
     config: Config,
     problem: Option<Problem>,
     stamp: Option<Stamp>,
-    _watch: Option<Task<()>>,
 }
 
 impl Prefs {
@@ -52,7 +49,6 @@ impl Prefs {
             config: Config::default(),
             problem: None,
             stamp,
-            _watch: None,
         };
         match prefs.read_file() {
             Ok(text) => prefs.adopt_text(text),
@@ -158,18 +154,6 @@ impl Prefs {
                 cx.notify();
             }
         }
-    }
-
-    /// Polls the file every 2 seconds until this entity is dropped.
-    pub fn watch(&mut self, cx: &mut Context<Self>) {
-        self._watch = Some(cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor().timer(POLL).await;
-                if this.update(cx, |this, cx| this.reload(cx)).is_err() {
-                    break;
-                }
-            }
-        }));
     }
 
     /// Reads and validates the file. A missing file is an empty config.
