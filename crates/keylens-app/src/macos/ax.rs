@@ -49,8 +49,10 @@ fn source_error(err: AXError) -> SourceError {
 }
 
 /// When reading children fails: having no children is normal, while timeouts and missing permission must abort the traversal.
+/// A plain `Failure` comes back at once from elements that cannot list children, such as the
+/// search field in AppKit's Help menu: treat it as no children rather than failing the whole read.
 fn children_outcome(err: AXError) -> Result<(), SourceError> {
-    if err == AXError::NoValue || err == AXError::AttributeUnsupported {
+    if err == AXError::NoValue || err == AXError::AttributeUnsupported || err == AXError::Failure {
         Ok(())
     } else {
         Err(source_error(err))
@@ -274,6 +276,9 @@ mod tests {
     fn missing_children_are_empty_but_timeouts_are_errors() {
         assert_eq!(children_outcome(AXError::NoValue), Ok(()));
         assert_eq!(children_outcome(AXError::AttributeUnsupported), Ok(()));
+        // The search field in AppKit's Help menu answers AXChildren with a plain failure; it must
+        // not fail the whole menu read (it did for Finder, Mail and other native apps).
+        assert_eq!(children_outcome(AXError::Failure), Ok(()));
         assert_eq!(
             children_outcome(AXError::CannotComplete),
             Err(SourceError::Timeout)

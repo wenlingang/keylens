@@ -9,7 +9,8 @@ use crate::macos::ax::{self, AxNode};
 use crate::macos::menu_tree::collect;
 use crate::macos::snapshots::Snapshots;
 
-/// Total time limit for one menu read. Normal apps take 30-130ms; Electron takes about 900ms the first time.
+/// Total time limit for one menu read. Measured on macOS 26 (Apple Silicon): 30-130ms for a first
+/// read (VS Code, Chrome, Finder, Mail), under 30ms once warm.
 const READ_DEADLINE: Duration = Duration::from_secs(2);
 
 pub struct AxMenuSource {

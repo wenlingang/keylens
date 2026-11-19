@@ -58,7 +58,7 @@ pub trait Platform: Send + Sync {
     /// Starts sending global key events to `tx` until the returned guard is dropped.
     fn start_key_events(&self, tx: Sender<KeyEvent>) -> Result<ListenGuard, PlatformError>;
     /// Sends the new app to `tx` when the frontmost app changes, until the returned guard is dropped.
-    /// Lets the UI layer prefetch menus early: an Electron app's first read takes about 900ms, longer than the long-press time.
+    /// Lets the UI layer prefetch menus early, so the panel usually shows a fresh read at once.
     fn watch_frontmost(&self, tx: Sender<AppInfo>) -> Result<ListenGuard, PlatformError>;
     /// App icon (PNG-encoded). Returns `None` if unavailable; the UI shows a placeholder icon.
     fn app_icon(&self, app: &AppInfo) -> Option<Vec<u8>>;
