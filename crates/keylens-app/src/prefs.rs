@@ -380,7 +380,6 @@ mod tests {
         prefs.read_with(cx, |p, _| assert!(p.read_only()));
     }
 
-    #[cfg(unix)]
     #[gpui_kit::test]
     fn write_failure_keeps_changes_in_memory(cx: &mut TestAppContext) {
         use std::os::unix::fs::PermissionsExt;

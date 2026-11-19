@@ -309,7 +309,6 @@ hold-ms = 1200 # trailing hold
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    #[cfg(unix)]
     #[test]
     fn write_atomic_follows_symlinks() {
         let dir = temp_dir("write-link");
@@ -331,7 +330,6 @@ hold-ms = 1200 # trailing hold
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    #[cfg(unix)]
     #[test]
     fn write_atomic_follows_dangling_symlinks() {
         let dir = temp_dir("write-dangling");
@@ -355,7 +353,6 @@ hold-ms = 1200 # trailing hold
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    #[cfg(unix)]
     #[test]
     fn write_atomic_keeps_existing_permissions() {
         use std::os::unix::fs::PermissionsExt;

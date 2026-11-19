@@ -2,9 +2,9 @@
 
 **English** · [简体中文](README.zh-CN.md) · [Homepage](https://wenlingang.github.io/keylens/)
 
-Long-press ⌘ to see every keyboard shortcut of the current app — search them, or run them right away. Open source, cross-platform, with community-maintained shortcut data. Built with [gpui-kit](https://github.com/longbridge/gpui-kit).
+Long-press ⌘ to see every keyboard shortcut of the current app — search them, or run them right away. A macOS app, open source, with community-maintained shortcut data. Built with [gpui-kit](https://github.com/longbridge/gpui-kit).
 
-> **Status:** v0.1, macOS only for now (universal build for Apple Silicon and Intel; the Intel build has not been verified on real hardware). Windows and Linux are on the roadmap.
+> **Status:** v0.1, macOS (universal build for Apple Silicon and Intel; the Intel build has not been verified on real hardware).
 
 <p align="center">
   <img src="assets/screenshots/en-hero.png" alt="Keylens panel over Zed, listing its menu shortcuts in three columns" width="800">
@@ -66,7 +66,7 @@ On first launch, add `target/dev-apps/KeylensDev.app` (menu bar icon `⌘dev`) u
 
 Open **Settings…** from the "⌘" menu bar icon, or press ⌘, while the panel is open. You can choose how to open the panel (hold or double-tap), which modifier key to use, how long to hold or how fast to double-tap, whether releasing a held key closes the panel, and the interface language. Changes apply immediately.
 
-Settings are saved to `~/.config/keylens/config.toml` (`$XDG_CONFIG_HOME/keylens` on Linux), which you can also edit by hand. Your comments are kept when the settings window saves, and hand edits take effect within two seconds:
+Settings are saved to `~/.config/keylens/config.toml`, which you can also edit by hand. Your comments are kept when the settings window saves, and hand edits take effect within two seconds:
 
 ```toml
 # Override the system language: zh-CN, zh-TW, zh-HK, en, ja

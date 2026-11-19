@@ -93,18 +93,12 @@ pub trait Http: Send + Sync {
 /// How often a download reports its progress.
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(250);
 
-/// `curl`, present on every macOS and practically every Linux, so no HTTP/TLS stack is linked in.
+/// `/usr/bin/curl`, present on every macOS, so no HTTP/TLS stack is linked in.
 pub struct Curl;
 
 impl Curl {
     fn command(url: &str) -> Command {
-        // Absolute on macOS like the other tools; Linux distributions put it in different places.
-        let curl = if cfg!(target_os = "macos") {
-            "/usr/bin/curl"
-        } else {
-            "curl"
-        };
-        let mut command = Command::new(curl);
+        let mut command = Command::new("/usr/bin/curl");
         command
             .args(["--fail", "--silent", "--show-error", "--location"])
             .args(["--proto", "=https", "--connect-timeout", "15"])

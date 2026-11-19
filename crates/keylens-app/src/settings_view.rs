@@ -61,15 +61,7 @@ pub fn open(
     }
     // Bind once: the global exists from the first opening on.
     if !cx.has_global::<SettingsWindow>() {
-        cx.bind_keys([KeyBinding::new(
-            if cfg!(target_os = "macos") {
-                "cmd-w"
-            } else {
-                "ctrl-w"
-            },
-            CloseSettings,
-            Some(KEY_CONTEXT),
-        )]);
+        cx.bind_keys([KeyBinding::new("cmd-w", CloseSettings, Some(KEY_CONTEXT))]);
     }
     let options = WindowOptions {
         titlebar: Some(TitlebarOptions {
@@ -674,14 +666,7 @@ mod tests {
         cx.update(|cx| open(prefs.clone(), Os::MacOS, |_| {}, cx));
         assert_eq!(cx.windows().len(), 1);
         let handle = cx.windows()[0];
-        cx.simulate_keystrokes(
-            handle,
-            if cfg!(target_os = "macos") {
-                "cmd-w"
-            } else {
-                "ctrl-w"
-            },
-        );
+        cx.simulate_keystrokes(handle, "cmd-w");
         cx.run_until_parked();
         assert_eq!(cx.windows().len(), 0);
     }

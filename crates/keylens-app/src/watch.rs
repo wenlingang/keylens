@@ -80,7 +80,6 @@ mod tests {
         assert!(removed.is_empty());
     }
 
-    #[cfg(unix)]
     #[test]
     fn follows_symlinked_files() {
         let base = std::env::temp_dir().join(format!("keylens-watch-link-{}", std::process::id()));

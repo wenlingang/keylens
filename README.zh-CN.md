@@ -2,9 +2,9 @@
 
 [English](README.md) · **简体中文** · [主页](https://wenlingang.github.io/keylens/)
 
-长按 ⌘，看清当前应用的所有快捷键：可以搜索，也可以直接执行。开源、跨平台，快捷键数据由社区维护。基于 [gpui-kit](https://github.com/longbridge/gpui-kit) 构建。
+长按 ⌘，看清当前应用的所有快捷键：可以搜索，也可以直接执行。macOS 应用，开源，快捷键数据由社区维护。基于 [gpui-kit](https://github.com/longbridge/gpui-kit) 构建。
 
-> **状态：** v0.1，目前仅支持 macOS（Universal 版本，Apple Silicon + Intel；Intel 版本未经真机验证）。Windows 和 Linux 在路线图上。
+> **状态：** v0.1，macOS（Universal 版本，Apple Silicon + Intel；Intel 版本未经真机验证）。
 
 <p align="center">
   <img src="assets/screenshots/zh-hero.png" alt="在 VS Code 上长按 ⌘ 弹出的 Keylens 浮层，按菜单分三列列出快捷键" width="800">
@@ -66,7 +66,7 @@ scripts/run-dev.sh
 
 在菜单栏「⌘」图标的菜单里选择**设置…**，或者在面板打开时按 ⌘,，就能打开设置窗口。可以选择唤出方式（长按或双击）、使用的修饰键、长按时长或双击间隔、长按时松开按键是否关闭面板，以及界面语言。修改立即生效。
 
-设置保存在 `~/.config/keylens/config.toml`（Linux 上是 `$XDG_CONFIG_HOME/keylens`），也可以手动编辑。设置窗口保存时会保留你写的注释，手动修改的内容 2 秒内生效：
+设置保存在 `~/.config/keylens/config.toml`，也可以手动编辑。设置窗口保存时会保留你写的注释，手动修改的内容 2 秒内生效：
 
 ```toml
 # 覆盖系统语言：zh-CN、zh-TW、zh-HK、en、ja

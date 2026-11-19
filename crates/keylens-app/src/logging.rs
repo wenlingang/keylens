@@ -1,5 +1,4 @@
-//! File logging (spec §9): daily files, kept for 7 days, under ~/Library/Logs/Keylens on macOS
-//! and $XDG_STATE_HOME/keylens/logs (default ~/.local/state/keylens/logs) elsewhere.
+//! File logging (spec §9): daily files, kept for 7 days, under ~/Library/Logs/Keylens.
 
 use std::path::{Path, PathBuf};
 
@@ -9,10 +8,7 @@ use tracing_appender::rolling::{RollingFileAppender, Rotation};
 /// The log folder; development builds log next to it, in `<folder>-dev`, so their logs never mix
 /// with an installed release's.
 pub fn log_dir(dev: bool) -> PathBuf {
-    let dir = log_dir_in(
-        &crate::config::home_dir(),
-        std::env::var_os("XDG_STATE_HOME").map(PathBuf::from),
-    );
+    let dir = log_dir_in(&crate::config::home_dir());
     if dev { dev_variant(&dir) } else { dir }
 }
 
@@ -22,15 +18,8 @@ fn dev_variant(dir: &Path) -> PathBuf {
     dir.with_file_name(name)
 }
 
-fn log_dir_in(home: &Path, xdg_state_home: Option<PathBuf>) -> PathBuf {
-    if cfg!(target_os = "macos") {
-        return home.join("Library").join("Logs").join("Keylens");
-    }
-    xdg_state_home
-        .filter(|dir| dir.is_absolute())
-        .unwrap_or_else(|| home.join(".local").join("state"))
-        .join("keylens")
-        .join("logs")
+fn log_dir_in(home: &Path) -> PathBuf {
+    home.join("Library").join("Logs").join("Keylens")
 }
 
 /// A daily-rolling appender in `dir`, or `None` if the directory cannot be created.
@@ -85,23 +74,11 @@ mod tests {
     }
 
     #[test]
-    fn log_dir_follows_the_platform_convention() {
-        let home = Path::new("/home/u");
-        if cfg!(target_os = "macos") {
-            assert_eq!(
-                log_dir_in(home, Some("/xdg".into())),
-                Path::new("/home/u/Library/Logs/Keylens")
-            );
-        } else {
-            assert_eq!(
-                log_dir_in(home, None),
-                Path::new("/home/u/.local/state/keylens/logs")
-            );
-            assert_eq!(
-                log_dir_in(home, Some("/xdg".into())),
-                Path::new("/xdg/keylens/logs")
-            );
-        }
+    fn log_dir_is_under_library_logs() {
+        assert_eq!(
+            log_dir_in(Path::new("/Users/u")),
+            Path::new("/Users/u/Library/Logs/Keylens")
+        );
     }
 
     #[test]

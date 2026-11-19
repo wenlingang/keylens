@@ -60,15 +60,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("right", SelectRight, Some(KEY_CONTEXT)),
         KeyBinding::new("enter", Execute, Some(KEY_CONTEXT)),
         KeyBinding::new("escape", Dismiss, Some(KEY_CONTEXT)),
-        KeyBinding::new(
-            if cfg!(target_os = "macos") {
-                "cmd-,"
-            } else {
-                "ctrl-,"
-            },
-            ShowSettings,
-            Some(KEY_CONTEXT),
-        ),
+        KeyBinding::new("cmd-,", ShowSettings, Some(KEY_CONTEXT)),
     ]);
 }
 
@@ -1117,14 +1109,7 @@ mod tests {
     #[gpui_kit::test]
     fn cmd_comma_asks_for_settings(cx: &mut TestAppContext) {
         let (window, events) = setup(cx);
-        cx.simulate_keystrokes(
-            window.into(),
-            if cfg!(target_os = "macos") {
-                "cmd-,"
-            } else {
-                "ctrl-,"
-            },
-        );
+        cx.simulate_keystrokes(window.into(), "cmd-,");
         assert!(events.borrow().contains(&PanelEvent::OpenSettings));
     }
 

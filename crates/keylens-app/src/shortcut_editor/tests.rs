@@ -444,14 +444,7 @@ fn the_close_shortcut_is_recorded_while_recording(cx: &mut TestAppContext) {
         })
         .unwrap();
     cx.run_until_parked();
-    cx.simulate_keystrokes(
-        handle,
-        if cfg!(target_os = "macos") {
-            "cmd-w"
-        } else {
-            "ctrl-w"
-        },
-    );
+    cx.simulate_keystrokes(handle, "cmd-w");
     cx.run_until_parked();
     assert_eq!(cx.windows().len(), 1);
     let keys = view.read_with(cx, |view, _| view.form.as_ref().unwrap().keys.clone());

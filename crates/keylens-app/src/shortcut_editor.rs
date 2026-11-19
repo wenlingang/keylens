@@ -68,15 +68,7 @@ fn open_in(
     let path = template::user_file_for(&dir, &app, os)?;
     // Bind once: the global exists from the first opening on.
     if !cx.has_global::<EditorWindow>() {
-        cx.bind_keys([KeyBinding::new(
-            if cfg!(target_os = "macos") {
-                "cmd-w"
-            } else {
-                "ctrl-w"
-            },
-            CloseEditor,
-            Some(KEY_CONTEXT),
-        )]);
+        cx.bind_keys([KeyBinding::new("cmd-w", CloseEditor, Some(KEY_CONTEXT))]);
     }
     let options = WindowOptions {
         titlebar: Some(TitlebarOptions {
